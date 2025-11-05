@@ -2,20 +2,18 @@
   position: fixed;
   z-index: 9999;
   pointer-events: all;
-  transform: translate(-50%, -100%);
-  margin-top: -12px;
-  margin-left: 12px;
+  transform: translate(-50%, -50%);
   animation: fadeIn 0.2s ease-out;
 }
 
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translate(-50%, -100%) scale(0.95);
+    transform: translate(-50%, -50%) scale(0.95);
   }
   to {
     opacity: 1;
-    transform: translate(-50%, -100%) scale(1);
+    transform: translate(-50%, -50%) scale(1);
   }
 }
 
@@ -29,6 +27,40 @@
   max-height: 500px;
   display: flex;
   flex-direction: column;
+}
+
+@media (max-width: 768px) {
+  .previewContent {
+    max-width: 90vw;
+    max-height: 70vh;
+  }
+
+  .previewImage {
+    max-height: 60vh;
+  }
+}
+
+@media (max-width: 480px) {
+  .previewContent {
+    max-width: 95vw;
+    max-height: 60vh;
+  }
+
+  .previewImage {
+    max-height: 50vh;
+  }
+
+  .previewInfo {
+    padding: 8px;
+  }
+
+  .fileName {
+    font-size: 12px;
+  }
+
+  .fileMeta {
+    font-size: 11px;
+  }
 }
 
 .dark .previewContent {

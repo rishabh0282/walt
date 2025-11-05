@@ -111,6 +111,7 @@
   flex-direction: column;
   gap: 8px;
   position: relative;
+  min-width: 0; /* Allow flexbox to shrink */
 }
 
 .searchBar {
@@ -121,6 +122,8 @@
   padding: 0 16px;
   height: 48px;
   transition: all 0.2s;
+  width: 100%;
+  min-width: 0; /* Allow flexbox to shrink */
 }
 
 .searchBar:focus-within {
@@ -190,11 +193,21 @@
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   z-index: 100;
+  max-height: 80vh;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .dark .filterPanel {
   background: #1a1a2e;
   border-color: rgba(255, 255, 255, 0.2);
+}
+
+.filterButtons {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  margin-top: 16px;
 }
 
 /* Search Suggestions */
@@ -900,26 +913,30 @@
   display: flex;
   align-items: center;
   padding: 16px 0 20px 0;
-  font-size: 14px;
-  color: #5f6368;
+  font-size: 18px;
+  color: #202124;
   flex-wrap: wrap;
   gap: 4px;
 }
 
 .breadcrumbItem {
   cursor: pointer;
-  transition: all 0.2s;
+  transition: text-decoration 0.2s;
   padding: 10px 16px;
   border-radius: 8px;
-  font-size: 15px;
-  font-weight: 500;
+  font-size: 18px;
+  font-weight: 700;
   min-height: 40px;
   display: inline-flex;
   align-items: center;
+  color: #202124;
+}
+
+.dark .breadcrumbItem {
+  color: #fff;
 }
 
 .breadcrumbItem:hover {
-  color: #1a73e8;
   text-decoration: underline;
 }
 
@@ -1718,6 +1735,12 @@
   white-space: nowrap;
 }
 
+.userIcon {
+  display: none;
+  font-size: 20px;
+  line-height: 1;
+}
+
 .logoutBtn {
   background: white;
   border: 1px solid #dadce0;
@@ -1896,6 +1919,88 @@
   background: #1e1e1e;
   border-color: rgba(255, 255, 255, 0.2);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.userDropdownContent {
+  background: white !important;
+  border: 1px solid #dadce0 !important;
+  border-radius: 8px !important;
+  padding: 12px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+  min-width: 200px !important;
+  animation: slideDown 0.2s ease-out !important;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+  z-index: 10000 !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+
+.dark .userDropdownContent {
+  background: #1e1e1e !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+}
+
+.userDropdownContent [data-radix-popper-content-wrapper] {
+  animation: slideDown 0.2s ease-out;
+}
+
+/* Style Radix UI dropdown menu items inside user dropdown */
+.userDropdownContent button[role="menuitem"],
+.userDropdownContent [role="menuitem"] {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  width: 100% !important;
+  padding: 8px 12px !important;
+  background: none !important;
+  border: none !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  font-size: 14px !important;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+  font-weight: 400 !important;
+  color: #202124 !important;
+  text-align: left !important;
+  transition: background 0.2s !important;
+  margin: 2px 0 !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+}
+
+.userDropdownContent button[role="menuitem"]:hover,
+.userDropdownContent [role="menuitem"]:hover {
+  background: #f1f3f4 !important;
+  border-radius: 4px !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  padding-left: 12px !important;
+  padding-right: 12px !important;
+}
+
+.dark .userDropdownContent button[role="menuitem"],
+.dark .userDropdownContent [role="menuitem"] {
+  color: #fff !important;
+}
+
+.dark .userDropdownContent button[role="menuitem"]:hover,
+.dark .userDropdownContent [role="menuitem"]:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-radius: 4px !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  padding-left: 12px !important;
+  padding-right: 12px !important;
+}
+
+.userDropdownContent [role="separator"] {
+  height: 1px !important;
+  background: #e0e0e0 !important;
+  margin: 8px 0 !important;
+}
+
+.dark .userDropdownContent [role="separator"] {
+  background: rgba(255, 255, 255, 0.1) !important;
 }
 
 .dropdownItem {
@@ -2183,66 +2288,607 @@
 }
 
 /* Responsive */
+@media (max-width: 1024px) {
+  .sidebar {
+    width: 200px;
+  }
+
+  .fileGrid {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 16px;
+  }
+}
+
 @media (max-width: 768px) {
-  .uploadPanel {
-    width: calc(100% - 48px);
-    max-width: 400px;
+  .header {
+    padding: 8px 12px;
+    height: auto;
+    min-height: 56px;
+    flex-wrap: wrap;
+  }
+
+  .headerLeft {
+    flex: 1 1 100%;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+
+  .logoImg {
+    height: 32px;
+  }
+
+  .searchContainer {
+    max-width: 100%;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .searchBar {
+    width: 100%;
+  }
+
+  .searchInput {
+    font-size: 16px; /* Prevents zoom on iOS */
+    min-width: 0;
+  }
+
+  .headerRight {
+    flex: 1 1 100%;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .themeToggle {
+    padding: 8px;
+    font-size: 18px;
+    margin-right: 0;
+  }
+
+  .mainContent {
+    flex-direction: column;
   }
 
   .sidebar {
-    width: 64px;
+    display: none;
   }
 
-  .navItem span:not(.navIcon) {
-    display: none;
+  .uploadSection {
+    padding: 0 12px 8px;
   }
 
   .newButton {
-    padding: 12px;
-    justify-content: center;
+    padding: 12px 16px;
+    font-size: 14px;
   }
 
-  .newButton span:not(.plusIcon) {
-    display: none;
+  .navItem {
+    padding: 10px 16px;
+    margin: 0 8px;
+    font-size: 14px;
+  }
+
+  .navItem span:not(.navIcon) {
+    display: inline;
+  }
+
+  .autoPinSection {
+    padding: 8px 12px;
+    display: none; /* Hide on mobile to save space */
   }
 
   .storageInfo {
     display: none;
   }
 
-  .searchContainer {
-    max-width: 300px;
+  .fileArea {
+    padding: 12px;
   }
-  
-  .filterPanel {
+
+  .breadcrumb {
+    flex-wrap: wrap;
+    gap: 4px;
+    font-size: 16px;
+  }
+
+  .breadcrumbItem {
+    padding: 8px 12px;
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  .toolbar {
     flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    padding-bottom: 8px;
   }
-  
-  .filterGroup {
+
+  .toolbarLeft {
     width: 100%;
   }
-  
+
+
+  .toolbarRight {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .newFolderBtn {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .viewBtn,
+  .viewBtnActive {
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
+  }
+
+  .fileGrid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+  }
+
+  .fileCard {
+    padding: 8px;
+  }
+
+  .filePreview {
+    height: 120px;
+    margin-bottom: 8px;
+  }
+
+  .fileThumbnail {
+    height: 120px;
+  }
+
+  .fileIconLarge,
+  .folderIconLarge {
+    font-size: 48px;
+  }
+
+  .fileInfo {
+    padding: 8px 4px;
+  }
+
+  .fileName {
+    font-size: 13px;
+  }
+
+  .fileMeta {
+    font-size: 11px;
+  }
+
+  .fileActions {
+    padding: 8px 4px 4px;
+    gap: 4px;
+  }
+
+  .actionBtn,
+  .moreBtn {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    min-height: 36px;
+    font-size: 16px;
+  }
+
+  .overlayBtn {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    min-height: 36px;
+    font-size: 16px;
+  }
+
+  .userEmail {
+    display: none !important;
+  }
+
+  .userIcon {
+    display: inline-block !important;
+    font-size: 20px;
+  }
+
+  .keyboardShortcutsCard {
+    display: none !important;
+  }
+
+  .mobileMenuBtn {
+    display: flex !important;
+  }
+
+  .userDropdownTrigger {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  .filterPanel {
+    flex-direction: column;
+    padding: 12px;
+    max-height: 70vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 80px; /* Ensure buttons are visible */
+  }
+
+  .filterGroup {
+    width: 100%;
+    margin-bottom: 12px;
+  }
+
   .filterInput,
   .filterSelect {
     width: 100%;
+    font-size: 16px; /* Prevents zoom on iOS */
   }
-  
+
+  .filterButtons {
+    display: flex !important;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    position: sticky;
+    bottom: 0;
+    background: white;
+    padding: 12px 0;
+    margin-top: 12px;
+    border-top: 1px solid #dadce0;
+    z-index: 10;
+  }
+
+  .dark .filterButtons {
+    background: #1a1a2e;
+    border-top-color: rgba(255, 255, 255, 0.2);
+  }
+
+  .clearFilters,
+  .saveSearchBtnFilter {
+    width: 100%;
+    padding: 12px;
+    font-size: 16px;
+  }
+
   .filterRange {
     flex-direction: column;
     align-items: stretch;
   }
-  
+
   .filterRange span {
     text-align: center;
   }
 
-  .fileGrid {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 12px;
+  .fileList {
+    font-size: 13px;
   }
 
-  .userEmail {
-    display: none;
+  .listHeader,
+  .fileRow {
+    padding: 8px 4px;
+  }
+
+  .listColumn {
+    padding: 4px;
+    font-size: 12px;
+  }
+
+  .fileNameList {
+    font-size: 13px;
+  }
+
+  .uploadPanel {
+    width: calc(100% - 48px);
+    max-width: 400px;
+  }
+
+  .userDropdownContent {
+    min-width: 180px !important;
+    max-width: calc(100vw - 32px) !important;
+  }
+
+  .keyboardShortcutsTooltip {
+    min-width: 280px;
+    max-width: calc(100vw - 32px);
+    right: 8px;
+  }
+
+  .filePreview {
+    max-width: 90vw;
+    max-height: 90vh;
+  }
+}
+
+@media (max-width: 480px) {
+  .userDropdownContent {
+    min-width: 160px !important;
+    padding: 8px !important;
+  }
+
+  .userDropdownContent button[role="menuitem"],
+  .userDropdownContent [role="menuitem"] {
+    padding: 10px 8px !important;
+    font-size: 13px !important;
+  }
+
+  .keyboardShortcutsTooltip {
+    min-width: 260px;
+    padding: 10px;
+    font-size: 12px;
+  }
+
+  .shortcutItem {
+    font-size: 12px;
+    padding: 4px 0;
+  }
+
+  .header {
+    padding: 6px 8px;
+  }
+
+  .headerLeft {
+    gap: 8px;
+  }
+
+  .logoImg {
+    height: 28px;
+  }
+
+  .searchInput {
+    font-size: 16px;
+    padding: 8px 12px;
+  }
+
+  .searchIcon {
+    font-size: 16px;
+  }
+
+  .filterToggle {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    min-height: 32px;
+    font-size: 16px;
+  }
+
+  .fileGrid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 8px;
+  }
+
+  .fileCard {
+    padding: 6px;
+  }
+
+  .filePreview {
+    height: 100px;
+  }
+
+  .fileThumbnail {
+    height: 100px;
+  }
+
+  .fileIconLarge,
+  .folderIconLarge {
+    font-size: 40px;
+  }
+
+  .fileName {
+    font-size: 12px;
+    line-height: 1.3;
+  }
+
+  .fileMeta {
+    font-size: 10px;
+  }
+
+
+  .newFolderBtn {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  .breadcrumb {
+    font-size: 14px;
+  }
+
+  .breadcrumbItem {
+    padding: 6px 10px;
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .actionBtn,
+  .moreBtn,
+  .overlayBtn {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    min-height: 32px;
+    font-size: 14px;
+  }
+
+  .userDropdownTrigger {
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+
+  .fileList {
+    font-size: 12px;
+  }
+
+  .listColumn {
+    font-size: 11px;
+    padding: 4px 2px;
+  }
+
+  .fileNameList {
+    font-size: 12px;
+  }
+}
+
+/* Mobile Menu */
+.mobileMenuBtn {
+  display: none;
+  background: white;
+  border: 1px solid #dadce0;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
+  font-size: 20px;
+  transition: all 0.2s;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.mobileMenuBtn:hover {
+  background: #f8f9fa;
+  border-color: #5f6368;
+}
+
+.dark .mobileMenuBtn {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #fff;
+}
+
+.dark .mobileMenuBtn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.mobileMenuOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 9999;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.dark .mobileMenuOverlay {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.mobileMenu {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 85%;
+  max-width: 320px;
+  height: 100vh;
+  background: white;
+  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.15);
+  z-index: 10000;
+  overflow-y: auto;
+  animation: slideInLeft 0.3s ease-out;
+}
+
+.dark .mobileMenu {
+  background: #0a0737;
+  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.5);
+}
+
+@keyframes slideInLeft {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.mobileMenuHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.dark .mobileMenuHeader {
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+.mobileMenuHeader h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #202124;
+}
+
+.dark .mobileMenuHeader h3 {
+  color: #fff;
+}
+
+.mobileMenuClose {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #5f6368;
+  padding: 4px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.mobileMenuClose:hover {
+  background: #f1f3f4;
+  color: #202124;
+}
+
+.dark .mobileMenuClose {
+  color: #fff;
+}
+
+.dark .mobileMenuClose:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.mobileNav {
+  padding: 8px 0;
+}
+
+/* Touch-friendly improvements */
+@media (hover: none) and (pointer: coarse) {
+  /* Mobile devices */
+  .fileCard,
+  .fileRow {
+    cursor: pointer;
+  }
+
+  .fileCard:active {
+    transform: scale(0.98);
+    opacity: 0.8;
+  }
+
+  .actionBtn,
+  .moreBtn,
+  .overlayBtn,
+  .newButton,
+  .newFolderBtn {
+    cursor: pointer;
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+  }
+
+  .actionBtn:active,
+  .moreBtn:active,
+  .overlayBtn:active {
+    transform: scale(0.95);
+    opacity: 0.8;
   }
 }
 

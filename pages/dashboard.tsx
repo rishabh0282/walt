@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { NextPage } from 'next';
 import { useRouter } from 'next/router';
 import { useStorageUpload } from '@thirdweb-dev/react';
@@ -101,6 +101,7 @@ const Dashboard: NextPage = () => {
   const [tagManagerFile, setTagManagerFile] = useState<UploadedFile | null>(null);
   const [hoverPreviewFile, setHoverPreviewFile] = useState<UploadedFile | null>(null);
   const [hoverPreviewPosition, setHoverPreviewPosition] = useState({ x: 0, y: 0 });
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [showColumnSettings, setShowColumnSettings] = useState(false);
   const [showGatewaySettings, setShowGatewaySettings] = useState(false);
@@ -129,6 +130,7 @@ const Dashboard: NextPage = () => {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [isDragging, setIsDragging] = useState(false);
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [confirmationModal, setConfirmationModal] = useState<{
     isOpen: boolean;
     title: string;
@@ -1443,7 +1445,7 @@ const Dashboard: NextPage = () => {
                 onClick={() => setShowFilters(!showFilters)}
                 title="Show filters"
               >
-                🎚️
+                🔽
               </button>
             </div>
             {/* Search Suggestions Dropdown */}
@@ -1650,7 +1652,7 @@ const Dashboard: NextPage = () => {
                   </div>
                 </div>
                 
-                <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
+                <div className={styles.filterButtons}>
                   <button 
                     className={styles.clearFilters}
                     onClick={() => setFilters({
@@ -1682,7 +1684,7 @@ const Dashboard: NextPage = () => {
           </div>
         </div>
         <div className={styles.headerRight}>
-          {/* Keyboard Shortcuts Card */}
+          {/* Keyboard Shortcuts Card - Hidden on mobile */}
           <div 
             className={styles.keyboardShortcutsCard}
             onMouseEnter={() => setShowKeyboardShortcuts(true)}
@@ -1734,6 +1736,16 @@ const Dashboard: NextPage = () => {
               </div>
             )}
           </div>
+
+          {/* Mobile Menu Button */}
+          <button
+            className={styles.mobileMenuBtn}
+            onClick={() => setShowMobileMenu(!showMobileMenu)}
+            title="Menu"
+            aria-label="Toggle menu"
+          >
+            {showMobileMenu ? '✕' : '☰'}
+          </button>
           
           <button 
             className={styles.themeToggle}
@@ -1750,12 +1762,17 @@ const Dashboard: NextPage = () => {
           <DropdownMenu>
             <DropdownMenuTrigger className={styles.userDropdownTrigger}>
               <span className={styles.userEmail}>{user.email}</span>
+              <span className={styles.userIcon}>👤</span>
               <span className={styles.dropdownArrow}>▼</span>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent align="end" className={styles.userDropdownContent}>
               <DropdownMenuItem onClick={() => router.push('/settings')}>
                 <span className={styles.dropdownIcon}>⚙️</span>
                 Settings
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowTwoFactorSetup(true)}>
+                <span className={styles.dropdownIcon}>🔒</span>
+                2FA
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleExportAll}>
                 <span className={styles.dropdownIcon}>📦</span>
@@ -1771,13 +1788,203 @@ const Dashboard: NextPage = () => {
         </div>
       </header>
 
+      {/* Mobile Menu Overlay */}
+      {showMobileMenu && (
+        <div className={styles.mobileMenuOverlay} onClick={() => setShowMobileMenu(false)}>
+          <div className={styles.mobileMenu} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.mobileMenuHeader}>
+              <h3>Menu</h3>
+              <button 
+                className={styles.mobileMenuClose}
+                onClick={() => setShowMobileMenu(false)}
+                aria-label="Close menu"
+              >
+                ✕
+              </button>
+            </div>
+            
+            {/* Upload Section */}
+            <div {...getRootProps()} className={styles.uploadSection}>
+              <input {...getInputProps()} />
+              <button 
+                className={styles.newButton} 
+                disabled={isUploading}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+                  if (input) {
+                    input.click();
+                  }
+                  setShowMobileMenu(false);
+                }}
+              >
+                <span className={styles.plusIcon}>+</span>
+                {isUploading ? 'Uploading...' : 'New'}
+              </button>
+            </div>
+            
+            {/* Navigation */}
+            <nav className={styles.mobileNav}>
+              <div 
+                className={`${styles.navItem} ${activeView === 'drive' ? styles.active : ''}`}
+                onClick={() => {
+                  handleViewChange('drive');
+                  setCurrentFolderId(null);
+                  setShowMobileMenu(false);
+                }}
+              >
+                <span className={styles.navIcon}>📁</span>
+                <span>My Drive</span>
+              </div>
+              <div 
+                className={`${styles.navItem} ${activeView === 'recent' ? styles.active : ''}`}
+                onClick={() => {
+                  handleViewChange('recent');
+                  setShowMobileMenu(false);
+                }}
+              >
+                <span className={styles.navIcon}>⏰</span>
+                <span>Recent</span>
+              </div>
+              <div 
+                className={`${styles.navItem} ${activeView === 'starred' ? styles.active : ''}`}
+                onClick={() => {
+                  handleViewChange('starred');
+                  setShowMobileMenu(false);
+                }}
+              >
+                <span className={styles.navIcon}>⭐</span>
+                <span>Starred</span>
+              </div>
+              <div 
+                className={`${styles.navItem} ${activeView === 'trash' ? styles.active : ''}`}
+                onClick={() => {
+                  handleViewChange('trash');
+                  setShowMobileMenu(false);
+                }}
+              >
+                <span className={styles.navIcon}>🗑️</span>
+                <span>Trash</span>
+              </div>
+            </nav>
+
+            {/* Auto-pin Toggle */}
+            <div className={styles.autoPinSection}>
+              <label className={styles.autoPinLabel}>
+                <input 
+                  type="checkbox" 
+                  checked={autoPinEnabled}
+                  onChange={(e) => setAutoPinEnabled(e.target.checked)}
+                  className={styles.autoPinCheckbox}
+                />
+                <span className={styles.autoPinText}>
+                  📌 Auto-pin uploads
+                </span>
+              </label>
+              <p className={styles.autoPinHint}>
+                {autoPinEnabled 
+                  ? '✅ New files will be pinned automatically (guaranteed persistence)' 
+                  : '🆓 Unpinned files are FREE but may be lost! Turn on auto-pin for guaranteed persistence.'}
+              </p>
+              {autoPinEnabled && storageStats.pinnedSize > 0 && (
+                <p className={styles.autoPinCost}>
+                  💰 Estimated cost (1 year): {calculatePinningCost(storageStats.pinnedSize, 365)}
+                </p>
+              )}
+            </div>
+
+            {/* Storage Info */}
+            <div className={styles.storageInfo}>
+              <div className={styles.storageStats}>
+                <div className={styles.storageHeader}>
+                  <h4 className={styles.storageTitle}>Storage Overview</h4>
+                  <div className={styles.storageActions}>
+                    <button
+                      className={styles.cleanupBtn}
+                      onClick={() => {
+                        setShowStorageCleanup(true);
+                        setShowMobileMenu(false);
+                      }}
+                      title="Storage cleanup tools"
+                    >
+                      🧹 Cleanup
+                    </button>
+                    <button
+                      className={styles.gatewayBtn}
+                      onClick={() => {
+                        setShowGatewaySettings(true);
+                        setShowMobileMenu(false);
+                      }}
+                      title="Gateway/CDN settings"
+                    >
+                      ⚡ Gateways
+                    </button>
+                  </div>
+                </div>
+                <div className={styles.statRow}>
+                  <span className={styles.statLabel}>Total Files:</span>
+                  <span className={styles.statValue}>{storageStats.totalFiles}</span>
+                </div>
+                <div className={styles.statRow}>
+                  <span className={styles.statLabel}>Total Size:</span>
+                  <span className={styles.statValue}>{formatFileSize(storageStats.totalSize)}</span>
+                </div>
+                <hr className={styles.statDivider} />
+                <div className={styles.statRow}>
+                  <span className={styles.statLabel}>📌 Pinned (Paid):</span>
+                  <span className={styles.statValue}>
+                    {storageStats.pinnedCount} ({formatFileSize(storageStats.pinnedSize)})
+                  </span>
+                </div>
+                {storageStats.pinnedSize > 0 && (
+                  <div className={styles.statRow}>
+                    <span className={styles.statLabel}>💰 Est. Cost (1yr):</span>
+                    <span className={styles.statValue}>
+                      {calculatePinningCost(storageStats.pinnedSize, 365)}
+                    </span>
+                  </div>
+                )}
+                <div className={styles.statRow}>
+                  <span className={styles.statLabel}>🆓 Unpinned (Free):</span>
+                  <span className={styles.statValue}>
+                    {storageStats.unpinnedCount} ({formatFileSize(storageStats.unpinnedSize)})
+                  </span>
+                </div>
+                <div className={styles.statRow}>
+                  <span className={styles.statLabel}>📊 Used:</span>
+                  <span className={styles.statValue}>
+                    {formatFileSize(storageStats.totalSize)} / {formatFileSize(storageStats.storageLimit)}
+                  </span>
+                </div>
+                <div className={styles.storageProgress}>
+                  <div 
+                    className={styles.storageProgressBar}
+                    style={{ width: `${(storageStats.totalSize / storageStats.storageLimit) * 100}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Content */}
       <div className={styles.mainContent}>
         {/* Sidebar */}
         <aside className={styles.sidebar}>
           <div {...getRootProps()} className={styles.uploadSection}>
             <input {...getInputProps()} />
-            <button className={styles.newButton} disabled={isUploading}>
+            <button 
+              className={styles.newButton} 
+              disabled={isUploading}
+              onClick={(e) => {
+                e.stopPropagation();
+                const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+                if (input) {
+                  input.click();
+                }
+              }}
+            >
               <span className={styles.plusIcon}>+</span>
               {isUploading ? 'Uploading...' : 'New'}
             </button>
@@ -1865,13 +2072,6 @@ const Dashboard: NextPage = () => {
                     title="Gateway/CDN settings"
                   >
                     ⚡ Gateways
-                  </button>
-                  <button
-                    className={styles.twoFactorBtn}
-                    onClick={() => setShowTwoFactorSetup(true)}
-                    title="Two-factor authentication"
-                  >
-                    🔒 2FA
                   </button>
                 </div>
               </div>
@@ -2063,7 +2263,6 @@ const Dashboard: NextPage = () => {
           {/* Toolbar */}
           <div className={styles.toolbar}>
             <div className={styles.toolbarLeft}>
-              <h2>{getViewTitle()}</h2>
               {activeView === 'drive' && (
                 <button 
                   className={styles.newFolderBtn}
@@ -2207,15 +2406,31 @@ const Dashboard: NextPage = () => {
                   onDoubleClick={() => !file.isFolder ? handleFileClick(file) : null}
                   onMouseEnter={(e) => {
                     if (!file.isFolder && file.type?.startsWith('image/')) {
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      setHoverPreviewPosition({
-                        x: rect.left + rect.width / 2,
-                        y: rect.top,
-                      });
-                      setHoverPreviewFile(file);
+                      // Clear any existing timeout
+                      if (hoverTimeoutRef.current) {
+                        clearTimeout(hoverTimeoutRef.current);
+                        hoverTimeoutRef.current = null;
+                      }
+                      
+                      // Set timeout for 2+ seconds before showing preview
+                      hoverTimeoutRef.current = setTimeout(() => {
+                        // Center the preview on viewport
+                        const viewportWidth = window.innerWidth;
+                        const viewportHeight = window.innerHeight;
+                        setHoverPreviewPosition({
+                          x: viewportWidth / 2,
+                          y: viewportHeight / 2,
+                        });
+                        setHoverPreviewFile(file);
+                      }, 2000);
                     }
                   }}
                   onMouseLeave={() => {
+                    // Clear timeout if mouse leaves before 2 seconds
+                    if (hoverTimeoutRef.current) {
+                      clearTimeout(hoverTimeoutRef.current);
+                      hoverTimeoutRef.current = null;
+                    }
                     // Small delay to allow moving to preview
                     setTimeout(() => {
                       setHoverPreviewFile(null);
@@ -2328,7 +2543,7 @@ const Dashboard: NextPage = () => {
                         <div className={styles.folderIconLarge}>
                           📁
                         </div>
-                        {/* Overlay star button for folders */}
+                        {/* Overlay buttons for folders */}
                         <div className={styles.imageOverlay}>
                           <button
                             className={styles.overlayBtn + ' ' + styles.overlayBtnTopLeft}
@@ -2336,6 +2551,13 @@ const Dashboard: NextPage = () => {
                             title={file.starred ? "Unstar" : "Star"}
                           >
                             {file.starred ? '⭐' : '☆'}
+                          </button>
+                          <button
+                            className={styles.overlayBtn + ' ' + styles.overlayBtnTopRight}
+                            onClick={(e) => handlePinToggle(file.id, file, e)}
+                            title={file.isPinned ? "📌 Pinned - Click to unpin (file may be lost)" : "📍 Unpinned - Click to pin (file may be lost)"}
+                          >
+                            {file.isPinned ? '📌' : '📍'}
                           </button>
                         </div>
                       </>
@@ -2366,9 +2588,28 @@ const Dashboard: NextPage = () => {
                         </div>
                       </>
                     ) : (
-                      <div className={styles.fileIconLarge}>
-                        {getFileIcon(file.type)}
-                      </div>
+                      <>
+                        <div className={styles.fileIconLarge}>
+                          {getFileIcon(file.type)}
+                        </div>
+                        {/* Overlay buttons for documents and other files */}
+                        <div className={styles.imageOverlay}>
+                          <button
+                            className={styles.overlayBtn + ' ' + styles.overlayBtnTopLeft}
+                            onClick={(e) => handleToggleStar(file.id, e)}
+                            title={file.starred ? "Unstar" : "Star"}
+                          >
+                            {file.starred ? '⭐' : '☆'}
+                          </button>
+                          <button
+                            className={styles.overlayBtn + ' ' + styles.overlayBtnTopRight}
+                            onClick={(e) => handlePinToggle(file.id, file, e)}
+                            title={file.isPinned ? "📌 Pinned - Click to unpin (file may be lost)" : "📍 Unpinned - Click to pin (file may be lost)"}
+                          >
+                            {file.isPinned ? '📌' : '📍'}
+                          </button>
+                        </div>
+                      </>
                     )}
                   </div>
 
@@ -2415,26 +2656,6 @@ const Dashboard: NextPage = () => {
 
                   {/* File Actions */}
                   <div className={styles.fileActions}>
-                    {/* Show star/pin buttons inline for non-images/non-folders in grid view */}
-                    {(!file.type.startsWith('image/') && !file.isFolder) && (
-                      <>
-                        <button 
-                          className={styles.actionBtn}
-                          onClick={(e) => { e.stopPropagation(); handleToggleStar(file.id); }}
-                          title={file.starred ? "Unstar" : "Star"}
-                        >
-                          {file.starred ? '⭐' : '☆'}
-                        </button>
-                        <button 
-                          className={styles.actionBtn}
-                          onClick={(e) => { e.stopPropagation(); handlePinToggle(file.id, file); }}
-                          title={file.isPinned ? "📌 Pinned - Click to unpin (file may be lost)" : "📍 Unpinned - Click to pin (file may be lost)"}
-                        >
-                          {file.isPinned ? '📌' : '📍'}
-                        </button>
-                      </>
-                    )}
-                    
                     {/* 3-dot menu button */}
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -2449,7 +2670,7 @@ const Dashboard: NextPage = () => {
                         </button>
                       </DropdownMenuTrigger>
                       
-                      <DropdownMenuContent align="end">
+                      <DropdownMenuContent align="end" className={styles.userDropdownContent}>
                         {activeView !== 'trash' ? (
                           <>
                             {!file.isFolder && (
@@ -2605,7 +2826,7 @@ const Dashboard: NextPage = () => {
                           ⋮
                         </button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
+                      <DropdownMenuContent align="end" className={styles.userDropdownContent}>
                         {activeView !== 'trash' ? (
                           <>
                             {!file.isFolder && (

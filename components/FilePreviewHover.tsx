@@ -17,9 +17,41 @@ interface FilePreviewHoverProps {
 const FilePreviewHover: React.FC<FilePreviewHoverProps> = ({ file, position, onClose }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [centeredPosition, setCenteredPosition] = useState({ left: 0, top: 0 });
   const previewRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // Calculate centered position that stays within viewport
+    const calculatePosition = () => {
+      if (typeof window === 'undefined') return;
+      
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      const previewWidth = 400; // max-width from CSS
+      const previewHeight = 500; // max-height from CSS
+      
+      // Center on viewport
+      let left = viewportWidth / 2;
+      let top = viewportHeight / 2;
+      
+      // Ensure preview doesn't go off screen
+      const halfWidth = previewWidth / 2;
+      const halfHeight = previewHeight / 2;
+      
+      // Clamp to viewport bounds with padding
+      const padding = 20;
+      left = Math.max(padding + halfWidth, Math.min(left, viewportWidth - padding - halfWidth));
+      top = Math.max(padding + halfHeight, Math.min(top, viewportHeight - padding - halfHeight));
+      
+      setCenteredPosition({ left, top });
+    };
+
+    calculatePosition();
+
+    // Recalculate on window resize
+    const handleResize = () => calculatePosition();
+    window.addEventListener('resize', handleResize);
+
     // Close on mouse leave
     const handleMouseLeave = () => {
       onClose();
@@ -31,13 +63,14 @@ const FilePreviewHover: React.FC<FilePreviewHoverProps> = ({ file, position, onC
         // Keep preview open when hovering over it
       });
       currentRef.addEventListener('mouseleave', handleMouseLeave);
-      
-      return () => {
-        if (currentRef) {
-          currentRef.removeEventListener('mouseleave', handleMouseLeave);
-        }
-      };
     }
+    
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      if (currentRef) {
+        currentRef.removeEventListener('mouseleave', handleMouseLeave);
+      }
+    };
   }, [onClose]);
 
   // Only show preview for images
@@ -55,13 +88,14 @@ const FilePreviewHover: React.FC<FilePreviewHoverProps> = ({ file, position, onC
     return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
   };
 
+
   return (
     <div
       ref={previewRef}
       className={styles.previewContainer}
       style={{
-        left: `${position.x}px`,
-        top: `${position.y}px`,
+        left: `${centeredPosition.left}px`,
+        top: `${centeredPosition.top}px`,
       }}
     >
       <div className={styles.previewContent}>
