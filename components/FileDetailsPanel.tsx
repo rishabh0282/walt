@@ -216,7 +216,7 @@ const FileDetailsPanel: React.FC<FileDetailsPanelProps> = ({
           </div>
         ) : (
           !editingProperties && (
-            <div className={styles.empty}>No custom properties. Click "Add" to create one.</div>
+            <div className={styles.empty}>No custom properties. Click &quot;Add&quot; to create one.</div>
           )
         )}
       </div>

@@ -105,7 +105,7 @@ const TagManager: React.FC<TagManagerProps> = ({
                     className={styles.suggestionItem}
                     onClick={() => handleAddTag()}
                   >
-                    + Create "{inputValue.trim()}"
+                    + Create &quot;{inputValue.trim()}&quot;
                   </button>
                 )}
               </div>

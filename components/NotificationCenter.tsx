@@ -214,7 +214,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
             <div className={styles.empty}>
               <div className={styles.emptyIcon}>🔔</div>
               <p>No notifications</p>
-              <p className={styles.emptySubtext}>You're all caught up!</p>
+              <p className={styles.emptySubtext}>You&apos;re all caught up!</p>
             </div>
           ) : (
             <>
