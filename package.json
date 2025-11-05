@@ -16,12 +16,13 @@
     "@radix-ui/react-toast": "^1.2.2",
     "@thirdweb-dev/react": "^4.9.4",
     "@thirdweb-dev/sdk": "^4.0.99",
-    "better-sqlite3": "^11.10.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "ethers": "^5.7.2",
     "firebase": "^10.12.2",
     "firebase-admin": "^13.0.1",
+    "form-data": "^4.0.0",
+    "formdata-node": "^6.0.3",
     "formidable": "^3.5.1",
     "ipfs-http-client": "^60.0.1",
     "jszip": "^3.10.1",
@@ -36,7 +37,6 @@
     "uuid": "^13.0.0"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.13",
     "@types/formidable": "^3.4.5",
     "@types/node": "^22.8.6",
     "@types/qrcode": "^1.5.6",

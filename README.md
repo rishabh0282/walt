@@ -1,184 +1,232 @@
-# Vault Labs - Decentralized Storage Platform
+# Walt IPFS Drive - Frontend
 
-A modern Web3 application for secure, decentralized file storage using IPFS and Thirdweb.
+A decentralized file storage application built with IPFS and Next.js.
 
-## 🚀 Features
+**Live Demo:** [walt.aayushman.dev](https://walt.aayushman.dev)
 
-### Core Features
-- **🔐 User Authentication**: Secure login with Firebase Auth (Google & Email/Password)
-- **📁 Google Drive Style Dashboard**: Professional file management interface
-- **🌐 Decentralized Storage**: Upload files to IPFS for permanent, distributed storage
-- **⚡ Web3 Integration**: Built with Thirdweb SDK for seamless blockchain interaction
-- **📱 Responsive Design**: Works perfectly on desktop, tablet, and mobile
+## Overview
 
-### IPFS Pinning (Phase 1 - ✅ Complete)
-- **📌 IPFS Pinning Management**: Pin/unpin files to ensure data persistence ("Pin it or Lose it")
-- **📊 Storage Analytics**: Track pinned vs unpinned files with detailed statistics
-- **⚙️ Auto-Pin Toggle**: Automatically pin new uploads or manage manually
-- **⚠️ Large File Warnings**: Get alerts before uploading files over 100MB
+This is the **frontend** repository deployed on Vercel. It communicates with a separate backend at `api-walt.aayushman.dev` which handles database and IPFS operations.
 
-### File Organization (Phase 2 - ✅ Complete)
-- **📁 Folder Hierarchy**: Create and organize files in nested folders
-- **🗂️ Breadcrumb Navigation**: Navigate through folders with clickable breadcrumbs
-- **✏️ Rename Files/Folders**: Rename any file or folder easily
-- **🔄 Sorting Options**: Sort by name, date, size, or type (ascending/descending)
-- **⭐ Starred Items**: Star important files and folders for quick access
-- **⏰ Recent Files**: View recently accessed files (last 30 days)
-- **🗑️ Trash/Recycle Bin**: Soft delete with restore option, permanent delete from trash
-- **⬇️ File Download**: Download files directly to your device
-- **👁️ File Preview**: View image previews directly in the interface
-- **🔍 Search Functionality**: Find files quickly with built-in search
-- **🔗 Multiple Gateway Options**: Access files via IPFS URIs or HTTP gateways
-- **📋 Copy to Clipboard**: Easily copy IPFS URIs and gateway links
-- **👤 User-Specific Storage**: Each user has their own private file collection
+### Architecture
 
-### Sharing & Collaboration (Phase 3 - ✅ Complete)
-- **🔗 Share Links**: Generate shareable links for any file or folder
-- **👁️ Permission Levels**: Viewer (view only) or Editor (view + download)
-- **⏰ Expiring Links**: Set expiration dates for shared links (1-365 days)
-- **🔒 Password Protection**: Add password protection to shared links
-- **📊 Access Tracking**: Track how many times a shared link was accessed
-- **🚫 Revoke Sharing**: Disable share links at any time
-- **📝 Activity Logs**: Track all file actions (access, download, share, etc.)
-- **🌐 Public Share Page**: Beautiful landing page for shared content
-- **📱 Mobile-Friendly Sharing**: Share pages work perfectly on any device
+```
+Frontend (This Repo)
+  walt.aayushman.dev
+  ├─ Next.js UI
+  ├─ API Routes (proxy to backend)
+  └─ Vercel Deployment
 
-## 🛠️ Tech Stack
-
-- **Next.js 14** - React framework
-- **TypeScript** - Type safety
-- **Firebase Auth** - User authentication
-- **Thirdweb** - Web3 development platform
-- **IPFS** - Decentralized storage
-- **React Dropzone** - File upload interface
-
-## 📋 Prerequisites
-
-- Node.js 18+ 
-- npm or yarn
-- Firebase Project ([Create one here](https://console.firebase.google.com/))
-- Thirdweb Client ID ([Get one here](https://thirdweb.com/dashboard/settings))
-
-## 🔧 Setup
-
-1. **Clone the repository**
-   ```bash
-   git clone <your-repo-url>
-   cd walt
-   ```
-
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
-
-3. **Configure environment variables**
-   
-   Create a `.env.local` file in the root directory:
-   ```env
-   # Firebase Configuration
-   NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key_here
-   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project_id.firebaseapp.com
-   NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
-   NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project_id.appspot.com
-   NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-   NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
-   
-   # Thirdweb Configuration
-   NEXT_PUBLIC_THIRDWEB_CLIENT_ID=your_client_id_here
-   
-   # IPFS Pinning Service (Optional but Recommended)
-   # Options: 'local' (default), 'pinata', 'web3storage', 'filebase'
-   NEXT_PUBLIC_PINNING_SERVICE=pinata
-   
-   # Pinata Configuration (if using Pinata)
-   NEXT_PUBLIC_PINATA_API_KEY=your_pinata_api_key
-   NEXT_PUBLIC_PINATA_API_SECRET=your_pinata_api_secret
-   ```
-   
-   **Firebase Setup:**
-   1. Go to [Firebase Console](https://console.firebase.google.com/)
-   2. Create a new project
-   3. Enable Authentication → Sign-in method → Google & Email/Password
-   4. Go to Project Settings → General → Your apps → Web app
-   5. Copy the config values to your `.env.local`
-   
-   **Thirdweb Setup:**
-   - Get your Client ID from [Thirdweb Dashboard](https://thirdweb.com/dashboard/settings)
-   
-   **Pinata Setup (Optional but Recommended):**
-   1. Create a free account at [Pinata](https://app.pinata.cloud/)
-   2. Go to API Keys → Generate New Key
-   3. Enable "pinFileToIPFS", "pinByHash", "unpin", and "pinList" permissions
-   4. Copy the API Key and API Secret to your `.env.local`
-   5. Set `NEXT_PUBLIC_PINNING_SERVICE=pinata`
-   
-   **Why Use Pinning?**
-   - Without pinning, files uploaded to IPFS may be garbage collected and lost
-   - Pinning services ensure your files remain available permanently
-   - The default "local" mode uses Thirdweb but doesn't guarantee long-term persistence
-
-4. **Run the development server**
-   ```bash
-   npm run dev
-   ```
-
-5. **Open your browser**
-   
-   Navigate to [http://localhost:3000](http://localhost:3000)
-
-## 🏗️ Build for Production
-
-```bash
-npm run build
-npm start
+Backend (Separate Repo)
+  api-walt.aayushman.dev
+  ├─ SQLite Database
+  ├─ IPFS Node
+  └─ EC2 Deployment
 ```
 
-## 📁 Project Structure
+## Features
+
+- 📁 File upload/download via IPFS
+- 🗂️ Folder organization
+- ⭐ Starred files
+- 🗑️ Trash/restore functionality
+- 🔗 Share links with permissions
+- 🔒 Firebase authentication
+- 📊 Storage quota management
+- 📱 Responsive design
+
+## Quick Start
+
+### Prerequisites
+
+- Node.js 18+
+- Firebase account
+- Backend deployed at api-walt.aayushman.dev
+
+### Installation
+
+```bash
+# Clone the repository
+git clone <your-repo-url>
+cd walt
+
+# Install dependencies
+npm install
+# or
+pnpm install
+
+# Copy environment variables
+cp .env.local.example .env.local
+
+# Edit .env.local with your Firebase config
+
+# Run development server
+npm run dev
+
+# Open http://localhost:3000
+```
+
+### Environment Configuration
+
+See `.env.local.example` for required environment variables.
+
+**Required:**
+- Firebase configuration (from Firebase Console)
+- `NEXT_PUBLIC_BACKEND_API_URL=https://api-walt.aayushman.dev`
+- `NEXT_PUBLIC_IPFS_GATEWAY=https://api-walt.aayushman.dev/ipfs`
+
+## Deployment
+
+This app is designed to be deployed on **Vercel**.
+
+```bash
+# Install Vercel CLI
+npm install -g vercel
+
+# Deploy
+vercel --prod
+```
+
+See [setup/FRONTEND_DEPLOYMENT.md](setup/FRONTEND_DEPLOYMENT.md) for detailed deployment instructions.
+
+## Documentation
+
+- [Quick Start Guide](setup/QUICK_START.md) - Get up and running
+- [Frontend Deployment](setup/FRONTEND_DEPLOYMENT.md) - Vercel deployment guide
+- [Docker Setup](setup/DOCKER_SETUP_INSTRUCTIONS.md) - Backend IPFS/Docker setup
+
+## Project Structure
 
 ```
 walt/
-├── components/       # React components
-├── contexts/         # React contexts (Auth, etc.)
-├── hooks/           # Custom React hooks (useUserFileStorage)
-├── lib/             # Utility libraries (Firebase, Pinning Service)
-├── pages/           # Next.js pages and API routes
-├── public/          # Static assets
-├── styles/          # CSS modules
-├── todo.md          # Feature roadmap
-└── package.json     # Dependencies
+├── pages/              # Next.js pages
+│   ├── api/           # API routes (proxy to backend)
+│   ├── dashboard.tsx  # Main app interface
+│   └── index.tsx      # Landing page
+├── components/        # React components
+│   ├── FileUpload.tsx
+│   ├── ShareModal.tsx
+│   └── ...
+├── lib/              # Utilities
+│   ├── backendClient.ts   # Backend API client
+│   ├── ipfsClient.ts      # IPFS operations
+│   ├── apiAuth.ts         # Firebase auth
+│   └── ...
+├── styles/           # CSS styling
+├── hooks/            # React hooks
+├── contexts/         # React contexts
+└── setup/            # Documentation
 ```
 
-## 📌 IPFS Pinning Features
+## Technology Stack
 
-### What is "Pin it or Lose it"?
+- **Framework:** Next.js 14
+- **Styling:** Tailwind CSS
+- **Authentication:** Firebase Auth
+- **Storage:** IPFS (via backend)
+- **Database:** SQLite (via backend)
+- **Deployment:** Vercel
+- **UI Components:** Radix UI
 
-IPFS uses a garbage collection mechanism to remove unpinned content. When you upload a file to IPFS without pinning it to a dedicated service, there's no guarantee it will remain accessible long-term.
+## API Routes
 
-### Pinning Features in Vault Labs
+Frontend API routes proxy requests to the backend:
 
-- **📌 Manual Pin/Unpin**: Control which files are permanently stored
-- **⚙️ Auto-Pin Toggle**: Automatically pin all uploads (recommended)
-- **📊 Storage Statistics**: View pinned vs unpinned file counts and sizes
-- **⚠️ Unpin Warnings**: Get alerts before unpinning files
-- **🔍 Visual Indicators**: See pin status at a glance with badges
-- **💰 Cost Awareness**: Large file warnings to manage storage costs
+- `/api/ipfs/upload` → Upload files
+- `/api/ipfs/list` → List user files
+- `/api/ipfs/download` → Download files
+- `/api/ipfs/status` → IPFS node status
 
-### Supported Pinning Services
+All routes require Firebase authentication.
 
-- **Local** (Default): Uses Thirdweb storage without dedicated pinning
-- **Pinata**: Popular IPFS pinning service with free tier
-- **Web3.Storage**: (Coming soon)
-- **Filebase**: (Coming soon)
+## Backend Requirements
 
-## 🔐 Security Note
+The frontend expects these endpoints from `api-walt.aayushman.dev`:
 
-⚠️ **Important**: Never commit your `.env.local` file to version control. It contains sensitive API keys.
+```
+POST /api/ipfs/upload       - Upload file
+GET  /api/ipfs/list         - List files/folders
+GET  /api/ipfs/download     - Download file
+GET  /api/ipfs/status       - Node status
+GET  /ipfs/:cid             - IPFS gateway
+POST /api/folders           - Create folder
+GET  /api/user/storage      - Storage stats
+```
 
-## 📝 License
+## Development
 
-See LICENSE file for details.
+```bash
+# Run development server
+npm run dev
 
-## 🤝 Contributing
+# Build for production
+npm run build
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+# Start production server
+npm start
+
+# Lint code
+npm run lint
+```
+
+## Environment Variables
+
+### Client-Side (Exposed to Browser)
+- `NEXT_PUBLIC_FIREBASE_*` - Firebase config
+- `NEXT_PUBLIC_BACKEND_API_URL` - Backend API URL
+- `NEXT_PUBLIC_IPFS_GATEWAY` - IPFS gateway URL
+
+### Server-Side (API Routes Only)
+- `BACKEND_API_URL` - Internal backend URL
+- `FIREBASE_PROJECT_ID` - Firebase project ID
+- `FIREBASE_PRIVATE_KEY` - Firebase admin key
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
+
+## Security
+
+- All API requests require authentication
+- Firebase tokens verified on backend
+- CORS configured for walt.aayushman.dev only
+- Environment variables not committed to Git
+
+## Troubleshooting
+
+### Build Errors
+```bash
+npm run build
+npm run lint
+```
+
+### API Connection Issues
+- Check `NEXT_PUBLIC_BACKEND_API_URL` is correct
+- Verify backend is running at api-walt.aayushman.dev
+- Check CORS configuration on backend
+
+### Firebase Auth Issues
+- Verify Firebase config in `.env.local`
+- Check authorized domains in Firebase Console
+- Ensure API keys are correct
+
+## License
+
+MIT
+
+## Support
+
+For issues related to:
+- **Frontend:** Check this repo's issues
+- **Backend/Database:** Check backend repo
+- **IPFS:** See [IPFS Documentation](https://docs.ipfs.tech/)
+- **Vercel Deployment:** See [Vercel Docs](https://vercel.com/docs)
+
+## Links
+
+- **Frontend:** https://walt.aayushman.dev
+- **Backend API:** https://api-walt.aayushman.dev
+- **IPFS Gateway:** https://api-walt.aayushman.dev/ipfs

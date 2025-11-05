@@ -1,18 +1,20 @@
 /**
- * API Route: Upload file to IPFS and store metadata in database
- * POST /api/ipfs/upload
+ * API Route: Upload file to IPFS (Proxy to Backend)
+ * POST /api/ipfs/upload - Forwards file to backend API
  */
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { IncomingForm, File as FormidableFile } from 'formidable';
-import { readFile } from 'fs/promises';
+import { IncomingForm } from 'formidable';
+import { createReadStream } from 'fs';
+import { FormData } from 'formdata-node';
 import { verifyAuth } from '../../../lib/apiAuth';
-import { uploadToIPFS } from '../../../lib/ipfsClient';
-import { FileDB, UserDB, ActivityLogDB } from '../../../lib/database';
 
+const BACKEND_URL = process.env.BACKEND_API_URL || 'http://127.0.0.1:3001';
+
+// Disable body parsing, we'll handle it with formidable
 export const config = {
   api: {
-    bodyParser: false, // Disable default body parser for file uploads
+    bodyParser: false,
   },
 };
 
@@ -31,11 +33,8 @@ export default async function handler(
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    // Get user from database
-    const user = await UserDB.getByFirebaseUid(authUser.uid);
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
+    // Get auth token to forward to backend
+    const token = req.headers.authorization?.replace('Bearer ', '') || '';
 
     // Parse form data
     const form = new IncomingForm({
@@ -58,78 +57,44 @@ export default async function handler(
       return res.status(400).json({ error: 'No file provided' });
     }
 
-    const folderId = fields.folderId?.[0] || fields.folderId || null;
-    const autoPinString = fields.autoPin?.[0] || fields.autoPin || 'false';
-    const autoPin = autoPinString === 'true';
+    // Forward to backend
+    const formData = new FormData();
+    formData.append('file', createReadStream(file.filepath), {
+      filename: file.originalFilename || 'file',
+      contentType: file.mimetype || 'application/octet-stream',
+    });
 
-    // Check storage quota
-    const storageStats = await UserDB.getStorageStats(user.id);
-    if (storageStats.used + file.size > storageStats.limit) {
-      return res.status(413).json({
-        error: 'Storage quota exceeded',
-        used: storageStats.used,
-        limit: storageStats.limit,
-      });
+    // Add optional fields
+    if (fields.folderId) {
+      const folderId = Array.isArray(fields.folderId) ? fields.folderId[0] : fields.folderId;
+      formData.append('folderId', folderId);
+    }
+    if (fields.autoPin) {
+      const autoPin = Array.isArray(fields.autoPin) ? fields.autoPin[0] : fields.autoPin;
+      formData.append('autoPin', autoPin);
     }
 
-    // Read file content
-    const fileBuffer = await readFile(file.filepath);
-
-    // Upload to IPFS
-    let uploadProgress = 0;
-    const { cid, size } = await uploadToIPFS(fileBuffer, {
-      filename: file.originalFilename || 'file',
-      onProgress: (bytes) => {
-        uploadProgress = bytes;
+    const response = await fetch(`${BACKEND_URL}/api/ipfs/upload`, {
+      method: 'POST',
+      headers: {
+        ...formData.getHeaders(),
+        'Authorization': `Bearer ${token}`,
       },
+      body: formData,
     });
 
-    // Store metadata in database
-    const fileRecord = await FileDB.create({
-      userId: user.id,
-      cid,
-      filename: file.originalFilename || 'unnamed',
-      size,
-      mimeType: file.mimetype || 'application/octet-stream',
-      parentFolderId: folderId,
-      isPinned: autoPin,
-      pinService: autoPin ? 'local' : undefined,
-    });
+    const data = await response.json();
 
-    // Log activity
-    await ActivityLogDB.create({
-      userId: user.id,
-      fileId: fileRecord.id,
-      action: 'upload',
-      ipAddress: req.headers['x-forwarded-for'] as string || req.socket.remoteAddress,
-      userAgent: req.headers['user-agent'],
-      metadata: {
-        cid,
-        filename: fileRecord.filename,
-        size,
-        isPinned: autoPin,
-      },
-    });
+    if (!response.ok) {
+      return res.status(response.status).json(data);
+    }
 
-    return res.status(200).json({
-      success: true,
-      file: {
-        id: fileRecord.id,
-        cid,
-        filename: fileRecord.filename,
-        size,
-        mimeType: fileRecord.mime_type,
-        isPinned: fileRecord.is_pinned,
-        createdAt: fileRecord.created_at,
-      },
-    });
+    return res.status(200).json(data);
   } catch (error) {
-    console.error('Upload error:', error);
+    console.error('Upload proxy error:', error);
     return res.status(500).json({
       error: 'Upload failed',
       message: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 }
-
-
