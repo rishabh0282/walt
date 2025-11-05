@@ -6,7 +6,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { verifyAuth } from '../../../lib/apiAuth';
 
-const BACKEND_URL = process.env.BACKEND_API_URL || 'http://127.0.0.1:3001';
+const BACKEND_URL = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_BACKEND_API_URL || 'https://api-walt.aayushman.dev';
 
 export default async function handler(
   req: NextApiRequest,

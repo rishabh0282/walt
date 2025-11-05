@@ -5,11 +5,11 @@
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { IncomingForm } from 'formidable';
-import { createReadStream } from 'fs';
-import { FormData } from 'formdata-node';
+import { readFile } from 'fs/promises';
+import FormData from 'form-data';
 import { verifyAuth } from '../../../lib/apiAuth';
 
-const BACKEND_URL = process.env.BACKEND_API_URL || 'http://127.0.0.1:3001';
+const BACKEND_URL = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_BACKEND_API_URL || 'https://api-walt.aayushman.dev';
 
 // Disable body parsing, we'll handle it with formidable
 export const config = {
@@ -59,7 +59,8 @@ export default async function handler(
 
     // Forward to backend
     const formData = new FormData();
-    formData.append('file', createReadStream(file.filepath), {
+    const fileBuffer = await readFile(file.filepath);
+    formData.append('file', fileBuffer, {
       filename: file.originalFilename || 'file',
       contentType: file.mimetype || 'application/octet-stream',
     });
@@ -67,11 +68,11 @@ export default async function handler(
     // Add optional fields
     if (fields.folderId) {
       const folderId = Array.isArray(fields.folderId) ? fields.folderId[0] : fields.folderId;
-      formData.append('folderId', folderId);
+      formData.append('parentFolderId', folderId);
     }
-    if (fields.autoPin) {
-      const autoPin = Array.isArray(fields.autoPin) ? fields.autoPin[0] : fields.autoPin;
-      formData.append('autoPin', autoPin);
+    if (fields.isPinned) {
+      const isPinned = Array.isArray(fields.isPinned) ? fields.isPinned[0] : fields.isPinned;
+      formData.append('isPinned', isPinned);
     }
 
     const response = await fetch(`${BACKEND_URL}/api/ipfs/upload`, {
@@ -80,7 +81,7 @@ export default async function handler(
         ...formData.getHeaders(),
         'Authorization': `Bearer ${token}`,
       },
-      body: formData,
+      body: formData as any,
     });
 
     const data = await response.json();
