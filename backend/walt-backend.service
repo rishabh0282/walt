@@ -1,0 +1,23 @@
+[Unit]
+Description=Walt IPFS Drive Backend Server
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ipfs-drive/walt/backend
+Environment=NODE_ENV=production
+# Update ExecStart path - run: which node
+ExecStart=/home/ubuntu/.nvm/versions/node/v24.11.0/bin/node server.js
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+
