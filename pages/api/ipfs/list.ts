@@ -4,7 +4,7 @@
  */
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { verifyAuth } from '../../../lib/apiAuth';
+import { verifyAuthToken } from '../../../lib/apiAuth';
 import { FileDB, FolderDB, UserDB } from '../../../lib/database';
 import { getGatewayUrl } from '../../../lib/ipfsClient';
 
@@ -18,7 +18,7 @@ export default async function handler(
 
   try {
     // Verify authentication
-    const authUser = await verifyAuth(req);
+    const authUser = await verifyAuthToken(req);
     if (!authUser) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
@@ -34,7 +34,7 @@ export default async function handler(
     const viewString = Array.isArray(view) ? view[0] : view;
 
     let files = [];
-    let folders = [];
+    let folders: any[] = [];
 
     // Handle different views
     if (viewString === 'starred') {

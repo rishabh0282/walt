@@ -45,11 +45,20 @@ const SharePage: NextPage = () => {
     setToast({ message, type });
   };
 
-  useEffect(() => {
-    if (id && typeof id === 'string') {
-      fetchSharedFile(id);
-    }
-  }, [id, fetchSharedFile]);
+  const getFileFromIPFS = async (shareId: string): Promise<SharedFile | null> => {
+    // This is a placeholder - in production, you'd have an API endpoint
+    // that queries the file list from IPFS and finds the matching share
+    
+    // For now, return null - this would need backend implementation
+    // to properly search across all users' file lists
+    
+    return null;
+  };
+
+  const recordAccess = async (shareId: string) => {
+    // Would be an API call in production
+    console.log('Recording access for share:', shareId);
+  };
 
   const fetchSharedFile = useCallback(async (shareId: string) => {
     setLoading(true);
@@ -96,6 +105,12 @@ const SharePage: NextPage = () => {
     }
   }, []);
 
+  useEffect(() => {
+    if (id && typeof id === 'string') {
+      fetchSharedFile(id);
+    }
+  }, [id, fetchSharedFile]);
+
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -118,21 +133,6 @@ const SharePage: NextPage = () => {
     } finally {
       setVerifying(false);
     }
-  };
-
-  const getFileFromIPFS = async (shareId: string): Promise<SharedFile | null> => {
-    // This is a placeholder - in production, you'd have an API endpoint
-    // that queries the file list from IPFS and finds the matching share
-    
-    // For now, return null - this would need backend implementation
-    // to properly search across all users' file lists
-    
-    return null;
-  };
-
-  const recordAccess = async (shareId: string) => {
-    // Would be an API call in production
-    console.log('Recording access for share:', shareId);
   };
 
   const formatFileSize = (bytes?: number) => {

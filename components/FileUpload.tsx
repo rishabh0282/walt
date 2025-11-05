@@ -8,6 +8,7 @@ import { getOptimizedGatewayUrl } from '../lib/gatewayOptimizer';
 import styles from './Home.module.css';
 
 interface UploadedFile {
+  id: string;
   name: string;
   ipfsUri: string;
   gatewayUrl: string;
@@ -34,6 +35,7 @@ const FileUpload: React.FC = () => {
 
         // Create uploaded file objects
         const newFiles: UploadedFile[] = acceptedFiles.map((file, index) => ({
+          id: `file_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 9)}`,
           name: file.name,
           ipfsUri: uris[index],
           gatewayUrl: getOptimizedGatewayUrl(uris[index]),

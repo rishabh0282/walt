@@ -6,7 +6,8 @@
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { verifyAuthToken } from '../../../lib/apiAuth';
-import { getApps, initializeApp, cert, getFirestore as getAdminFirestore } from 'firebase-admin/app';
+import { getApps, initializeApp, cert } from 'firebase-admin/app';
+import { getFirestore as getAdminFirestore } from 'firebase-admin/firestore';
 import { FileVersion } from '../../../lib/versionHistory';
 
 export default async function handler(

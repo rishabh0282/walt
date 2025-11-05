@@ -31,6 +31,7 @@ import ConfirmationModal from '../components/ConfirmationModal';
 import InputModal from '../components/InputModal';
 import { calculatePinningCost } from '../lib/pinningService';
 import { getOptimizedGatewayUrl } from '../lib/gatewayOptimizer';
+import { getFileCache } from '../lib/fileCache';
 import styles from '../styles/Dashboard.module.css';
 
 interface ShareConfig {
@@ -70,6 +71,8 @@ interface UploadedFile {
   modifiedDate?: number;
   // Sharing metadata (Phase 3)
   shareConfig?: ShareConfig;
+  // Tags
+  tags?: string[];
 }
 
 interface UploadProgress {
@@ -911,12 +914,12 @@ const Dashboard: NextPage = () => {
     
     const index = uploadedFiles.findIndex(f => f.id === fileId);
     if (file.isPinned) {
-      setConfirmationModal({
-        isOpen: true,
-        title: 'Unpin File',
-        message: `⚠️ Unpin "${file.name}"?\n\nUnpinned files may be garbage collected from IPFS and become unavailable!`,
-        confirmText: 'Unpin',
-        cancelText: 'Cancel',
+        setConfirmationModal({
+          isOpen: true,
+          title: 'Unpin File',
+          message: `🆓 Unpin "${file.name}"?\n\nUnpinned files are FREE but may be garbage collected from IPFS and become unavailable. Pinned files cost money but are guaranteed to persist.`,
+          confirmText: 'Unpin (Free)',
+          cancelText: 'Keep Pinned',
         onConfirm: async () => {
           const success = await unpinFile(index);
           if (success) {
@@ -1021,8 +1024,6 @@ const Dashboard: NextPage = () => {
         modifiedDate: Date.now(),
         size: version.size,
       };
-
-      setUploadedFiles(updatedFiles);
       
       // Update the file in storage
       const fileIndex = uploadedFiles.findIndex(f => f.id === versionHistoryFile.id);
@@ -1831,12 +1832,17 @@ const Dashboard: NextPage = () => {
             </label>
             <p className={styles.autoPinHint}>
               {autoPinEnabled 
-                ? '✅ New files will be pinned automatically' 
-                : '⚠️ Files may be lost without pinning!'}
+                ? '✅ New files will be pinned automatically (guaranteed persistence)' 
+                : '🆓 Unpinned files are FREE but may be lost! Turn on auto-pin for guaranteed persistence.'}
             </p>
             {autoPinEnabled && storageStats.pinnedSize > 0 && (
               <p className={styles.autoPinCost}>
                 💰 Estimated cost (1 year): {calculatePinningCost(storageStats.pinnedSize, 365)}
+              </p>
+            )}
+            {!autoPinEnabled && (
+              <p className={styles.autoPinHint} style={{ marginTop: '8px', color: '#10b981' }}>
+                💡 Tip: Unpinned files are FREE but may be lost. Enable auto-pin for guaranteed persistence.
               </p>
             )}
           </div>
@@ -1879,7 +1885,7 @@ const Dashboard: NextPage = () => {
               </div>
               <hr className={styles.statDivider} />
               <div className={styles.statRow}>
-                <span className={styles.statLabel}>📌 Pinned:</span>
+                <span className={styles.statLabel}>📌 Pinned (Paid):</span>
                 <span className={styles.statValue}>
                   {storageStats.pinnedCount} ({formatFileSize(storageStats.pinnedSize)})
                 </span>
@@ -1893,14 +1899,14 @@ const Dashboard: NextPage = () => {
                 </div>
               )}
               <div className={styles.statRow}>
-                <span className={styles.statLabel}>⚠️ Unpinned:</span>
+                <span className={styles.statLabel}>🆓 Unpinned (FREE):</span>
                 <span className={styles.statValue + ' ' + (storageStats.unpinnedCount > 0 ? styles.warning : '')}>
                   {storageStats.unpinnedCount} ({formatFileSize(storageStats.unpinnedSize)})
                 </span>
               </div>
               {storageStats.unpinnedCount > 0 && (
                 <p className={styles.warningText}>
-                  ⚠️ Unpinned files may be lost!
+                  🆓 Unpinned files are FREE but may be lost! Pin them for guaranteed persistence.
                 </p>
               )}
             </div>
@@ -2409,8 +2415,8 @@ const Dashboard: NextPage = () => {
 
                   {/* File Actions */}
                   <div className={styles.fileActions}>
-                    {/* Show star/pin buttons inline for list view, or for non-images/non-folders in grid view */}
-                    {(viewMode === 'list' || (!file.type.startsWith('image/') && !file.isFolder)) && (
+                    {/* Show star/pin buttons inline for non-images/non-folders in grid view */}
+                    {(!file.type.startsWith('image/') && !file.isFolder) && (
                       <>
                         <button 
                           className={styles.actionBtn}

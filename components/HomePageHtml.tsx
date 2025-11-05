@@ -5,6 +5,7 @@ import AuthModal from './AuthModal';
 import { useAuth } from '../contexts/AuthContext';
 import { scrollToSection } from './SmoothScroll';
 import Link from 'next/link';
+import Image from 'next/image';
 
 const HomePageHtml: React.FC = () => {
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -75,14 +76,14 @@ const HomePageHtml: React.FC = () => {
         </section>
 
         <div className={styles["spacer-layer"]}>
-          <img className={styles["spacer"]} src='./images/layerv2.png'/>
+          <Image   className={styles["spacer"]} src='/images/layerv2.png' alt='spacer' width={100} height={100}/>    
         </div>
           
         <section id="about" className={styles["vault"]}>
           
           <div className={styles["flex-container"]}>
           <div className={styles["flex-item"]}>
-            <img src="/images/logo1.png" alt="Image 1" className={styles["flexbox-image"]} />
+            <Image src="/images/logo1.png" alt="Image 1" className={styles["flexbox-image"]} width={100} height={100} />
             <h2>Our Story</h2>
             <p>We&apos;re a dedicated team of aspiring engineers that are determined 
                 to offer the best customer experience when it comes to keeping your 
@@ -91,14 +92,14 @@ const HomePageHtml: React.FC = () => {
           </div>
             
           <div className={styles["flex-item"]}>
-          <img src="/images/logo2.png" alt="Image 2" className={styles["flexbox-image"]} />
+          <Image src="/images/logo2.png" alt="Image 2" className={styles["flexbox-image"]} width={100} height={100} />
             <h2>Our Vision</h2>
             <p>Creating an ideal future where users can store and keep their data with us,
                safe and completely anonymous</p>
            </div>
 
           <div className={styles["flex-item"]}>
-          <img src="/images/logo3.png" alt="Image 3" className={styles["flexbox-image"]} />
+          <Image src="/images/logo3.png" alt="Image 3" className={styles["flexbox-image"]} width={100} height={100} />
             <h2>Technology</h2>
             <p>Blockchains aren&apos;t just good for crypto rugpulls, we&apos;re delivering the power 
               of the complex Web 3.0 to our users with an intuitive approach to keep things 
@@ -118,7 +119,7 @@ const HomePageHtml: React.FC = () => {
             
           <div className={styles["working-container"]}>
           <div className={styles["box"]}>
-            <img src="/images/image1.png" alt="img1" className={styles["box-img"]}/>
+            <Image src="/images/image1.png" alt="img1" className={styles["box-img"]} width={100} height={100} />
           </div>
           <div className={styles["box"]}>
             <h3>Secured</h3>
@@ -134,7 +135,7 @@ const HomePageHtml: React.FC = () => {
               team</p>
           </div>
           <div className={styles["box"]}>
-            <img src="/images/image2.png" alt="img2" className={styles["box-img"]}/>
+            <Image src="/images/image2.png" alt="img2" className={styles["box-img"]} width={100} height={100} />
           </div>
           </div>
            
@@ -149,7 +150,7 @@ const HomePageHtml: React.FC = () => {
         </div>
         <div className={styles["footer-container"]}>
           <a href="#" className={styles["footer-link"]}>
-          <img src="/images/link1.png" alt="Social Link" className={styles["footer-img"]}/>
+          <Image src="/images/link1.png" alt="Social Link" className={styles["footer-img"]} width={100} height={100} />
           </a>
           {/* Add more social media links by adding images to public/images/ */}
         </div>

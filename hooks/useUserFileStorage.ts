@@ -34,7 +34,7 @@ interface ActivityLog {
   details?: string;
 }
 
-interface UploadedFile {
+export interface UploadedFile {
   id: string; // Unique identifier
   name: string;
   ipfsUri: string;
@@ -238,7 +238,7 @@ export const useUserFileStorage = (userUid: string | null) => {
         .filter(f => !f.trashed && f.starred)
         .map(f => f.id);
 
-      const toCache = [...new Set([...recentlyAccessed, ...starred])];
+      const toCache = Array.from(new Set([...recentlyAccessed, ...starred]));
       fileCache.prefetch(toCache, filesWithIds);
       
       // If we had to add IDs, save the corrected data

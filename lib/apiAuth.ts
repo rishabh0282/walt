@@ -74,3 +74,6 @@ export async function verifyAuthToken(req: NextApiRequest): Promise<{ uid: strin
   }
 }
 
+// Alias for backward compatibility
+export const verifyAuth = verifyAuthToken;
+
