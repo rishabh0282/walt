@@ -1,6 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap");
-
-
 .colors {
   --t-color: #fff;
   --bg-color: #1B5885;
@@ -121,45 +118,88 @@
   background-color: #070529;
   width: 100%;
   color: #fff;
-  display: flex; /* Use flexbox to align items horizontally */
-  justify-content: space-between; /* Distribute space between logo and menu items */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 48px;
   position: fixed;
   z-index: 1000;
+  box-sizing: border-box;
 }
 
-/* Style for the logo 
-Slight issue, width is adjusted inline*/
 .logo {
-  display: flex; /* To center the logo vertically within the menu bar */
-  align-items: center; /* To center the logo vertically within the menu bar */
-  width: 200px; /* Set the desired width */
-  height: auto; /* Automatically adjust the height to maintain the aspect ratio */ 
-   
+  display: flex;
+  align-items: center;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #fff;
 }
 
-/* Style for the menu items */
 .menu-items {
-  display: flex; /* Use flexbox to align menu items horizontally */
-  list-style: none; /* Remove default list styling */
-  font-family:  sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+  list-style: none;
   margin: 0;
-  padding: 10px;
-
+  padding: 0;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
 }
 
-/* Style for individual menu items */
 .menu-item {
-  margin: 20px;
-  margin-right: 30px;
   cursor: pointer;
   color: #fff;
-  font-size: 20px;
+  font-size: 18px;
   text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s ease;
 }
 
-/* Hover effect for menu items */
 .menu-item:hover {
   color: #844cfc;
+}
+
+.menuLamp {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 0;
+}
+
+.menuLamp::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -18px;
+  transform: translateX(-50%) scaleX(0.6);
+  width: 140%;
+  height: 14px;
+  background: radial-gradient(circle, rgba(132, 76, 252, 0.45), rgba(132, 76, 252, 0));
+  opacity: 0;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  pointer-events: none;
+  filter: blur(3px);
+}
+
+.menuLamp:hover::after,
+.menuLamp:focus-visible::after {
+  opacity: 1;
+  transform: translateX(-50%) scaleX(1);
+}
+
+.menu-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  margin-left: auto;
+  padding-left: 32px;
 }
 
 .working {
@@ -278,50 +318,34 @@ Slight issue, width is adjusted inline*/
 
 /* Auth Button */
 .authBtn {
-  background: none !important;
-  border: none !important;
-  padding: 0 !important;
-  margin: 20px !important;
-  margin-right: 30px !important;
-  cursor: pointer !important;
-  color: #fff !important;
-  font-size: 20px !important;
-  text-decoration: none !important;
-  font-family: inherit !important;
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 999px;
+  padding: 8px 20px;
+  cursor: pointer;
+  color: #fff;
+  font-size: 16px;
+  text-decoration: none;
+  font-family: inherit;
+  transition: background 0.2s ease, border-color 0.2s ease;
 }
 
 .authBtn:hover {
-  color: #844cfc !important;
+  background: rgba(132, 76, 252, 0.15);
+  border-color: #844cfc;
+  color: #fff;
 }
 
 /* User Email in Header */
 .userEmail {
-  color: #fff !important;
-  font-size: 16px !important;
-  margin-right: 20px !important;
+  color: #fff;
+  font-size: 16px;
   opacity: 0.8;
   max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  display: flex !important;
-  align-items: center !important;
-}
-
-/* Theme Button */
-.themeBtn {
-  background: none !important;
-  border: 1px solid rgba(255, 255, 255, 0.3) !important;
-  border-radius: 24px !important;
-  padding: 8px 12px !important;
-  cursor: pointer !important;
-  font-size: 20px !important;
-  margin-right: 20px !important;
-  transition: all 0.2s !important;
-  color: #fff !important;
-}
-
-.themeBtn:hover {
-  background: rgba(255, 255, 255, 0.1) !important;
-  border-color: rgba(255, 255, 255, 0.5) !important;
+  display: inline-flex;
+  align-items: center;
+  cursor: default;
 }

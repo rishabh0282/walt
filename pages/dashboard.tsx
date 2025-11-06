@@ -1403,7 +1403,7 @@ const Dashboard: NextPage = () => {
       <header className={styles.header}>
         <div className={styles.headerLeft}>
           <button className={styles.logoBtn} onClick={() => router.push('/')}>
-            <img src="/images/VaultLabsLogoWhtBg.png" alt="Vault Labs" className={styles.logoImg} />
+            <span className={styles.logoText}>Walt</span>
           </button>
           <div className={styles.searchContainer}>
             <div className={styles.searchBar}>
@@ -3073,4 +3073,3 @@ const Dashboard: NextPage = () => {
 };
 
 export default Dashboard;
-

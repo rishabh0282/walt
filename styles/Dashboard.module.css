@@ -79,6 +79,18 @@
   width: auto;
 }
 
+.logoText {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #5f6368;
+}
+
+.dark .logoText {
+  color: #fff;
+}
+
 .themeToggle {
   background: none;
   border: 1px solid #dadce0;
@@ -2959,4 +2971,3 @@
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
-

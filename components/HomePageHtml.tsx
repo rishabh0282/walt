@@ -9,40 +9,51 @@ import Link from 'next/link';
 const HomePageHtml: React.FC = () => {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const { user } = useAuth();
-  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+
 
   return (
     <div className={styles["bg"]}>
       <header>
         <div className={styles['menu-bar']}>
-          <div className={styles.logo}>
-            <img src="/images/VaultLabsLogoWhtBg.png" 
-            alt="Vault Labs" style={{ width: '200px', height: 'auto' }} />
-          </div>
-          <div className={styles['menu-items']}>
-          <a href="#welcome-hero" onClick={(scrollToSection)} className={styles['menu-item']}>Home</a>
-          <a href="#about" onClick={(scrollToSection)} className={styles['menu-item']}>About</a>
-          <a href="#working" onClick={(scrollToSection)} className={styles['menu-item']}>How it works</a>
-          <button 
-            className={styles['themeBtn']}
-            onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-            title={`Switch to ${theme === 'light' ? 'dark' : 'light'} theme`}
-          >
-            {theme === 'light' ? '🌙' : '☀️'}
-          </button>
-          {user ? (
-            <>
-              <span className={styles['userEmail']}>{user.email}</span>
-              <Link href="/dashboard" className={styles['menu-item']}>Dashboard</Link>
-            </>
-          ) : (
-            <button 
-              className={styles['menu-item'] + ' ' + styles['authBtn']}
-              onClick={() => setShowAuthModal(true)}
+          <div className={styles.logo}>Walt</div>
+          <nav className={styles['menu-items']}>
+            <a
+              href="#welcome-hero"
+              onClick={scrollToSection}
+              className={`${styles['menu-item']} ${styles.menuLamp}`}
             >
-              Sign In
-            </button>
-          )}
+              Home
+            </a>
+            <a
+              href="#about"
+              onClick={scrollToSection}
+              className={`${styles['menu-item']} ${styles.menuLamp}`}
+            >
+              About
+            </a>
+            <a
+              href="#working"
+              onClick={scrollToSection}
+              className={`${styles['menu-item']} ${styles.menuLamp}`}
+            >
+              How it works
+            </a>
+          </nav>
+          <div className={styles['menu-right']}>
+            {user ? (
+              <>
+                <Link href="/dashboard" className={`${styles['menu-item']} ${styles.menuLamp}`}>
+                  Dashboard
+                </Link>
+              </>
+            ) : (
+              <button 
+                className={styles['authBtn']}
+                onClick={() => setShowAuthModal(true)}
+              >
+                Sign In
+              </button>
+            )}
           </div>
         </div>
       </header>

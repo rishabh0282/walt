@@ -38,3 +38,4 @@ storage.rules
 google-services.json
 /dist
 backend/walt-b9f64-firebase-adminsdk-fbsvc-bb845e35c5.json
+/setup
