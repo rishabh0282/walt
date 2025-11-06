@@ -59,23 +59,41 @@ const FileUpload: React.FC = () => {
     [upload, router, addFiles]
   );
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({ 
+  const { getRootProps, getInputProps, isDragActive, open } = useDropzone({ 
     onDrop,
-    multiple: true 
+    multiple: true,
+    noClick: true,
+    noKeyboard: true 
   });
 
+  const handleUploadClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    open();
+  };
+
+  const handleDashboardClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    router.push('/dashboard');
+  };
+
   return (
-    <div {...getRootProps()}>
+    <div {...getRootProps({ className: styles.uploadZone })}>
       <input {...getInputProps()} />
-      <button className={styles["mainBtn"]} disabled={isUploading}>
-        <p>
-          {isUploading 
-            ? 'Uploading...' 
-            : isDragActive 
-            ? 'Drop files here' 
-            : 'Drop files here'}
-        </p>
-      </button>
+      <div className={styles.uploadActions}>
+        <button
+          className={`${styles.actionBtn} ${styles.primaryAction}`}
+          onClick={handleUploadClick}
+          disabled={isUploading}
+        >
+          {isUploading ? 'Uploading…' : isDragActive ? 'Release to Upload' : 'Upload Files'}
+        </button>
+        <button
+          className={`${styles.actionBtn} ${styles.secondaryAction}`}
+          onClick={handleDashboardClick}
+        >
+          Open Dashboard
+        </button>
+      </div>
     </div>
   );
 };
