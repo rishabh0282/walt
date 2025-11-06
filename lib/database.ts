@@ -243,9 +243,6 @@ export async function query<T = any>(
       const convertedRows = rows.map(row => convertRowFromSQLite(row));
       
       const duration = Date.now() - start;
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Query executed:', { text: sql, duration, rows: convertedRows.length });
-      }
       
       return {
         rows: convertedRows,
@@ -267,9 +264,6 @@ export async function query<T = any>(
           const convertedRows = rows.map(row => convertRowFromSQLite(row));
           
           const duration = Date.now() - start;
-          if (process.env.NODE_ENV === 'development') {
-            console.log('Query executed:', { text: sql, duration, rows: convertedRows.length });
-          }
           
           return {
             rows: convertedRows,
@@ -279,9 +273,6 @@ export async function query<T = any>(
       }
       
       const duration = Date.now() - start;
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Query executed:', { text: sql, duration, rows: result.changes });
-      }
       
       return {
         rows: [],

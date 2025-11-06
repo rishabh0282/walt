@@ -57,7 +57,6 @@ const SharePage: NextPage = () => {
 
   const recordAccess = async (shareId: string) => {
     // Would be an API call in production
-    console.log('Recording access for share:', shareId);
   };
 
   const fetchSharedFile = useCallback(async (shareId: string) => {

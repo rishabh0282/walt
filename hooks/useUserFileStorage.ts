@@ -120,8 +120,6 @@ export const useUserFileStorage = (userUid: string | null) => {
       
       for (let attempt = 0; attempt < maxRetries; attempt++) {
         try {
-          console.log(`Fetching from gateway ${gatewayIndex + 1}/${gatewaysToTry.length} (attempt ${attempt + 1}/${maxRetries}):`, gatewayUrl);
-          
           const startTime = Date.now();
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout
@@ -132,7 +130,6 @@ export const useUserFileStorage = (userUid: string | null) => {
           
           if (response.ok) {
             const data = await response.text();
-            console.log('✅ Successfully fetched from IPFS');
             // Record successful fetch for gateway optimization
             gatewayOptimizer.recordSuccess(gateway, responseTime);
             return data;
@@ -152,14 +149,12 @@ export const useUserFileStorage = (userUid: string | null) => {
           
           // Skip retries for DNS/network errors (won't be fixed by retrying)
           if (errorMsg.includes('NAME_NOT_RESOLVED') || errorMsg.includes('Failed to fetch')) {
-            console.log('Skipping retries (DNS/network error), trying next gateway...');
             break;
           }
           
           // Wait before retry (only for transient errors)
           if (attempt < maxRetries - 1) {
             const delay = 1000 * (attempt + 1); // 1s, 2s
-            console.log(`Retrying in ${delay}ms...`);
             await new Promise(resolve => setTimeout(resolve, delay));
           }
         }
@@ -175,14 +170,11 @@ export const useUserFileStorage = (userUid: string | null) => {
 
     setLoading(true);
     try {
-      console.log('Loading files for user:', userUid);
-      
       // Get IPFS URI from Firestore (single source of truth)
       const userDocRef = doc(db, 'users', userUid);
       const userDocSnap = await getDoc(userDocRef);
       
       if (!userDocSnap.exists()) {
-        console.log('No user document found in Firestore');
         setUploadedFiles([]);
         return;
       }
@@ -191,13 +183,10 @@ export const useUserFileStorage = (userUid: string | null) => {
       const userFileListUri = userData?.fileListUri || null;
       
       if (!userFileListUri) {
-        console.log('No IPFS URI found in Firestore');
         setUploadedFiles([]);
         return;
       }
 
-      console.log('Found IPFS URI in Firestore:', userFileListUri);
-      
       // Load from IPFS with retry logic
       const fileListData = await fetchFromIPFS(userFileListUri);
       
@@ -208,7 +197,6 @@ export const useUserFileStorage = (userUid: string | null) => {
       }
 
       const userFileList: UserFileList = JSON.parse(fileListData);
-      console.log('Loaded user file list from IPFS:', userFileList);
       
       // Verify this belongs to the current user
       if (userFileList.userId !== userUid) {
@@ -224,7 +212,6 @@ export const useUserFileStorage = (userUid: string | null) => {
       }));
       
       setUploadedFiles(filesWithIds);
-      console.log('Successfully loaded', filesWithIds.length, 'files from IPFS');
 
       // Cache frequently accessed files (recent and starred files)
       const fileCache = getFileCache();
@@ -244,7 +231,6 @@ export const useUserFileStorage = (userUid: string | null) => {
       // If we had to add IDs, save the corrected data
       const hadMissingIds = filesWithIds.some((file, index) => !userFileList.files[index]?.id);
       if (hadMissingIds) {
-        console.log('Some files were missing IDs, saving corrected data...');
         await saveUserFiles(filesWithIds);
       }
       
@@ -303,8 +289,6 @@ export const useUserFileStorage = (userUid: string | null) => {
         // Commit batch before moving to next batch
         await batch.commit();
       }
-      
-      console.log('Synced', files.length, 'files to Firestore');
     } catch (error) {
       const appError = ErrorHandler.createAppError(error, ErrorType.FIRESTORE);
       ErrorHandler.logError(appError, 'syncFilesToFirestore');
@@ -318,8 +302,6 @@ export const useUserFileStorage = (userUid: string | null) => {
     if (!userUid) return;
 
     try {
-      console.log('Saving', files.length, 'files to IPFS for user:', userUid);
-      
       const userFileList: UserFileList = {
         files,
         lastUpdated: Date.now(),
@@ -328,8 +310,6 @@ export const useUserFileStorage = (userUid: string | null) => {
 
       // Upload the file list to IPFS
       const fileListUri = await upload({ data: [JSON.stringify(userFileList)] });
-      
-      console.log('IPFS upload successful:', fileListUri[0]);
       
       // Store the URI in Firestore (single source of truth)
       const userDocRef = doc(db, 'users', userUid);
@@ -341,10 +321,6 @@ export const useUserFileStorage = (userUid: string | null) => {
       
       // Sync individual file metadata to Firestore (enhancement)
       await syncFilesToFirestore(files);
-      
-      console.log('User file list saved to IPFS:', fileListUri[0]);
-      console.log('IPFS Gateway URL:', fileListUri[0].replace('ipfs://', 'https://ipfs.io/ipfs/'));
-      console.log('URI stored in Firestore');
     } catch (error) {
       const appError = ErrorHandler.createAppError(error, ErrorType.FIRESTORE);
       ErrorHandler.logError(appError, 'saveUserFiles');

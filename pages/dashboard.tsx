@@ -513,7 +513,6 @@ const Dashboard: NextPage = () => {
   useEffect(() => {
     if (isDragging) {
       const timeout = setTimeout(() => {
-        console.log('=== DRAG TIMEOUT - RESETTING STATE ===');
         setIsDragging(false);
       }, 5000); // Reset after 5 seconds if still dragging
       
@@ -617,8 +616,6 @@ const Dashboard: NextPage = () => {
       
       const uris = await upload({ data: acceptedFiles });
       clearInterval(progressInterval);
-      
-      console.log('Upload successful:', uris);
 
       // Mark all as complete
       setUploadQueue(prev => prev.map(item => ({
@@ -700,8 +697,6 @@ const Dashboard: NextPage = () => {
       
       const uris = await upload({ data: acceptedFiles });
       clearInterval(progressInterval);
-      
-      console.log('Upload successful:', uris);
 
       // Mark all as complete
       setUploadQueue(prev => prev.map(item => ({
@@ -1951,16 +1946,10 @@ const Dashboard: NextPage = () => {
                   </span>
                 </div>
                 <div className={styles.statRow}>
-                  <span className={styles.statLabel}>📊 Used:</span>
+                  <span className={styles.statLabel}>📊 Total Size:</span>
                   <span className={styles.statValue}>
-                    {formatFileSize(storageStats.totalSize)} / {formatFileSize(storageStats.storageLimit)}
+                    {formatFileSize(storageStats.totalSize)}
                   </span>
-                </div>
-                <div className={styles.storageProgress}>
-                  <div 
-                    className={styles.storageProgressBar}
-                    style={{ width: `${(storageStats.totalSize / storageStats.storageLimit) * 100}%` }}
-                  />
                 </div>
               </div>
             </div>
@@ -2149,7 +2138,6 @@ const Dashboard: NextPage = () => {
                   
                   const draggedFileId = e.dataTransfer.getData('text/plain');
                   if (draggedFileId) {
-                    console.log('Moving file to root:', draggedFileId);
                     handleFileMove(draggedFileId, null);
                   }
                 }}
@@ -2190,7 +2178,6 @@ const Dashboard: NextPage = () => {
                       
                       const draggedFileId = e.dataTransfer.getData('text/plain');
                       if (draggedFileId) {
-                        console.log('Moving file to folder:', folder.name);
                         handleFileMove(draggedFileId, folder.id);
                       }
                     }}
@@ -2441,7 +2428,6 @@ const Dashboard: NextPage = () => {
                   draggable={!file.isFolder}
                   onDragStart={(e) => {
                     if (!file.isFolder) {
-                      console.log('=== DRAG START ===', file.id, file.name);
                       e.dataTransfer.setData('text/plain', file.id);
                       e.dataTransfer.effectAllowed = 'move';
                       
@@ -2475,14 +2461,12 @@ const Dashboard: NextPage = () => {
                   }}
                   onDragEnd={(e) => {
                     if (!file.isFolder) {
-                      console.log('=== DRAG END ===');
                       e.currentTarget.classList.remove(styles.dragging);
                       setIsDragging(false);
                     }
                   }}
                   onDragEnter={(e) => {
                     if (file.isFolder) {
-                      console.log('=== DRAG ENTER FOLDER ===', file.name);
                       e.preventDefault();
                       e.stopPropagation();
                       (e.currentTarget as HTMLElement).classList.add('dragOver');
@@ -2490,7 +2474,6 @@ const Dashboard: NextPage = () => {
                   }}
                   onDragLeave={(e) => {
                     if (file.isFolder) {
-                      console.log('=== DRAG LEAVE FOLDER ===', file.name);
                       // Only remove if we're actually leaving the element (not a child)
                       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
                       const isOutside = e.clientX < rect.left || e.clientX >= rect.right ||
@@ -2508,7 +2491,6 @@ const Dashboard: NextPage = () => {
                     }
                   }}
                   onDrop={(e) => {
-                    console.log('=== DROP EVENT ===', file.isFolder ? 'FOLDER' : 'FILE', file.name);
                     if (file.isFolder) {
                       e.preventDefault();
                       e.stopPropagation();
@@ -2516,21 +2498,15 @@ const Dashboard: NextPage = () => {
                       
                       // Check if we're dropping files from the file system
                       const droppedFiles = Array.from(e.dataTransfer.files);
-                      console.log('Dropped system files count:', droppedFiles.length);
                       
                       if (droppedFiles.length > 0) {
                         // Dropping files from file system
-                        console.log('Handling folder drop for system files');
                         handleFolderDrop(file.id, droppedFiles);
                       } else {
                         // Dropping a file card (moving existing file)
                         const draggedFileId = e.dataTransfer.getData('text/plain');
-                        console.log('Dragged file ID:', draggedFileId, 'Target folder:', file.id);
                         if (draggedFileId && draggedFileId !== file.id) {
-                          console.log('Moving file to folder...');
                           handleFileMove(draggedFileId, file.id);
-                        } else {
-                          console.log('Invalid drop - same ID or no ID');
                         }
                       }
                     }

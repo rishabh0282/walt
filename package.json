@@ -16,6 +16,7 @@
     "@radix-ui/react-toast": "^1.2.2",
     "@thirdweb-dev/react": "^4.9.4",
     "@thirdweb-dev/sdk": "^4.0.99",
+    "better-sqlite3": "^11.10.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "ethers": "^5.7.2",
@@ -34,17 +35,16 @@
     "react-dom": "^18.3.1",
     "react-dropzone": "^14.2.9",
     "tailwind-merge": "^2.5.4",
-    "uuid": "^9.0.1",
-    "better-sqlite3": "^11.0.0"
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
     "@types/formidable": "^3.4.5",
     "@types/node": "^22.8.6",
     "@types/qrcode": "^1.5.6",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@types/uuid": "^9.0.8",
-    "@types/better-sqlite3": "^7.6.11",
     "autoprefixer": "^10.4.20",
     "eslint": "^8.57.1",
     "eslint-config-next": "^14.2.18",

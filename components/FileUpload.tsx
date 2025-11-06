@@ -31,7 +31,6 @@ const FileUpload: React.FC = () => {
       setIsUploading(true);
       try {
         const uris = await upload({ data: acceptedFiles });
-        console.log('Upload successful:', uris);
 
         // Create uploaded file objects
         const newFiles: UploadedFile[] = acceptedFiles.map((file, index) => ({

@@ -20,8 +20,6 @@ export function getIPFSClient(): IPFSHTTPClient {
         url: apiUrl,
         timeout: 60000, // 60 seconds
       });
-      
-      console.log('IPFS client initialized:', apiUrl);
     } catch (error) {
       console.error('Failed to initialize IPFS client:', error);
       throw new Error('IPFS client initialization failed');
@@ -132,7 +130,6 @@ export async function pinToIPFS(cid: string): Promise<void> {
   
   try {
     await client.pin.add(cid);
-    console.log(`Pinned CID: ${cid}`);
   } catch (error) {
     console.error('IPFS pin error:', error);
     throw new Error('Failed to pin to IPFS');
@@ -147,7 +144,6 @@ export async function unpinFromIPFS(cid: string): Promise<void> {
   
   try {
     await client.pin.rm(cid);
-    console.log(`Unpinned CID: ${cid}`);
   } catch (error) {
     console.error('IPFS unpin error:', error);
     throw new Error('Failed to unpin from IPFS');

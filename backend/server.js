@@ -667,8 +667,6 @@ app.get('/ipfs/:cid(*)', async (req, res) => {
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Backend server running on port ${PORT}`);
-  console.log(`📊 Database: ${dbPath}`);
-  console.log(`🌐 IPFS: ${ipfsUrl}`);
+  // Server started
 });
 
