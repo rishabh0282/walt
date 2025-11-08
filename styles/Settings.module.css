@@ -1,17 +1,17 @@
 .container {
   min-height: 100vh;
-  background: #f8f9fa;
+  background: #ffffff;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
 .dark .container {
-  background: #070529;
-  color: #fff;
+  background: #00171f;
+  color: #ffffff;
 }
 
 .header {
   background: white;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid #adebff;
   padding: 16px 24px;
   position: sticky;
   top: 0;
@@ -19,8 +19,8 @@
 }
 
 .dark .header {
-  background: #070529;
-  border-bottom-color: rgba(255, 255, 255, 0.1);
+  background: #00171f;
+  border-bottom-color: rgba(173, 235, 255, 0.2);
 }
 
 .headerContent {
@@ -33,23 +33,23 @@
 
 .backBtn {
   background: none;
-  border: 1px solid #dadce0;
+  border: 1px solid #adebff;
   border-radius: 4px;
   padding: 8px 16px;
   cursor: pointer;
   font-size: 14px;
-  color: #5f6368;
+  color: #00171f;
   transition: all 0.2s;
 }
 
 .dark .backBtn {
-  border-color: rgba(255, 255, 255, 0.3);
-  color: #fff;
+  border-color: rgba(173, 235, 255, 0.3);
+  color: #adebff;
 }
 
 .backBtn:hover {
-  background: #f8f9fa;
-  border-color: #5f6368;
+  background: #adebff;
+  border-color: #003459;
 }
 
 .dark .backBtn:hover {
@@ -61,11 +61,11 @@
   margin: 0;
   font-size: 28px;
   font-weight: 600;
-  color: #202124;
+  color: #00171f;
 }
 
 .dark .title {
-  color: #fff;
+  color: #adebff;
 }
 
 .content {
@@ -96,7 +96,7 @@
 }
 
 .dark .section {
-  background: #1e1e1e;
+  background: #003459;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
@@ -104,9 +104,9 @@
   margin: 0 0 20px 0;
   font-size: 20px;
   font-weight: 600;
-  color: #202124;
+  color: #00171f;
   padding-bottom: 12px;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid #adebff;
 }
 
 .dark .sectionTitle {
@@ -139,18 +139,18 @@
   display: block;
   font-size: 16px;
   font-weight: 500;
-  color: #202124;
+  color: #00171f;
   margin-bottom: 4px;
 }
 
 .dark .settingLabel {
-  color: #fff;
+  color: #adebff;
 }
 
 .settingDescription {
   margin: 0;
   font-size: 14px;
-  color: #5f6368;
+  color: #00171f;
   line-height: 1.4;
 }
 
@@ -166,50 +166,50 @@
 .themeOption,
 .viewOption {
   padding: 10px 20px;
-  background: #f8f9fa;
-  border: 1px solid #dadce0;
+  background: #adebff;
+  border: 1px solid #adebff;
   border-radius: 6px;
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
   transition: all 0.2s;
   margin-right: 8px;
-  color: #5f6368;
+  color: #00171f;
 }
 
 .dark .themeOption,
 .dark .viewOption {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.2);
-  color: #ccc;
+  background: rgba(173, 235, 255, 0.1);
+  border-color: rgba(173, 235, 255, 0.2);
+  color: #adebff;
 }
 
 .themeOption:hover,
 .viewOption:hover {
-  background: #e8f0fe;
-  border-color: #1a73e8;
-  color: #1a73e8;
+  background: #adebff;
+  border-color: #003459;
+  color: #003459;
 }
 
 .dark .themeOption:hover,
 .dark .viewOption:hover {
-  background: rgba(26, 115, 232, 0.2);
-  border-color: #4a9eff;
-  color: #4a9eff;
+  background: rgba(173, 235, 255, 0.2);
+  border-color: #adebff;
+  color: #adebff;
 }
 
 .themeOption.active,
 .viewOption.active {
-  background: #1a73e8;
-  border-color: #1a73e8;
+  background: #003459;
+  border-color: #003459;
   color: white;
 }
 
 .dark .themeOption.active,
 .dark .viewOption.active {
-  background: #4a9eff;
-  border-color: #4a9eff;
-  color: white;
+  background: #adebff;
+  border-color: #adebff;
+  color: #00171f;
 }
 
 .toggle {

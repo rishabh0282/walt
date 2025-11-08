@@ -3,7 +3,7 @@
  * Bell icon with unread count badge
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import NotificationCenter from './NotificationCenter';
 import styles from '../styles/NotificationBell.module.css';
@@ -14,34 +14,7 @@ const NotificationBell: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    if (user) {
-      loadUnreadCount();
-      
-      // Poll for new notifications every 30 seconds
-      const interval = setInterval(() => {
-        loadUnreadCount();
-      }, 30000);
-      
-      setPollingInterval(interval);
-
-      return () => {
-        if (interval) {
-          clearInterval(interval);
-        }
-      };
-    }
-  }, [user]);
-
-  useEffect(() => {
-    return () => {
-      if (pollingInterval) {
-        clearInterval(pollingInterval);
-      }
-    };
-  }, [pollingInterval]);
-
-  const loadUnreadCount = async () => {
+  const loadUnreadCount = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -61,7 +34,26 @@ const NotificationBell: React.FC = () => {
       // Silently fail - don't disturb user
       console.error('Failed to load unread count:', err);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      loadUnreadCount();
+      
+      // Poll for new notifications every 30 seconds
+      const interval = setInterval(() => {
+        loadUnreadCount();
+      }, 30000);
+      
+      setPollingInterval(interval);
+
+      return () => {
+        if (interval) {
+          clearInterval(interval);
+        }
+      };
+    }
+  }, [user, loadUnreadCount]);
 
   const handleClick = () => {
     setIsOpen(!isOpen);

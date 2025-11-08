@@ -858,7 +858,7 @@ export const ActivityLogDB = {
   }
 };
 
-export default {
+const database = {
   query,
   getPool,
   closePool,
@@ -867,4 +867,6 @@ export default {
   FolderDB,
   ActivityLogDB
 };
+
+export default database;
 

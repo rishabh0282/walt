@@ -307,7 +307,7 @@ export const BackendIPFSAPI = {
   },
 };
 
-export default {
+const backendClient = {
   backendRequest,
   FileAPI: BackendFileAPI,
   FolderAPI: BackendFolderAPI,
@@ -316,4 +316,6 @@ export default {
   ShareAPI: BackendShareAPI,
   IPFSAPI: BackendIPFSAPI,
 };
+
+export default backendClient;
 

@@ -3,7 +3,7 @@
  * Allows users to view gateway performance and manage custom gateways
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { getGatewayOptimizer, GatewayStats } from '../lib/gatewayOptimizer';
 import styles from '../styles/GatewaySettings.module.css';
 
@@ -20,13 +20,7 @@ const GatewaySettings: React.FC<GatewaySettingsProps> = ({ isOpen, onClose }) =>
 
   const optimizer = getGatewayOptimizer();
 
-  useEffect(() => {
-    if (isOpen) {
-      loadGatewayStats();
-    }
-  }, [isOpen]);
-
-  const loadGatewayStats = () => {
+  const loadGatewayStats = useCallback(() => {
     const stats = optimizer.getStats();
     // Sort by performance (best first)
     const sorted = [...stats].sort((a, b) => {
@@ -36,7 +30,13 @@ const GatewaySettings: React.FC<GatewaySettingsProps> = ({ isOpen, onClose }) =>
       return a.responseTime - b.responseTime;
     });
     setGatewayStats(sorted);
-  };
+  }, [optimizer]);
+
+  useEffect(() => {
+    if (isOpen) {
+      loadGatewayStats();
+    }
+  }, [isOpen, loadGatewayStats]);
 
   const handleAddCustomGateway = () => {
     if (!customGatewayUrl.trim()) {

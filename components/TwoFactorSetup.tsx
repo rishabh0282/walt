@@ -3,7 +3,8 @@
  * Allows users to set up 2FA with TOTP authenticator apps
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
 import { useAuth } from '../contexts/AuthContext';
 import { formatBackupCode, isValidTokenFormat } from '../lib/twoFactorAuth';
 import styles from '../styles/TwoFactorSetup.module.css';
@@ -29,13 +30,7 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ isOpen, onClose, onEnab
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    if (isOpen && user) {
-      loadSetupData();
-    }
-  }, [isOpen, user]);
-
-  const loadSetupData = async () => {
+  const loadSetupData = useCallback(async () => {
     if (!user) return;
 
     setLoading(true);
@@ -67,7 +62,13 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ isOpen, onClose, onEnab
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (isOpen && user) {
+      loadSetupData();
+    }
+  }, [isOpen, user, loadSetupData]);
 
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -140,10 +141,13 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ isOpen, onClose, onEnab
                 <p>Scan this QR code with your authenticator app (Google Authenticator, Authy, Microsoft Authenticator, etc.)</p>
                 
                 <div className={styles.qrCodeContainer}>
-                  <img 
+                  <Image 
                     src={setupData.qrCodeDataUrl} 
                     alt="2FA QR Code" 
                     className={styles.qrCode}
+                    width={200}
+                    height={200}
+                    unoptimized
                   />
                 </div>
 

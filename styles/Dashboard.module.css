@@ -5,12 +5,12 @@
 }
 
 .dashboard.light {
-  background: #f8f9fa;
+  background: #ffffff;
 }
 
 .dashboard.dark {
-  background: #070529;
-  color: #fff;
+  background: #00171f;
+  color: #ffffff;
 }
 
 /* Dragging active state */
@@ -39,16 +39,17 @@
   align-items: center;
   padding: 8px 16px;
   background: white;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid #adebff;
   position: sticky;
   top: 0;
   z-index: 100;
   height: 64px;
+  overflow: hidden;
 }
 
 .dark .header {
-  background: #070529;
-  border-bottom-color: rgba(255, 255, 255, 0.1);
+  background: #00171f;
+  border-bottom-color: rgba(173, 235, 255, 0.2);
 }
 
 .headerLeft {
@@ -68,7 +69,7 @@
 .logo {
   font-size: 22px;
   font-weight: 600;
-  color: #5f6368;
+  color: #00171f;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -84,16 +85,16 @@
   font-weight: 700;
   letter-spacing: 1.5px;
   text-transform: uppercase;
-  color: #5f6368;
+  color: #00171f;
 }
 
 .dark .logoText {
-  color: #fff;
+  color: #adebff;
 }
 
 .themeToggle {
   background: none;
-  border: 1px solid #dadce0;
+  border: 1px solid #adebff;
   border-radius: 24px;
   padding: 8px 12px;
   cursor: pointer;
@@ -103,13 +104,13 @@
 }
 
 .themeToggle:hover {
-  background: #f8f9fa;
-  border-color: #5f6368;
+  background: #adebff;
+  border-color: #003459;
 }
 
 .dark .themeToggle {
-  border-color: rgba(255, 255, 255, 0.3);
-  color: #fff;
+  border-color: rgba(173, 235, 255, 0.3);
+  color: #adebff;
 }
 
 .dark .themeToggle:hover {
@@ -144,7 +145,7 @@
 }
 
 .searchIcon {
-  color: #5f6368;
+  color: #00171f;
   margin-right: 12px;
   font-size: 20px;
 }
@@ -164,7 +165,7 @@
 
 .filterToggle {
   background: none;
-  border: 1px solid #dadce0;
+  border: 1px solid #adebff;
   border-radius: 50%;
   width: 36px;
   height: 36px;
@@ -201,7 +202,7 @@
   gap: 16px;
   padding: 16px;
   background: white;
-  border: 1px solid #dadce0;
+  border: 1px solid #adebff;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   z-index: 100;
@@ -230,7 +231,7 @@
   right: 0;
   margin-top: 4px;
   background: white;
-  border: 1px solid #dadce0;
+  border: 1px solid #adebff;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   z-index: 200;
@@ -247,7 +248,7 @@
   padding: 8px 12px;
   font-size: 12px;
   font-weight: 600;
-  color: #5f6368;
+  color: #00171f;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   border-bottom: 1px solid #e8eaed;
@@ -363,7 +364,7 @@
 .filterLabel {
   font-size: 12px;
   font-weight: 600;
-  color: #5f6368;
+  color: #00171f;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -379,7 +380,7 @@
 }
 
 .filterRange span {
-  color: #5f6368;
+  color: #00171f;
   font-size: 13px;
 }
 
@@ -390,7 +391,7 @@
 .filterSelect,
 .filterInput {
   padding: 8px 12px;
-  border: 1px solid #dadce0;
+  border: 1px solid #adebff;
   border-radius: 4px;
   font-size: 14px;
   background: white;
@@ -436,7 +437,7 @@
   min-height: 100px;
   max-height: 150px;
   padding: 4px;
-  border: 1px solid #dadce0;
+  border: 1px solid #adebff;
   border-radius: 4px;
   font-size: 13px;
   overflow-y: auto;
@@ -461,7 +462,7 @@
 
 .noTagsHint {
   font-size: 12px;
-  color: #5f6368;
+  color: #00171f;
   font-style: italic;
   padding: 8px;
 }
@@ -472,13 +473,13 @@
 
 .clearTagFilterBtn {
   padding: 6px 12px;
-  background: #f8f9fa;
-  border: 1px solid #dadce0;
+  background: #adebff;
+  border: 1px solid #adebff;
   border-radius: 4px;
   font-size: 12px;
   cursor: pointer;
   transition: all 0.2s;
-  color: #5f6368;
+  color: #00171f;
   align-self: flex-start;
 }
 
@@ -532,18 +533,18 @@
 
 .homeBtn {
   background: white;
-  border: 1px solid #dadce0;
+  border: 1px solid #adebff;
   border-radius: 24px;
   padding: 10px 24px;
   cursor: pointer;
   font-weight: 500;
-  color: #5f6368;
+  color: #00171f;
   transition: all 0.2s;
 }
 
 .homeBtn:hover {
-  background: #f8f9fa;
-  border-color: #5f6368;
+  background: #adebff;
+  border-color: #003459;
 }
 
 /* Main Content */
@@ -650,7 +651,7 @@
   gap: 12px;
   padding: 12px 24px;
   background: white;
-  border: 1px solid #dadce0;
+  border: 1px solid #adebff;
   border-radius: 24px;
   cursor: pointer;
   font-size: 14px;
@@ -661,7 +662,7 @@
 }
 
 .newButton:hover {
-  background: #f8f9fa;
+  background: #adebff;
   box-shadow: 0 2px 6px rgba(60, 64, 67, 0.4);
 }
 
@@ -687,7 +688,7 @@
   gap: 16px;
   padding: 10px 24px;
   cursor: pointer;
-  color: #5f6368;
+  color: #00171f;
   font-size: 14px;
   transition: background 0.2s;
   margin: 0 12px;
@@ -717,7 +718,7 @@
 
 .storageText {
   font-size: 13px;
-  color: #5f6368;
+  color: #00171f;
 }
 
 .storageStats {
@@ -750,14 +751,14 @@
 
 .cleanupBtn, .gatewayBtn, .twoFactorBtn {
   padding: 6px 12px;
-  background: #f8f9fa;
-  border: 1px solid #dadce0;
+  background: #adebff;
+  border: 1px solid #adebff;
   border-radius: 6px;
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
-  color: #5f6368;
+  color: #00171f;
 }
 
 .cleanupBtn:hover, .gatewayBtn:hover, .twoFactorBtn:hover {
@@ -786,7 +787,7 @@
 }
 
 .statLabel {
-  color: #5f6368;
+  color: #00171f;
   font-weight: 500;
 }
 
@@ -896,14 +897,14 @@
 
 .autoPinHint {
   font-size: 12px;
-  color: #5f6368;
+  color: #00171f;
   margin: 8px 0 0 0;
   padding-left: 26px;
 }
 
 .autoPinCost {
   font-size: 11px;
-  color: #5f6368;
+  color: #00171f;
   margin: 4px 0 0 0;
   padding-left: 26px;
   font-style: italic;
@@ -1012,46 +1013,46 @@
 
 .sortSelect {
   padding: 8px 12px;
-  border: 1px solid #dadce0;
+  border: 1px solid #adebff;
   border-radius: 4px;
   background: white;
-  color: #5f6368;
+  color: #00171f;
   font-size: 14px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .sortSelect:hover {
-  border-color: #5f6368;
-  background: #f8f9fa;
+  border-color: #003459;
+  background: #adebff;
 }
 
 .sortDirection {
   background: white;
-  border: 1px solid #dadce0;
+  border: 1px solid #adebff;
   border-radius: 4px;
   padding: 8px 12px;
   cursor: pointer;
   font-weight: 500;
-  color: #5f6368;
+  color: #00171f;
   transition: all 0.2s;
   font-size: 16px;
   min-width: 40px;
 }
 
 .sortDirection:hover {
-  background: #f8f9fa;
-  border-color: #5f6368;
+  background: #adebff;
+  border-color: #003459;
 }
 
 .newFolderBtn {
   background: white;
-  border: 1px solid #dadce0;
+  border: 1px solid #adebff;
   border-radius: 24px;
   padding: 8px 16px;
   cursor: pointer;
   font-weight: 500;
-  color: #5f6368;
+  color: #00171f;
   transition: all 0.2s;
   font-size: 14px;
   display: flex;
@@ -1060,13 +1061,13 @@
 }
 
 .newFolderBtn:hover {
-  background: #f8f9fa;
-  border-color: #5f6368;
+  background: #adebff;
+  border-color: #003459;
 }
 
 .viewBtn, .viewBtnActive {
   background: white;
-  border: 1px solid #dadce0;
+  border: 1px solid #adebff;
   border-radius: 50%;
   width: 40px;
   height: 40px;
@@ -1079,7 +1080,7 @@
 }
 
 .viewBtn:hover {
-  background: #f8f9fa;
+  background: #adebff;
 }
 
 .viewBtnActive {
@@ -1090,8 +1091,8 @@
 
 .columnSettingsBtn {
   padding: 8px 12px;
-  background: #f8f9fa;
-  border: 1px solid #dadce0;
+  background: #adebff;
+  border: 1px solid #adebff;
   border-radius: 4px;
   cursor: pointer;
   font-size: 16px;
@@ -1117,12 +1118,12 @@
 
 .clearBtn {
   background: white;
-  border: 1px solid #dadce0;
+  border: 1px solid #adebff;
   border-radius: 24px;
   padding: 8px 16px;
   cursor: pointer;
   font-size: 14px;
-  color: #5f6368;
+  color: #00171f;
   margin-left: 8px;
   transition: all 0.2s;
 }
@@ -1187,7 +1188,7 @@
 }
 
 .emptyState p {
-  color: #5f6368;
+  color: #00171f;
   font-size: 14px;
   margin: 0 0 24px 0;
 }
@@ -1220,7 +1221,7 @@
   width: 100%;
   max-width: 400px;
   padding: 12px 16px;
-  border: 1px solid #dadce0;
+  border: 1px solid #adebff;
   border-radius: 8px;
   font-size: 14px;
   margin-top: 10px;
@@ -1234,7 +1235,7 @@
 
 .syncHint {
   font-size: 12px;
-  color: #5f6368;
+  color: #00171f;
   margin-top: 8px;
 }
 
@@ -1265,7 +1266,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f8f9fa;
+  background: #adebff;
   overflow: hidden;
   position: relative;
   pointer-events: none;
@@ -1326,7 +1327,7 @@
 
 .moreBtn {
   background: none;
-  border: 1px solid #dadce0;
+  border: 1px solid #adebff;
   border-radius: 50%;
   width: 32px;
   height: 32px;
@@ -1336,12 +1337,12 @@
   align-items: center;
   justify-content: center;
   transition: all 0.2s;
-  color: #5f6368;
+  color: #00171f;
 }
 
 .moreBtn:hover {
   background: #e8eaed;
-  border-color: #5f6368;
+  border-color: #003459;
 }
 
 .dark .moreBtn {
@@ -1487,7 +1488,7 @@
 
 .fileMeta {
   font-size: 12px;
-  color: #5f6368;
+  color: #00171f;
   display: flex;
   gap: 6px;
 }
@@ -1578,13 +1579,13 @@
   display: flex;
   align-items: center;
   padding: 12px 16px;
-  background: #f8f9fa;
+  background: #adebff;
   border-bottom: 2px solid #e0e0e0;
   font-weight: 600;
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: #5f6368;
+  color: #00171f;
   gap: 16px;
 }
 
@@ -1607,7 +1608,7 @@
   display: flex;
   align-items: center;
   padding: 12px 16px;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid #adebff;
   transition: background 0.2s;
   gap: 16px;
 }
@@ -1617,7 +1618,7 @@
 }
 
 .fileRow:hover {
-  background: #f8f9fa;
+  background: #adebff;
 }
 
 .dark .fileRow:hover {
@@ -1671,7 +1672,7 @@
 }
 
 .fileRow:hover {
-  background: #f8f9fa;
+  background: #adebff;
 }
 
 .fileRow .filePreview {
@@ -1740,7 +1741,7 @@
 
 .userEmail {
   font-size: 14px;
-  color: #5f6368;
+  color: #00171f;
   max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1755,19 +1756,19 @@
 
 .logoutBtn {
   background: white;
-  border: 1px solid #dadce0;
+  border: 1px solid #adebff;
   border-radius: 24px;
   padding: 8px 16px;
   cursor: pointer;
   font-weight: 500;
-  color: #5f6368;
+  color: #00171f;
   transition: all 0.2s;
   font-size: 14px;
 }
 
 .logoutBtn:hover {
-  background: #f8f9fa;
-  border-color: #5f6368;
+  background: #adebff;
+  border-color: #003459;
 }
 
 .dark .logoutBtn {
@@ -1788,18 +1789,18 @@
   align-items: center;
   padding: 8px 12px;
   background: white;
-  border: 1px solid #dadce0;
+  border: 1px solid #adebff;
   border-radius: 24px;
   cursor: pointer;
   font-size: 14px;
-  color: #5f6368;
+  color: #00171f;
   transition: all 0.2s;
   margin-right: 8px;
 }
 
 .keyboardShortcutsCard:hover {
-  background: #f8f9fa;
-  border-color: #5f6368;
+  background: #adebff;
+  border-color: #003459;
 }
 
 .dark .keyboardShortcutsCard {
@@ -1826,7 +1827,7 @@
   min-width: 300px;
   max-width: 400px;
   background: white;
-  border: 1px solid #dadce0;
+  border: 1px solid #adebff;
   border-radius: 8px;
   padding: 12px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
@@ -1855,7 +1856,7 @@
   min-width: fit-content;
   padding: 2px 8px;
   background: #f1f3f4;
-  border: 1px solid #dadce0;
+  border: 1px solid #adebff;
   border-radius: 4px;
   font-family: 'Courier New', monospace;
   font-size: 12px;
@@ -1870,7 +1871,7 @@
 }
 
 .shortcutAction {
-  color: #5f6368;
+  color: #00171f;
   flex: 1;
 }
 
@@ -1889,17 +1890,17 @@
   gap: 8px;
   padding: 8px 12px;
   background: white;
-  border: 1px solid #dadce0;
+  border: 1px solid #adebff;
   border-radius: 24px;
   cursor: pointer;
   font-size: 14px;
-  color: #5f6368;
+  color: #00171f;
   transition: all 0.2s;
 }
 
 .userDropdownTrigger:hover {
-  background: #f8f9fa;
-  border-color: #5f6368;
+  background: #adebff;
+  border-color: #003459;
 }
 
 .dark .userDropdownTrigger {
@@ -1919,7 +1920,7 @@
   right: 0;
   min-width: 200px;
   background: white;
-  border: 1px solid #dadce0;
+  border: 1px solid #adebff;
   border-radius: 8px;
   padding: 4px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
@@ -2144,7 +2145,7 @@
   width: 400px;
   max-height: 400px;
   background: white;
-  border: 1px solid #dadce0;
+  border: 1px solid #adebff;
   border-radius: 12px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
   z-index: 1000;
@@ -2173,7 +2174,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 16px;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid #adebff;
 }
 
 .dark .uploadHeader {
@@ -2195,7 +2196,7 @@
   background: none;
   border: none;
   font-size: 20px;
-  color: #5f6368;
+  color: #00171f;
   cursor: pointer;
   padding: 4px 8px;
   border-radius: 4px;
@@ -2250,7 +2251,7 @@
 
 .uploadItemProgress {
   font-size: 13px;
-  color: #5f6368;
+  color: #00171f;
   font-weight: 500;
   margin-left: 12px;
 }
@@ -2317,6 +2318,7 @@
     height: auto;
     min-height: 56px;
     flex-wrap: wrap;
+    overflow: hidden;
   }
 
   .headerLeft {
@@ -2747,7 +2749,7 @@
 .mobileMenuBtn {
   display: none;
   background: white;
-  border: 1px solid #dadce0;
+  border: 1px solid #adebff;
   border-radius: 50%;
   width: 40px;
   height: 40px;
@@ -2760,8 +2762,8 @@
 }
 
 .mobileMenuBtn:hover {
-  background: #f8f9fa;
-  border-color: #5f6368;
+  background: #adebff;
+  border-color: #003459;
 }
 
 .dark .mobileMenuBtn {
@@ -2823,7 +2825,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 16px;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid #adebff;
 }
 
 .dark .mobileMenuHeader {
@@ -2846,7 +2848,7 @@
   border: none;
   font-size: 24px;
   cursor: pointer;
-  color: #5f6368;
+  color: #00171f;
   padding: 4px;
   width: 32px;
   height: 32px;

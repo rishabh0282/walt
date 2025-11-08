@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import styles from '../styles/StorageCleanupModal.module.css';
 import {
   getCleanupRecommendations,
@@ -38,19 +38,19 @@ const StorageCleanupModal: React.FC<StorageCleanupModalProps> = ({
   });
   const [activeTab, setActiveTab] = useState<'recommendations' | 'custom'>('recommendations');
 
+  const updateCandidates = useCallback((newFilters: CleanupFilters) => {
+    const newCandidates = getCleanupCandidates(files, newFilters);
+    setCandidates(newCandidates);
+    setSelectedFileIds(new Set()); // Clear selection when filters change
+  }, [files]);
+
   useEffect(() => {
     if (isOpen && files.length > 0) {
       const recs = getCleanupRecommendations(files);
       setRecommendations(recs);
       updateCandidates(filters);
     }
-  }, [isOpen, files]);
-
-  const updateCandidates = (newFilters: CleanupFilters) => {
-    const newCandidates = getCleanupCandidates(files, newFilters);
-    setCandidates(newCandidates);
-    setSelectedFileIds(new Set()); // Clear selection when filters change
-  };
+  }, [isOpen, files, filters, updateCandidates]);
 
   const handleFilterChange = (key: keyof CleanupFilters, value: any) => {
     const newFilters = { ...filters, [key]: value };

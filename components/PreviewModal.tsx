@@ -1,4 +1,5 @@
 import React from 'react';
+import Image from 'next/image';
 import styles from '../styles/PreviewModal.module.css';
 
 interface PreviewModalProps {
@@ -19,7 +20,7 @@ const PreviewModal: React.FC<PreviewModalProps> = ({ isOpen, fileName, fileType,
 
   const renderContent = () => {
     if (isImage(fileType)) {
-      return <img src={gatewayUrl} alt={fileName} className={styles.media} />;
+      return <Image src={gatewayUrl} alt={fileName} className={styles.media} width={1200} height={800} unoptimized style={{ objectFit: 'contain' }} />;
     }
     if (isVideo(fileType)) {
       return (

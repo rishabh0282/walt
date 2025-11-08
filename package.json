@@ -1,5 +1,5 @@
 {
-  "name": "vault-labs",
+  "name": "walt",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -16,6 +16,9 @@
     "@radix-ui/react-toast": "^1.2.2",
     "@thirdweb-dev/react": "^4.9.4",
     "@thirdweb-dev/sdk": "^4.0.99",
+    "@tsparticles/engine": "^3.9.1",
+    "@tsparticles/react": "^3.0.0",
+    "@tsparticles/slim": "^3.9.1",
     "better-sqlite3": "^11.10.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
@@ -25,6 +28,7 @@
     "form-data": "^4.0.0",
     "formdata-node": "^6.0.3",
     "formidable": "^3.5.1",
+    "framer-motion": "^12.23.24",
     "ipfs-http-client": "^60.0.1",
     "jszip": "^3.10.1",
     "lucide-react": "^0.454.0",
@@ -35,7 +39,9 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-dropzone": "^14.2.9",
+    "react-social-icons": "^6.25.0",
     "tailwind-merge": "^2.5.4",
+    "tsparticles": "^3.9.1",
     "uuid": "^9.0.1"
   },
   "devDependencies": {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
 import styles from '../styles/FilePreviewHover.module.css';
 
 interface FilePreviewHoverProps {
@@ -101,10 +102,13 @@ const FilePreviewHover: React.FC<FilePreviewHoverProps> = ({ file, position, onC
       <div className={styles.previewContent}>
         {!imageError ? (
           <>
-            <img
+            <Image
               src={file.gatewayUrl}
               alt={file.name}
               className={styles.previewImage}
+              width={400}
+              height={400}
+              unoptimized
               onLoad={() => setImageLoaded(true)}
               onError={() => setImageError(true)}
               style={{ opacity: imageLoaded ? 1 : 0 }}

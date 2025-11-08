@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { NextPage } from 'next';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
+import Image from 'next/image';
 import Toast from '../../components/Toast';
 import styles from '../../styles/SharePage.module.css';
 
@@ -260,7 +261,7 @@ const SharePage: NextPage = () => {
             {file.isFolder ? (
               <div className={styles.folderIcon}>📁</div>
             ) : file.type.startsWith('image/') ? (
-              <img src={file.gatewayUrl} alt={file.name} className={styles.image} />
+              <Image src={file.gatewayUrl} alt={file.name} className={styles.image} width={800} height={600} unoptimized style={{ objectFit: 'contain' }} />
             ) : (
               <div className={styles.fileIcon}>
                 {getFileIcon(file.type)}

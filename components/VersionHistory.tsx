@@ -3,7 +3,7 @@
  * Displays file versions and allows restoring to previous versions
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { FileVersion, getFileVersions, formatVersionDate } from '../lib/versionHistory';
 import { formatFileSize } from '../lib/utils';
@@ -30,13 +30,7 @@ const VersionHistory: React.FC<VersionHistoryProps> = ({
   const [error, setError] = useState('');
   const [restoringVersionId, setRestoringVersionId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (isOpen && fileId && user) {
-      loadVersions();
-    }
-  }, [isOpen, fileId, user]);
-
-  const loadVersions = async () => {
+  const loadVersions = useCallback(async () => {
     if (!user) return;
 
     setLoading(true);
@@ -63,7 +57,13 @@ const VersionHistory: React.FC<VersionHistoryProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, fileId]);
+
+  useEffect(() => {
+    if (isOpen && fileId && user) {
+      loadVersions();
+    }
+  }, [isOpen, fileId, user, loadVersions]);
 
   const handleRestore = async (version: FileVersion) => {
     if (!confirm(`Restore "${fileName}" to version ${version.version}? This will replace the current version.`)) {

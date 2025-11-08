@@ -4,6 +4,7 @@
  */
 
 import { create as createIPFSClient, IPFSHTTPClient } from 'ipfs-http-client';
+import type { Buffer } from 'buffer';
 
 // Cache IPFS client instance
 let ipfsClient: IPFSHTTPClient | null = null;
@@ -14,18 +15,19 @@ let ipfsClient: IPFSHTTPClient | null = null;
 export function getIPFSClient(): IPFSHTTPClient {
   if (!ipfsClient) {
     const apiUrl = process.env.IPFS_API_URL || 'http://127.0.0.1:5001';
-    
+
     try {
-      ipfsClient = createIPFSClient({
+      const client = createIPFSClient({
         url: apiUrl,
         timeout: 60000, // 60 seconds
       });
+      ipfsClient = client;
     } catch (error) {
       console.error('Failed to initialize IPFS client:', error);
       throw new Error('IPFS client initialization failed');
     }
   }
-  
+
   return ipfsClient;
 }
 
@@ -310,7 +312,7 @@ export async function checkNodeHealth(): Promise<{
   }
 }
 
-export default {
+const ipfsClientApi = {
   getIPFSClient,
   uploadToIPFS,
   uploadDirectoryToIPFS,
@@ -326,5 +328,7 @@ export default {
   getPublicGatewayUrls,
   checkNodeHealth,
 };
+
+export default ipfsClientApi;
 
 

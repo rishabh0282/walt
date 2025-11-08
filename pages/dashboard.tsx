@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { NextPage } from 'next';
 import { useRouter } from 'next/router';
+import Image from 'next/image';
 import { useStorageUpload } from '@thirdweb-dev/react';
 import { useDropzone } from 'react-dropzone';
 import JSZip from 'jszip';
@@ -2539,11 +2540,14 @@ const Dashboard: NextPage = () => {
                       </>
                     ) : file.type.startsWith('image/') ? (
                       <>
-                        <img 
+                        <Image 
                           src={file.gatewayUrl} 
                           alt={file.name} 
                           className={styles.fileThumbnail}
-                          draggable={false}
+                          width={200}
+                          height={200}
+                          unoptimized
+                          style={{ objectFit: 'cover' }}
                         />
                         {/* Overlay buttons for images */}
                         <div className={styles.imageOverlay}>
