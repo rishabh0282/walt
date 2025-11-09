@@ -1932,7 +1932,6 @@ const Dashboard: NextPage = () => {
             <div className={styles.storageInfo}>
               <div className={styles.storageStats}>
                 <div className={styles.storageHeader}>
-                  <h4 className={styles.storageTitle}>Storage Overview</h4>
                   <div className={styles.storageActions}>
                     <button
                       className={styles.cleanupBtn}
@@ -1955,6 +1954,7 @@ const Dashboard: NextPage = () => {
                       ⚡ Gateways
                     </button>
                   </div>
+                  <h4 className={styles.storageTitle}>Storage Overview</h4>
                 </div>
                 <div className={styles.statRow}>
                   <span className={styles.statLabel}>Total Files:</span>
@@ -2082,7 +2082,6 @@ const Dashboard: NextPage = () => {
           <div className={styles.storageInfo}>
             <div className={styles.storageStats}>
               <div className={styles.storageHeader}>
-                <h4 className={styles.storageTitle}>Storage Overview</h4>
                 <div className={styles.storageActions}>
                   <button
                     className={styles.cleanupBtn}
@@ -2099,6 +2098,7 @@ const Dashboard: NextPage = () => {
                     ⚡ Gateways
                   </button>
                 </div>
+                <h4 className={styles.storageTitle}>Storage Overview</h4>
               </div>
               <div className={styles.statRow}>
                 <span className={styles.statLabel}>Total Files:</span>
@@ -2131,7 +2131,7 @@ const Dashboard: NextPage = () => {
               </div>
               {storageStats.unpinnedCount > 0 && (
                 <p className={styles.warningText}>
-                  🆓 Unpinned files are FREE but may be lost! Pin them for guaranteed persistence.
+                  Unpinned files are FREE but may be lost! Pin them for guaranteed persistence.
                 </p>
               )}
             </div>
