@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { NextPage } from 'next';
 import { useRouter } from 'next/router';
 import Image from 'next/image';
-import { useStorageUpload } from '@thirdweb-dev/react';
 import { useDropzone } from 'react-dropzone';
 import JSZip from 'jszip';
 import {
@@ -33,6 +32,7 @@ import InputModal from '../components/InputModal';
 import { calculatePinningCost } from '../lib/pinningService';
 import { getOptimizedGatewayUrl } from '../lib/gatewayOptimizer';
 import { getFileCache } from '../lib/fileCache';
+import { BackendFileAPI } from '../lib/backendClient';
 import styles from '../styles/Dashboard.module.css';
 
 interface ShareConfig {
@@ -160,7 +160,6 @@ const Dashboard: NextPage = () => {
   });
   const router = useRouter();
   const { user, loading, logout } = useAuth();
-  const { mutateAsync: upload } = useStorageUpload();
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setToast({ message, type });
@@ -400,9 +399,7 @@ const Dashboard: NextPage = () => {
           setSearchTerm('');
           setShowSuggestions(false);
         }
-        if (showFilters) {
-          setShowFilters(false);
-        }
+        // Dropdowns will close automatically via onOpenChange
       }
       // Ctrl+N or Cmd+N - New folder (when in drive view)
       else if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
@@ -595,6 +592,11 @@ const Dashboard: NextPage = () => {
   };
 
   const performUploadToFolder = async (acceptedFiles: File[], folderId: string) => {
+    if (!user) {
+      showToast('Please sign in to upload files', 'error');
+      return;
+    }
+
     setIsUploading(true);
     
     // Initialize upload queue
@@ -606,6 +608,9 @@ const Dashboard: NextPage = () => {
     setUploadQueue(initialQueue);
     
     try {
+      // Get Firebase ID token
+      const token = await user.getIdToken();
+
       // Simulate progress updates
       const progressInterval = setInterval(() => {
         setUploadQueue(prev => prev.map(item => 
@@ -615,7 +620,14 @@ const Dashboard: NextPage = () => {
         ));
       }, 300);
       
-      const uris = await upload({ data: acceptedFiles });
+      // Upload files to backend
+      const uploadPromises = acceptedFiles.map(file => 
+        BackendFileAPI.upload(file, token, {
+          parentFolderId: folderId,
+          isPinned: autoPinEnabled
+        })
+      );
+      const uploadResults = await Promise.all(uploadPromises);
       clearInterval(progressInterval);
 
       // Mark all as complete
@@ -625,17 +637,18 @@ const Dashboard: NextPage = () => {
         status: 'complete' as const
       })));
 
-      const newFiles: UploadedFile[] = acceptedFiles.map((file, index) => ({
-        id: `file_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        name: file.name,
-        ipfsUri: uris[index],
-        gatewayUrl: getOptimizedGatewayUrl(uris[index]),
+      // Create uploaded file objects from backend response
+      const newFiles: UploadedFile[] = uploadResults.map((result) => ({
+        id: result.id,
+        name: result.filename,
+        ipfsUri: `ipfs://${result.cid}`,
+        gatewayUrl: getOptimizedGatewayUrl(`ipfs://${result.cid}`),
         timestamp: Date.now(),
-        type: file.type || 'unknown',
-        size: file.size,
-        isPinned: autoPinEnabled,
-        pinService: autoPinEnabled ? 'local' : undefined,
-        pinDate: autoPinEnabled ? Date.now() : undefined,
+        type: result.mimeType || 'unknown',
+        size: result.size,
+        isPinned: result.isPinned || autoPinEnabled,
+        pinService: (result.isPinned || autoPinEnabled) ? 'local' : undefined,
+        pinDate: (result.isPinned || autoPinEnabled) ? Date.now() : undefined,
         parentFolderId: folderId,
         modifiedDate: Date.now()
       }));
@@ -676,6 +689,11 @@ const Dashboard: NextPage = () => {
   };
 
   const performUpload = async (acceptedFiles: File[]) => {
+    if (!user) {
+      showToast('Please sign in to upload files', 'error');
+      return;
+    }
+
     setIsUploading(true);
     
     // Initialize upload queue
@@ -687,6 +705,9 @@ const Dashboard: NextPage = () => {
     setUploadQueue(initialQueue);
     
     try {
+      // Get Firebase ID token
+      const token = await user.getIdToken();
+
       // Simulate progress updates
       const progressInterval = setInterval(() => {
         setUploadQueue(prev => prev.map(item => 
@@ -696,7 +717,14 @@ const Dashboard: NextPage = () => {
         ));
       }, 300);
       
-      const uris = await upload({ data: acceptedFiles });
+      // Upload files to backend
+      const uploadPromises = acceptedFiles.map(file => 
+        BackendFileAPI.upload(file, token, {
+          parentFolderId: currentFolderId || undefined,
+          isPinned: autoPinEnabled
+        })
+      );
+      const uploadResults = await Promise.all(uploadPromises);
       clearInterval(progressInterval);
 
       // Mark all as complete
@@ -706,17 +734,18 @@ const Dashboard: NextPage = () => {
         status: 'complete' as const
       })));
 
-      const newFiles: UploadedFile[] = acceptedFiles.map((file, index) => ({
-        id: `file_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        name: file.name,
-        ipfsUri: uris[index],
-        gatewayUrl: getOptimizedGatewayUrl(uris[index]),
+      // Create uploaded file objects from backend response
+      const newFiles: UploadedFile[] = uploadResults.map((result) => ({
+        id: result.id,
+        name: result.filename,
+        ipfsUri: `ipfs://${result.cid}`,
+        gatewayUrl: getOptimizedGatewayUrl(`ipfs://${result.cid}`),
         timestamp: Date.now(),
-        type: file.type || 'unknown',
-        size: file.size,
-        isPinned: autoPinEnabled,
-        pinService: autoPinEnabled ? 'local' : undefined,
-        pinDate: autoPinEnabled ? Date.now() : undefined,
+        type: result.mimeType || 'unknown',
+        size: result.size,
+        isPinned: result.isPinned || autoPinEnabled,
+        pinService: (result.isPinned || autoPinEnabled) ? 'local' : undefined,
+        pinDate: (result.isPinned || autoPinEnabled) ? Date.now() : undefined,
         parentFolderId: currentFolderId,
         modifiedDate: Date.now()
       }));
@@ -1436,17 +1465,178 @@ const Dashboard: NextPage = () => {
                 }}
                 className={styles.searchInput}
               />
-              <button 
-                className={styles.filterToggle}
-                onClick={() => setShowFilters(!showFilters)}
-                title="Show filters"
-              >
-                🔽
-              </button>
+              <DropdownMenu open={showFilters} onOpenChange={setShowFilters}>
+                <DropdownMenuTrigger asChild>
+                  <button 
+                    className={styles.filterToggle}
+                    title="Show filters"
+                  >
+                    🔽
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent 
+                  align="start" 
+                  className={styles.filterPanel}
+                  sideOffset={8}
+                >
+                  <div className={styles.filterGroup}>
+                    <label className={styles.filterLabel}>Type</label>
+                    <select 
+                      value={filters.fileType} 
+                      onChange={(e) => setFilters({...filters, fileType: e.target.value as any})}
+                      className={styles.filterSelect}
+                    >
+                      <option value="all">All Types</option>
+                      <option value="folder">Folders</option>
+                      <option value="image">Images</option>
+                      <option value="video">Videos</option>
+                      <option value="audio">Audio</option>
+                      <option value="document">Documents</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                  
+                  <div className={styles.filterGroup}>
+                    <label className={styles.filterLabel}>Pin Status</label>
+                    <select 
+                      value={filters.pinStatus} 
+                      onChange={(e) => setFilters({...filters, pinStatus: e.target.value as any})}
+                      className={styles.filterSelect}
+                    >
+                      <option value="all">All Files</option>
+                      <option value="pinned">📌 Pinned</option>
+                      <option value="unpinned">📍 Unpinned</option>
+                    </select>
+                  </div>
+                  
+                  <div className={styles.filterGroup}>
+                    <label className={styles.filterLabel}>Star Status</label>
+                    <select 
+                      value={filters.starStatus} 
+                      onChange={(e) => setFilters({...filters, starStatus: e.target.value as any})}
+                      className={styles.filterSelect}
+                    >
+                      <option value="all">All</option>
+                      <option value="starred">⭐ Starred</option>
+                      <option value="unstarred">☆ Unstarred</option>
+                    </select>
+                  </div>
+
+                  <div className={styles.filterGroup}>
+                    <label className={styles.filterLabel}>Tags</label>
+                    <div className={styles.tagFilter}>
+                      {getAllTags().length > 0 ? (
+                        <select
+                          multiple
+                          value={filters.tags}
+                          onChange={(e) => {
+                            const selectedTags = Array.from(e.target.selectedOptions, option => option.value);
+                            setFilters({...filters, tags: selectedTags});
+                          }}
+                          className={styles.tagSelect}
+                          size={Math.min(5, getAllTags().length + 1)}
+                        >
+                          {getAllTags().map(tag => (
+                            <option key={tag} value={tag}>{tag}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className={styles.noTagsHint}>No tags yet - add tags to files to filter by them</span>
+                      )}
+                      {filters.tags.length > 0 && (
+                        <button
+                          className={styles.clearTagFilterBtn}
+                          onClick={() => setFilters({...filters, tags: []})}
+                          title="Clear tag filter"
+                        >
+                          Clear Tags
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className={styles.filterGroup}>
+                    <label className={styles.filterLabel}>Size (MB)</label>
+                    <div className={styles.filterRange}>
+                      <input 
+                        type="number" 
+                        placeholder="Min"
+                        value={filters.sizeMin}
+                        onChange={(e) => setFilters({...filters, sizeMin: e.target.value})}
+                        className={styles.filterInput}
+                      />
+                      <span>to</span>
+                      <input 
+                        type="number" 
+                        placeholder="Max"
+                        value={filters.sizeMax}
+                        onChange={(e) => setFilters({...filters, sizeMax: e.target.value})}
+                        className={styles.filterInput}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className={styles.filterGroup}>
+                    <label className={styles.filterLabel}>Date Range</label>
+                    <div className={styles.filterRange}>
+                      <input 
+                        type="date" 
+                        placeholder="From"
+                        value={filters.dateFrom}
+                        onChange={(e) => setFilters({...filters, dateFrom: e.target.value})}
+                        className={styles.filterInput}
+                      />
+                      <span>to</span>
+                      <input 
+                        type="date" 
+                        placeholder="To"
+                        value={filters.dateTo}
+                        onChange={(e) => setFilters({...filters, dateTo: e.target.value})}
+                        className={styles.filterInput}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className={styles.filterButtons}>
+                    <button 
+                      className={styles.clearFilters}
+                      onClick={() => setFilters({
+                        fileType: 'all',
+                        pinStatus: 'all',
+                        starStatus: 'all',
+                        tags: [],
+                        sizeMin: '',
+                        sizeMax: '',
+                        dateFrom: '',
+                        dateTo: ''
+                      })}
+                    >
+                      Clear All Filters
+                    </button>
+                    <button 
+                      className={styles.saveSearchBtnFilter}
+                      onClick={() => {
+                        saveCurrentSearch();
+                        setShowFilters(false);
+                      }}
+                      title="Save current search with filters"
+                    >
+                      💾 Save Search
+                    </button>
+                  </div>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
             {/* Search Suggestions Dropdown */}
-            {showSuggestions && (searchSuggestions.length > 0 || (searchTerm.length === 0 && (recentSearches.length > 0 || savedSearches.length > 0))) && (
-              <div className={styles.searchSuggestions}>
+            <DropdownMenu open={showSuggestions && (searchSuggestions.length > 0 || (searchTerm.length === 0 && (recentSearches.length > 0 || savedSearches.length > 0)))} onOpenChange={setShowSuggestions}>
+              <DropdownMenuTrigger asChild>
+                <div style={{ display: 'none' }} />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent 
+                align="start"
+                className={styles.searchSuggestions}
+                sideOffset={4}
+              >
                 {searchTerm.length === 0 && savedSearches.length > 0 && (
                   <>
                     <div className={styles.suggestionHeader}>
@@ -1463,11 +1653,12 @@ const Dashboard: NextPage = () => {
                       </button>
                     </div>
                     {savedSearches.map((savedSearch, idx) => (
-                      <div
+                      <DropdownMenuItem
                         key={`saved-${idx}`}
                         className={styles.suggestionItem}
                         onClick={() => {
                           loadSavedSearch(savedSearch);
+                          setShowSuggestions(false);
                         }}
                       >
                         <span className={styles.suggestionIcon}>⭐</span>
@@ -1482,7 +1673,7 @@ const Dashboard: NextPage = () => {
                         >
                           ✕
                         </button>
-                      </div>
+                      </DropdownMenuItem>
                     ))}
                   </>
                 )}
@@ -1491,7 +1682,7 @@ const Dashboard: NextPage = () => {
                     {savedSearches.length > 0 && <div className={styles.suggestionDivider}></div>}
                     <div className={styles.suggestionHeader}>Recent Searches</div>
                     {recentSearches.map((search, idx) => (
-                      <div
+                      <DropdownMenuItem
                         key={`recent-${idx}`}
                         className={styles.suggestionItem}
                         onClick={() => {
@@ -1502,7 +1693,7 @@ const Dashboard: NextPage = () => {
                       >
                         <span className={styles.suggestionIcon}>🕐</span>
                         <span>{search}</span>
-                      </div>
+                      </DropdownMenuItem>
                     ))}
                   </>
                 )}
@@ -1511,7 +1702,7 @@ const Dashboard: NextPage = () => {
                     {searchTerm.length > 0 && recentSearches.length > 0 && <div className={styles.suggestionDivider}></div>}
                     <div className={styles.suggestionHeader}>Suggestions</div>
                     {searchSuggestions.map((suggestion, idx) => (
-                      <div
+                      <DropdownMenuItem
                         key={`suggestion-${idx}`}
                         className={styles.suggestionItem}
                         onClick={() => {
@@ -1522,173 +1713,27 @@ const Dashboard: NextPage = () => {
                       >
                         <span className={styles.suggestionIcon}>🔍</span>
                         <span>{suggestion}</span>
-                      </div>
+                      </DropdownMenuItem>
                     ))}
                   </>
                 )}
-              </div>
-            )}
-            {showFilters && (
-              <div className={styles.filterPanel}>
-                <div className={styles.filterGroup}>
-                  <label className={styles.filterLabel}>Type</label>
-                  <select 
-                    value={filters.fileType} 
-                    onChange={(e) => setFilters({...filters, fileType: e.target.value as any})}
-                    className={styles.filterSelect}
-                  >
-                    <option value="all">All Types</option>
-                    <option value="folder">Folders</option>
-                    <option value="image">Images</option>
-                    <option value="video">Videos</option>
-                    <option value="audio">Audio</option>
-                    <option value="document">Documents</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
-                
-                <div className={styles.filterGroup}>
-                  <label className={styles.filterLabel}>Pin Status</label>
-                  <select 
-                    value={filters.pinStatus} 
-                    onChange={(e) => setFilters({...filters, pinStatus: e.target.value as any})}
-                    className={styles.filterSelect}
-                  >
-                    <option value="all">All Files</option>
-                    <option value="pinned">📌 Pinned</option>
-                    <option value="unpinned">📍 Unpinned</option>
-                  </select>
-                </div>
-                
-                <div className={styles.filterGroup}>
-                  <label className={styles.filterLabel}>Star Status</label>
-                  <select 
-                    value={filters.starStatus} 
-                    onChange={(e) => setFilters({...filters, starStatus: e.target.value as any})}
-                    className={styles.filterSelect}
-                  >
-                    <option value="all">All</option>
-                    <option value="starred">⭐ Starred</option>
-                    <option value="unstarred">☆ Unstarred</option>
-                  </select>
-                </div>
-
-                <div className={styles.filterGroup}>
-                  <label className={styles.filterLabel}>Tags</label>
-                  <div className={styles.tagFilter}>
-                    {getAllTags().length > 0 ? (
-                      <select
-                        multiple
-                        value={filters.tags}
-                        onChange={(e) => {
-                          const selectedTags = Array.from(e.target.selectedOptions, option => option.value);
-                          setFilters({...filters, tags: selectedTags});
-                        }}
-                        className={styles.tagSelect}
-                        size={Math.min(5, getAllTags().length + 1)}
-                      >
-                        {getAllTags().map(tag => (
-                          <option key={tag} value={tag}>{tag}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <span className={styles.noTagsHint}>No tags yet - add tags to files to filter by them</span>
-                    )}
-                    {filters.tags.length > 0 && (
-                      <button
-                        className={styles.clearTagFilterBtn}
-                        onClick={() => setFilters({...filters, tags: []})}
-                        title="Clear tag filter"
-                      >
-                        Clear Tags
-                      </button>
-                    )}
-                  </div>
-                </div>
-                
-                <div className={styles.filterGroup}>
-                  <label className={styles.filterLabel}>Size (MB)</label>
-                  <div className={styles.filterRange}>
-                    <input 
-                      type="number" 
-                      placeholder="Min"
-                      value={filters.sizeMin}
-                      onChange={(e) => setFilters({...filters, sizeMin: e.target.value})}
-                      className={styles.filterInput}
-                    />
-                    <span>to</span>
-                    <input 
-                      type="number" 
-                      placeholder="Max"
-                      value={filters.sizeMax}
-                      onChange={(e) => setFilters({...filters, sizeMax: e.target.value})}
-                      className={styles.filterInput}
-                    />
-                  </div>
-                </div>
-                
-                <div className={styles.filterGroup}>
-                  <label className={styles.filterLabel}>Date Range</label>
-                  <div className={styles.filterRange}>
-                    <input 
-                      type="date" 
-                      placeholder="From"
-                      value={filters.dateFrom}
-                      onChange={(e) => setFilters({...filters, dateFrom: e.target.value})}
-                      className={styles.filterInput}
-                    />
-                    <span>to</span>
-                    <input 
-                      type="date" 
-                      placeholder="To"
-                      value={filters.dateTo}
-                      onChange={(e) => setFilters({...filters, dateTo: e.target.value})}
-                      className={styles.filterInput}
-                    />
-                  </div>
-                </div>
-                
-                <div className={styles.filterButtons}>
-                  <button 
-                    className={styles.clearFilters}
-                    onClick={() => setFilters({
-                      fileType: 'all',
-                      pinStatus: 'all',
-                      starStatus: 'all',
-                      tags: [],
-                      sizeMin: '',
-                      sizeMax: '',
-                      dateFrom: '',
-                      dateTo: ''
-                    })}
-                  >
-                    Clear All Filters
-                  </button>
-                  <button 
-                    className={styles.saveSearchBtnFilter}
-                    onClick={() => {
-                      saveCurrentSearch();
-                      setShowFilters(false);
-                    }}
-                    title="Save current search with filters"
-                  >
-                    💾 Save Search
-                  </button>
-                </div>
-              </div>
-            )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
         <div className={styles.headerRight}>
           {/* Keyboard Shortcuts Card - Hidden on mobile */}
-          <div 
-            className={styles.keyboardShortcutsCard}
-            onMouseEnter={() => setShowKeyboardShortcuts(true)}
-            onMouseLeave={() => setShowKeyboardShortcuts(false)}
-          >
-            <span className={styles.keyboardShortcutsLabel}>⌨️ Keyboard Shortcuts</span>
-            {showKeyboardShortcuts && (
-              <div className={styles.keyboardShortcutsTooltip}>
+          <DropdownMenu open={showKeyboardShortcuts} onOpenChange={setShowKeyboardShortcuts}>
+            <DropdownMenuTrigger asChild>
+              <div className={styles.keyboardShortcutsCard}>
+                <span className={styles.keyboardShortcutsLabel}>⌨️ Keyboard Shortcuts</span>
+              </div>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent 
+              align="end"
+              className={styles.keyboardShortcutsTooltip}
+              sideOffset={8}
+            >
                 <div className={styles.shortcutItem}>
                   <span className={styles.shortcutKey}>Ctrl+K</span> or <span className={styles.shortcutKey}>/</span>
                   <span className={styles.shortcutAction}>Focus search</span>
@@ -1729,9 +1774,8 @@ const Dashboard: NextPage = () => {
                   <span className={styles.shortcutKey}>g + l</span>
                   <span className={styles.shortcutAction}>List view</span>
                 </div>
-              </div>
-            )}
-          </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           {/* Mobile Menu Button */}
           <button
@@ -1879,14 +1923,9 @@ const Dashboard: NextPage = () => {
               </label>
               <p className={styles.autoPinHint}>
                 {autoPinEnabled 
-                  ? '✅ New files will be pinned automatically (guaranteed persistence)' 
-                  : '🆓 Unpinned files are FREE but may be lost! Turn on auto-pin for guaranteed persistence.'}
+                  ? 'New files will be pinned automatically (guaranteed persistence)' 
+                  : 'Unpinned files are FREE but may be lost! Turn on auto-pin for guaranteed persistence.'}
               </p>
-              {autoPinEnabled && storageStats.pinnedSize > 0 && (
-                <p className={styles.autoPinCost}>
-                  💰 Estimated cost (1 year): {calculatePinningCost(storageStats.pinnedSize, 365)}
-                </p>
-              )}
             </div>
 
             {/* Storage Info */}
@@ -2029,14 +2068,10 @@ const Dashboard: NextPage = () => {
             </label>
             <p className={styles.autoPinHint}>
               {autoPinEnabled 
-                ? '✅ New files will be pinned automatically (guaranteed persistence)' 
-                : '🆓 Unpinned files are FREE but may be lost! Turn on auto-pin for guaranteed persistence.'}
+                ? 'New files will be pinned automatically (guaranteed persistence)' 
+                : ''}
             </p>
-            {autoPinEnabled && storageStats.pinnedSize > 0 && (
-              <p className={styles.autoPinCost}>
-                💰 Estimated cost (1 year): {calculatePinningCost(storageStats.pinnedSize, 365)}
-              </p>
-            )}
+
             {!autoPinEnabled && (
               <p className={styles.autoPinHint} style={{ marginTop: '8px', color: '#10b981' }}>
                 💡 Tip: Unpinned files are FREE but may be lost. Enable auto-pin for guaranteed persistence.

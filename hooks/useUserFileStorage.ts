@@ -1,4 +1,3 @@
-import { useStorageUpload } from '@thirdweb-dev/react';
 import { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc, collection, writeBatch } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -13,6 +12,7 @@ import { getFileCache } from '../lib/fileCache';
 import { getGatewayOptimizer } from '../lib/gatewayOptimizer';
 import { checkNewFileForDuplicates, getAllDuplicates, DuplicateMatch } from '../lib/duplicateDetection';
 import { createFileVersion, FileVersion } from '../lib/versionHistory';
+import { uploadToIPFS } from '../lib/ipfsClient';
 
 interface ShareConfig {
   shareId: string;
@@ -85,7 +85,6 @@ export const useUserFileStorage = (userUid: string | null) => {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [sortEnabled, setSortEnabled] = useState(false); // Disable real-time sorting by default
   const [fileVersions, setFileVersions] = useState<FileVersion[]>([]); // Store file versions
-  const { mutateAsync: upload } = useStorageUpload();
 
   // Initialize pinning service
   useEffect(() => {
@@ -308,13 +307,16 @@ export const useUserFileStorage = (userUid: string | null) => {
         userId: userUid
       };
 
-      // Upload the file list to IPFS
-      const fileListUri = await upload({ data: [JSON.stringify(userFileList)] });
+      // Upload the file list to IPFS using backend IPFS node
+      const fileListJson = JSON.stringify(userFileList);
+      const fileListBuffer = new TextEncoder().encode(fileListJson);
+      const { cid } = await uploadToIPFS(fileListBuffer);
+      const fileListUri = `ipfs://${cid}`;
       
       // Store the URI in Firestore (single source of truth)
       const userDocRef = doc(db, 'users', userUid);
       await setDoc(userDocRef, {
-        fileListUri: fileListUri[0],
+        fileListUri: fileListUri,
         lastUpdated: Date.now(),
         userId: userUid
       }, { merge: true });

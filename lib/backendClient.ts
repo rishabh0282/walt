@@ -73,11 +73,12 @@ export const BackendFileAPI = {
     filename: string;
     size: number;
     mimeType: string;
+    isPinned?: boolean;
   }> {
     const formData = new FormData();
     formData.append('file', file);
     if (options?.parentFolderId) {
-      formData.append('parentFolderId', options.parentFolderId);
+      formData.append('folderId', options.parentFolderId);
     }
     if (options?.isPinned !== undefined) {
       formData.append('isPinned', String(options.isPinned));
@@ -97,7 +98,12 @@ export const BackendFileAPI = {
       throw new Error(errorData.error || 'Upload failed');
     }
 
-    return await response.json();
+    const data = await response.json();
+    // Backend returns { success: true, file: {...} }
+    if (data.file) {
+      return data.file;
+    }
+    return data;
   },
 
   /**

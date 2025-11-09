@@ -1,10 +1,10 @@
 import React, { useState, useCallback } from 'react';
-import { useStorageUpload } from '@thirdweb-dev/react';
 import { useDropzone } from 'react-dropzone';
 import { useRouter } from 'next/router';
 import { useAuth } from '../contexts/AuthContext';
 import { useUserFileStorage } from '../hooks/useUserFileStorage';
 import { getOptimizedGatewayUrl } from '../lib/gatewayOptimizer';
+import { BackendFileAPI } from '../lib/backendClient';
 import styles from './Home.module.css';
 
 interface UploadedFile {
@@ -19,7 +19,6 @@ interface UploadedFile {
 
 const FileUpload: React.FC = () => {
   const [isUploading, setIsUploading] = useState(false);
-  const { mutateAsync: upload } = useStorageUpload();
   const router = useRouter();
   const { user } = useAuth();
   const { addFiles } = useUserFileStorage(user?.uid || null);
@@ -27,20 +26,31 @@ const FileUpload: React.FC = () => {
   const onDrop = useCallback(
     async (acceptedFiles: File[]) => {
       if (acceptedFiles.length === 0) return;
+      if (!user) {
+        console.error('User not authenticated');
+        return;
+      }
       
       setIsUploading(true);
       try {
-        const uris = await upload({ data: acceptedFiles });
+        // Get Firebase ID token
+        const token = await user.getIdToken();
 
-        // Create uploaded file objects
-        const newFiles: UploadedFile[] = acceptedFiles.map((file, index) => ({
-          id: `file_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 9)}`,
-          name: file.name,
-          ipfsUri: uris[index],
-          gatewayUrl: getOptimizedGatewayUrl(uris[index]),
+        // Upload files to backend
+        const uploadPromises = acceptedFiles.map(file => 
+          BackendFileAPI.upload(file, token)
+        );
+        const uploadResults = await Promise.all(uploadPromises);
+
+        // Create uploaded file objects from backend response
+        const newFiles: UploadedFile[] = uploadResults.map((result, index) => ({
+          id: result.id,
+          name: result.filename,
+          ipfsUri: `ipfs://${result.cid}`,
+          gatewayUrl: getOptimizedGatewayUrl(`ipfs://${result.cid}`),
           timestamp: Date.now(),
-          type: file.type || 'unknown',
-          size: file.size
+          type: result.mimeType || 'unknown',
+          size: result.size
         }));
 
         // Add files to IPFS-based storage
@@ -56,7 +66,7 @@ const FileUpload: React.FC = () => {
         setIsUploading(false);
       }
     },
-    [upload, router, addFiles]
+    [user, router, addFiles]
   );
 
   const { getRootProps, getInputProps, isDragActive, open } = useDropzone({ 
