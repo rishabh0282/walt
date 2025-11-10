@@ -144,8 +144,20 @@ if (!allowedOrigins.includes('http://localhost:3000')) {
 }
 // Remove duplicates
 allowedOrigins = [...new Set(allowedOrigins)];
+
 app.use(cors({
-  origin: allowedOrigins,
+  origin: (origin, callback) => {
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    const isAllowed = allowedOrigins.includes(origin);
+    if (isAllowed) {
+      callback(null, origin);
+    } else {
+      callback(new Error('Origin not allowed by CORS'));
+    }
+  },
   credentials: true,
 }));
 app.use(express.json());
