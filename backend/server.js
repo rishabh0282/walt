@@ -145,21 +145,22 @@ if (!allowedOrigins.includes('http://localhost:3000')) {
 // Remove duplicates
 allowedOrigins = [...new Set(allowedOrigins)];
 
-app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin) {
-      return callback(null, true);
-    }
-
-    const isAllowed = allowedOrigins.includes(origin);
-    if (isAllowed) {
-      callback(null, origin);
-    } else {
-      callback(new Error('Origin not allowed by CORS'));
-    }
-  },
-  credentials: true,
-}));
+// CORS is handled by nginx, so we disable it here to avoid duplicate headers
+// If you need to access backend directly (bypassing nginx), uncomment this:
+// app.use(cors({
+//   origin: (origin, callback) => {
+//     if (!origin) {
+//       return callback(null, true);
+//     }
+//     const isAllowed = allowedOrigins.includes(origin);
+//     if (isAllowed) {
+//       callback(null, origin);
+//     } else {
+//       callback(new Error('Origin not allowed by CORS'));
+//     }
+//   },
+//   credentials: true,
+// }));
 app.use(express.json());
 
 // Auth middleware
