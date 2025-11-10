@@ -308,7 +308,7 @@ app.post('/api/ipfs/upload', verifyAuth, upload.single('file'), async (req, res)
     );
 
     // Update storage
-    db.prepare('UPDATE users SET storage_used = storage_used + ?, updated_at = datetime("now") WHERE id = ?')
+    db.prepare("UPDATE users SET storage_used = storage_used + ?, updated_at = datetime('now') WHERE id = ?")
       .run(size, user.id);
 
     // Log activity
@@ -394,7 +394,7 @@ app.get('/api/ipfs/download', verifyAuth, async (req, res) => {
     }
 
     // Update last accessed
-    db.prepare('UPDATE files SET last_accessed_at = datetime("now") WHERE id = ?').run(fileRecord.id);
+    db.prepare("UPDATE files SET last_accessed_at = datetime('now') WHERE id = ?").run(fileRecord.id);
 
     // Log activity
     db.prepare(`
@@ -476,7 +476,7 @@ app.put('/api/folders/:id', verifyAuth, (req, res) => {
     }
 
     if (updates.length > 0) {
-      updates.push('updated_at = datetime("now")');
+      updates.push("updated_at = datetime('now')");
       values.push(id, user.id);
       db.prepare(`UPDATE folders SET ${updates.join(', ')} WHERE id = ? AND user_id = ?`).run(...values);
     }
@@ -495,7 +495,7 @@ app.delete('/api/folders/:id', verifyAuth, (req, res) => {
     const { id } = req.params;
 
     db.prepare(`
-      UPDATE folders SET is_deleted = 1, deleted_at = datetime("now"), updated_at = datetime("now")
+      UPDATE folders SET is_deleted = 1, deleted_at = datetime('now'), updated_at = datetime('now')
       WHERE id = ? AND user_id = ?
     `).run(id, user.id);
 
@@ -595,7 +595,7 @@ app.put('/api/files/:id', verifyAuth, (req, res) => {
     }
 
     if (updates.length > 0) {
-      updates.push('updated_at = datetime("now")');
+      updates.push("updated_at = datetime('now')");
       values.push(id, user.id);
       db.prepare(`UPDATE files SET ${updates.join(', ')} WHERE id = ? AND user_id = ?`).run(...values);
     }
@@ -614,7 +614,7 @@ app.delete('/api/files/:id', verifyAuth, (req, res) => {
     const { id } = req.params;
 
     db.prepare(`
-      UPDATE files SET is_deleted = 1, deleted_at = datetime("now"), updated_at = datetime("now")
+      UPDATE files SET is_deleted = 1, deleted_at = datetime('now'), updated_at = datetime('now')
       WHERE id = ? AND user_id = ?
     `).run(id, user.id);
 
@@ -722,7 +722,7 @@ app.post('/api/ipfs/pin', verifyAuth, async (req, res) => {
     }
 
     db.prepare(`
-      UPDATE files SET is_pinned = 1, pin_service = 'local', pin_status = 'pinned', updated_at = datetime("now")
+      UPDATE files SET is_pinned = 1, pin_service = 'local', pin_status = 'pinned', updated_at = datetime('now')
       WHERE cid = ? AND user_id = ?
     `).run(cid, user.id);
 
@@ -775,7 +775,7 @@ app.delete('/api/ipfs/pin/:cid', verifyAuth, async (req, res) => {
     }
 
     db.prepare(`
-      UPDATE files SET is_pinned = 0, pin_service = NULL, pin_status = 'unpinned', updated_at = datetime("now")
+      UPDATE files SET is_pinned = 0, pin_service = NULL, pin_status = 'unpinned', updated_at = datetime('now')
       WHERE cid = ? AND user_id = ?
     `).run(cid, user.id);
 
