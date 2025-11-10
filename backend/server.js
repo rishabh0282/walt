@@ -838,6 +838,9 @@ app.delete('/api/ipfs/pin/:cid', verifyAuth, async (req, res) => {
 });
 
 // IPFS Gateway (serve files directly)
+// NOTE: Gateway is handled by nginx proxying to IPFS node's built-in gateway (port 8080)
+// This endpoint is commented out as nginx routes /ipfs/ directly to http://ipfs:8080
+/*
 app.get('/ipfs/:cid(*)', async (req, res) => {
   try {
     const cid = req.params.cid;
@@ -856,6 +859,7 @@ app.get('/ipfs/:cid(*)', async (req, res) => {
     res.status(500).json({ error: 'Failed to retrieve from IPFS', message: error.message });
   }
 });
+*/
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, '0.0.0.0', () => {

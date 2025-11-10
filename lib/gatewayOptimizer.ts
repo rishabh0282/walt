@@ -326,7 +326,23 @@ let optimizerInstance: GatewayOptimizer | null = null;
 
 export const getGatewayOptimizer = (config?: Partial<GatewayConfig>): GatewayOptimizer => {
   if (!optimizerInstance) {
-    optimizerInstance = new GatewayOptimizer(config);
+    // Check for custom IPFS gateway from environment
+    const customGateway = process.env.NEXT_PUBLIC_IPFS_GATEWAY || process.env.IPFS_GATEWAY;
+    let finalConfig = config || {};
+    
+    // If custom gateway is set, prioritize it as primary
+    if (customGateway) {
+      const gatewayUrl = customGateway.endsWith('/') ? customGateway : `${customGateway}/`;
+      const ipfsGatewayUrl = gatewayUrl.endsWith('/ipfs/') ? gatewayUrl : `${gatewayUrl}ipfs/`;
+      
+      finalConfig = {
+        ...finalConfig,
+        primary: [ipfsGatewayUrl, ...(finalConfig.primary || DEFAULT_GATEWAYS.slice(0, 3).map(g => g.url))],
+        custom: finalConfig.custom ? [...finalConfig.custom, ipfsGatewayUrl] : [ipfsGatewayUrl],
+      };
+    }
+    
+    optimizerInstance = new GatewayOptimizer(finalConfig);
   }
   return optimizerInstance;
 };

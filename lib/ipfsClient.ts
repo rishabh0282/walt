@@ -261,8 +261,11 @@ export async function getPeerCount(): Promise<number> {
  * Generate IPFS gateway URL
  */
 export function getGatewayUrl(cid: string, filename?: string): string {
-  const gatewayUrl = process.env.IPFS_GATEWAY_URL || 'http://localhost:8080';
-  const url = `${gatewayUrl}/ipfs/${cid}`;
+  const gatewayUrl = process.env.IPFS_GATEWAY_URL || 
+                     process.env.NEXT_PUBLIC_IPFS_GATEWAY || 
+                     process.env.IPFS_GATEWAY ||
+                     'https://api-walt.aayushman.dev/ipfs';
+  const url = `${gatewayUrl.replace(/\/$/, '')}/ipfs/${cid}`;
   
   if (filename) {
     return `${url}?filename=${encodeURIComponent(filename)}`;

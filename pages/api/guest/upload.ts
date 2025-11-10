@@ -1,7 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { IncomingForm } from 'formidable';
 import { readFile } from 'fs/promises';
-import { uploadToIPFS } from '../../../lib/ipfsClient';
 import { getOptimizedGatewayUrl } from '../../../lib/gatewayOptimizer';
 
 export const config = {
@@ -10,6 +9,8 @@ export const config = {
   },
 };
 
+const BACKEND_URL = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_BACKEND_API_URL || 'https://api-walt.aayushman.dev';
+
 const buildGatewayUrl = (cid: string, ipfsUri: string) => {
   try {
     return getOptimizedGatewayUrl(ipfsUri);
@@ -17,7 +18,7 @@ const buildGatewayUrl = (cid: string, ipfsUri: string) => {
     const base =
       process.env.NEXT_PUBLIC_IPFS_GATEWAY ||
       process.env.IPFS_GATEWAY ||
-      'https://ipfs.io/ipfs';
+      'https://api-walt.aayushman.dev/ipfs';
     return `${base.replace(/\/$/, '')}/${cid}`;
   }
 };
@@ -47,8 +48,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
+    // Upload to backend IPFS node instead of direct connection
+    const formData = new FormData();
     const buffer = await readFile(file.filepath);
-    const { cid, size } = await uploadToIPFS(buffer);
+    const blob = new Blob([buffer]);
+    formData.append('file', blob, file.originalFilename || 'file');
+
+    const uploadResponse = await fetch(`${BACKEND_URL}/api/ipfs/upload`, {
+      method: 'POST',
+      body: formData,
+      // Note: Guest uploads don't require auth, but backend may need to handle this
+    });
+
+    if (!uploadResponse.ok) {
+      const errorData = await uploadResponse.json().catch(() => ({ error: 'Upload failed' }));
+      throw new Error(errorData.error || 'Upload failed');
+    }
+
+    const result = await uploadResponse.json();
+    const cid = result.cid || result.file?.cid;
+    const size = result.size || result.file?.size || buffer.length;
+    
+    if (!cid) {
+      throw new Error('No CID returned from backend');
+    }
+
     const ipfsUri = `ipfs://${cid}`;
     const gatewayUrl = buildGatewayUrl(cid, ipfsUri);
 

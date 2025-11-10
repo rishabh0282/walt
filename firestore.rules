@@ -12,6 +12,11 @@ service cloud.firestore {
       
       // Allow delete only for own document
       allow delete: if request.auth != null && request.auth.uid == userId;
+      
+      // Allow access to files subcollection
+      match /files/{fileId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
     }
   }
 }

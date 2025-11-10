@@ -130,7 +130,14 @@ export const useUserFileStorage = (userUid: string | null, getAuthToken?: () => 
   const gatewayOptimizer = getGatewayOptimizer();
 
   // IPFS gateways to try (in order of preference) - fallback list
+  // Prioritize user's own IPFS node first
+  const customGateway = process.env.NEXT_PUBLIC_IPFS_GATEWAY || process.env.IPFS_GATEWAY;
+  const userGateway = customGateway 
+    ? (customGateway.endsWith('/') ? customGateway : `${customGateway}/`).replace(/\/ipfs\/?$/, '/ipfs/')
+    : null;
+  
   const IPFS_GATEWAYS = [
+    ...(userGateway ? [userGateway] : []),
     'https://ipfs.io/ipfs/',
     'https://dweb.link/ipfs/',
     'https://cloudflare-ipfs.com/ipfs/',
@@ -368,19 +375,26 @@ export const useUserFileStorage = (userUid: string | null, getAuthToken?: () => 
       if (!authToken) {
         throw new Error('Authentication required to save files');
       }
-      const result = await BackendFileAPI.addToIPFS(fileListJson, authToken, false); // Don't pin file lists
-      const fileListUri = result.ipfsUri;
-      
-      // Store the URI in Firestore (single source of truth)
-      const userDocRef = doc(db, 'users', userUid);
-      await setDoc(userDocRef, {
-        fileListUri: fileListUri,
-        lastUpdated: Date.now(),
-        userId: userUid
-      }, { merge: true });
-      
-      // Sync individual file metadata to Firestore (enhancement)
-      await syncFilesToFirestore(files);
+      try {
+        const result = await BackendFileAPI.addToIPFS(fileListJson, authToken, false); // Don't pin file lists
+        const fileListUri = result.ipfsUri;
+        
+        // Store the URI in Firestore (single source of truth)
+        const userDocRef = doc(db, 'users', userUid);
+        await setDoc(userDocRef, {
+          fileListUri: fileListUri,
+          lastUpdated: Date.now(),
+          userId: userUid
+        }, { merge: true });
+        
+        // Sync individual file metadata to Firestore (enhancement)
+        await syncFilesToFirestore(files);
+      } catch (uploadError: any) {
+        // Better error handling for IPFS upload failures
+        console.error('Failed to upload file list to IPFS:', uploadError);
+        const errorMessage = uploadError?.message || uploadError?.error || 'Failed to upload file list to IPFS';
+        throw new Error(`Failed to save files: ${errorMessage}`);
+      }
     } catch (error) {
       const appError = ErrorHandler.createAppError(error, ErrorType.FIRESTORE);
       ErrorHandler.logError(appError, 'saveUserFiles');
