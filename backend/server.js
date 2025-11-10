@@ -137,11 +137,13 @@ const ipfsUrl = process.env.IPFS_API_URL || 'http://127.0.0.1:5001';
 const ipfs = create({ url: ipfsUrl });
 
 // Middleware
-const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',').map(o => o.trim()) || ['https://walt.aayushman.dev', 'http://localhost:3000'];
-// Always include localhost:3000 for local development
+let allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',').map(o => o.trim()).filter(Boolean) || ['https://walt.aayushman.dev'];
+// Always include localhost:3000 for local development (only if not already present)
 if (!allowedOrigins.includes('http://localhost:3000')) {
   allowedOrigins.push('http://localhost:3000');
 }
+// Remove duplicates
+allowedOrigins = [...new Set(allowedOrigins)];
 app.use(cors({
   origin: allowedOrigins,
   credentials: true,
