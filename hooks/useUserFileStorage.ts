@@ -5,6 +5,7 @@ import {
   getPinningService, 
   initPinningService, 
   getPinningConfigFromEnv,
+  getPinningServiceConfig,
   PinStatus 
 } from '../lib/pinningService';
 import { ErrorHandler, ErrorType, AppError } from '../lib/errorHandler';
@@ -75,11 +76,12 @@ interface UserFileList {
   userId: string;
 }
 
-export const useUserFileStorage = (userUid: string | null) => {
+export const useUserFileStorage = (userUid: string | null, getAuthToken?: () => Promise<string | null>) => {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<AppError | null>(null);
-  const [autoPinEnabled, setAutoPinEnabled] = useState(true); // Auto-pin by default
+  const [autoPinEnabled, setAutoPinEnabledState] = useState(true); // Auto-pin by default
+  const [pinningWarning, setPinningWarning] = useState<string | null>(null);
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null); // null = root
   const [sortBy, setSortBy] = useState<'name' | 'date' | 'size' | 'type'>('date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
@@ -90,7 +92,39 @@ export const useUserFileStorage = (userUid: string | null) => {
   useEffect(() => {
     const config = getPinningConfigFromEnv();
     initPinningService(config);
+    setPinningWarning(config.warning || null);
   }, []);
+
+  const resolvePinningService = (suppressError = false) => {
+    const service = getPinningService();
+    if (!service) {
+      if (!suppressError) {
+        const appError = ErrorHandler.createAppError('Pinning service not initialized', ErrorType.PINNING);
+        ErrorHandler.logError(appError, 'pinningService');
+        setError(appError);
+        setPinningWarning('Pinning service not initialized. Please refresh the page.');
+      }
+      return null;
+    }
+
+    const config = getPinningServiceConfig() || getPinningConfigFromEnv();
+    if (config.service === 'local' && !config.fallback) {
+      const warning = config.warning || 'Pinning service is not configured. Configure NEXT_PUBLIC_PINNING_SERVICE or backend pinning.';
+      if (!suppressError) {
+        const appError = ErrorHandler.createAppError(warning, ErrorType.PINNING);
+        ErrorHandler.logError(appError, 'pinningService');
+        setError(appError);
+        setPinningWarning(warning);
+      }
+      return null;
+    }
+
+    if (!suppressError) {
+      setPinningWarning(config.warning || null);
+    }
+
+    return service;
+  };
 
   // Gateway optimizer for CDN integration
   const gatewayOptimizer = getGatewayOptimizer();
@@ -179,6 +213,9 @@ export const useUserFileStorage = (userUid: string | null) => {
       }
 
       const userData = userDocSnap.data();
+      if (typeof userData?.autoPinEnabled === 'boolean') {
+        setAutoPinEnabledState(userData.autoPinEnabled);
+      }
       const userFileListUri = userData?.fileListUri || null;
       
       if (!userFileListUri) {
@@ -293,6 +330,24 @@ export const useUserFileStorage = (userUid: string | null) => {
       ErrorHandler.logError(appError, 'syncFilesToFirestore');
       // Don't throw - Firestore sync is optional enhancement
       // Don't set error state either - this is background sync
+    }
+  };
+
+  // Persist auto-pin preference to Firestore
+  const persistAutoPinPreference = async (enabled: boolean) => {
+    if (!userUid) return;
+
+    try {
+      const userDocRef = doc(db, 'users', userUid);
+      await setDoc(userDocRef, {
+        autoPinEnabled: enabled,
+        userId: userUid,
+        lastUpdated: Date.now()
+      }, { merge: true });
+    } catch (error) {
+      const appError = ErrorHandler.createAppError(error, ErrorType.FIRESTORE);
+      ErrorHandler.logError(appError, 'persistAutoPinPreference');
+      setError(appError);
     }
   };
 
@@ -529,13 +584,13 @@ export const useUserFileStorage = (userUid: string | null) => {
     const file = uploadedFiles[index];
     if (!file || file.isPinned) return false;
 
-    const pinningService = getPinningService();
+    const pinningService = resolvePinningService();
     if (!pinningService) {
-      console.warn('Pinning service not configured');
       return false;
     }
 
     try {
+      const authToken = getAuthToken ? await getAuthToken() : undefined;
       const result = await pinningService.pinByHash(file.ipfsUri, {
         name: file.name,
         keyvalues: {
@@ -543,14 +598,17 @@ export const useUserFileStorage = (userUid: string | null) => {
           fileType: file.type,
           timestamp: Date.now()
         }
-      });
+      }, authToken || undefined);
 
       if (result.success) {
+        const serviceConfig = getPinningServiceConfig();
+        const serviceNameRaw = serviceConfig?.service || 'local';
+        const serviceName = serviceNameRaw === 'backend' || serviceNameRaw === 'walt' ? 'walt' : serviceNameRaw;
         const updatedFiles = [...uploadedFiles];
         updatedFiles[index] = {
           ...file,
           isPinned: true,
-          pinService: 'pinata',
+          pinService: serviceName,
           pinDate: result.timestamp,
           pinSize: result.pinSize
         };
@@ -576,14 +634,14 @@ export const useUserFileStorage = (userUid: string | null) => {
     const file = uploadedFiles[index];
     if (!file || !file.isPinned) return false;
 
-    const pinningService = getPinningService();
+    const pinningService = resolvePinningService();
     if (!pinningService) {
-      console.warn('Pinning service not configured');
       return false;
     }
 
     try {
-      const result = await pinningService.unpinFile(file.ipfsUri);
+      const authToken = getAuthToken ? await getAuthToken() : undefined;
+      const result = await pinningService.unpinFile(file.ipfsUri, authToken || undefined);
 
       if (result.success) {
         const updatedFiles = [...uploadedFiles];
@@ -751,10 +809,11 @@ export const useUserFileStorage = (userUid: string | null) => {
 
     // Unpin file before permanent deletion if it's pinned
     if (file.isPinned && !file.isFolder) {
-      const pinningService = getPinningService();
+      const pinningService = resolvePinningService(true);
       if (pinningService) {
         try {
-          await pinningService.unpinFile(file.ipfsUri);
+          const authToken = getAuthToken ? await getAuthToken() : undefined;
+          await pinningService.unpinFile(file.ipfsUri, authToken || undefined);
         } catch (error) {
           console.error('Failed to unpin file during permanent delete:', error);
         }
@@ -775,7 +834,7 @@ export const useUserFileStorage = (userUid: string | null) => {
     let unpinnedCount = 0;
     let deletedCount =  0;
     const updatedFiles = [...uploadedFiles];
-    const pinningService = getPinningService();
+    const pinningService = resolvePinningService(true);
 
     for (let i = updatedFiles.length - 1; i >= 0; i--) {
       const file = updatedFiles[i];
@@ -784,7 +843,8 @@ export const useUserFileStorage = (userUid: string | null) => {
       // Unpin if pinned (non-folders only)
       if (file.isPinned && !file.isFolder && pinningService) {
         try {
-          await pinningService.unpinFile(file.ipfsUri);
+          const authToken = getAuthToken ? await getAuthToken() : undefined;
+          await pinningService.unpinFile(file.ipfsUri, authToken || undefined);
           updatedFiles[i] = {
             ...file,
             isPinned: false,
@@ -1244,8 +1304,12 @@ export const useUserFileStorage = (userUid: string | null) => {
     pinFile,
     unpinFile,
     setPinExpiry,
+    pinningWarning,
     autoPinEnabled,
-    setAutoPinEnabled,
+    setAutoPinEnabled: (enabled: boolean) => {
+      setAutoPinEnabledState(enabled);
+      persistAutoPinPreference(enabled);
+    },
     getStorageStats,
     // Folder functions
     currentFolderId,

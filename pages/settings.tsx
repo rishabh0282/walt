@@ -16,7 +16,7 @@ import styles from '../styles/Settings.module.css';
 const Settings: NextPage = () => {
   const router = useRouter();
   const { user, loading: authLoading, logout } = useAuth();
-  const { autoPinEnabled, setAutoPinEnabled } = useUserFileStorage(user?.uid || null);
+  const { autoPinEnabled, setAutoPinEnabled, pinningWarning } = useUserFileStorage(user?.uid || null);
   
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -219,6 +219,9 @@ const Settings: NextPage = () => {
               </label>
             </div>
           </div>
+          {pinningWarning && (
+            <p className={styles.pinningWarningNote}>{pinningWarning}</p>
+          )}
         </section>
 
         {/* Notifications Section */}

@@ -3,6 +3,7 @@ import cors from 'cors';
 import multer from 'multer';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
+import { getFirestore } from 'firebase-admin/firestore';
 import Database from 'better-sqlite3';
 import { create } from 'ipfs-http-client';
 import { readFile } from 'fs/promises';
@@ -28,6 +29,8 @@ if (getApps().length === 0) {
     credential: cert(serviceAccount),
   });
 }
+
+const firestore = getFirestore();
 
 // Initialize SQLite database
 const dbPath = process.env.DATABASE_URL?.replace('sqlite://', '') || './data/ipfs-drive.db';
@@ -134,8 +137,13 @@ const ipfsUrl = process.env.IPFS_API_URL || 'http://127.0.0.1:5001';
 const ipfs = create({ url: ipfsUrl });
 
 // Middleware
+const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',').map(o => o.trim()) || ['https://walt.aayushman.dev', 'http://localhost:3000'];
+// Always include localhost:3000 for local development
+if (!allowedOrigins.includes('http://localhost:3000')) {
+  allowedOrigins.push('http://localhost:3000');
+}
 app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS?.split(',') || ['https://walt.aayushman.dev', 'http://localhost:3000'],
+  origin: allowedOrigins,
   credentials: true,
 }));
 app.use(express.json());
@@ -242,16 +250,37 @@ app.post('/api/ipfs/upload', verifyAuth, upload.single('file'), async (req, res)
       });
     }
 
+    // Determine pin preference (explicit request overrides stored preference)
+    let storedAutoPinPreference = true;
+    if (firestore) {
+      try {
+        const userDoc = await firestore.collection('users').doc(req.user.uid).get();
+        const userData = userDoc.exists ? userDoc.data() : null;
+        if (userData && typeof userData.autoPinEnabled === 'boolean') {
+          storedAutoPinPreference = userData.autoPinEnabled;
+        }
+      } catch (prefError) {
+        console.warn('Failed to load auto-pin preference from Firestore:', prefError);
+      }
+    }
+
+    let shouldPinOnUpload;
+    if (typeof req.body.isPinned !== 'undefined' || typeof req.body.autoPin !== 'undefined') {
+      shouldPinOnUpload = req.body.isPinned === 'true' || req.body.autoPin === 'true';
+    } else {
+      shouldPinOnUpload = storedAutoPinPreference;
+    }
+
     // Upload to IPFS
     const fileBuffer = await readFile(req.file.path);
-    const result = await ipfs.add(fileBuffer, { pin: true });
+    const result = await ipfs.add(fileBuffer, { pin: shouldPinOnUpload });
     const cid = result.cid.toString();
     const size = Number(result.size);
 
     // Save to database
     const fileId = uuidv4();
     const folderId = req.body.folderId || null;
-    const isPinned = req.body.isPinned === 'true' || req.body.autoPin === 'true';
+    const isPinned = shouldPinOnUpload;
     
     db.prepare(`
       INSERT INTO files (
@@ -642,6 +671,117 @@ app.get('/api/shares/:token', async (req, res) => {
   } catch (error) {
     console.error('Get share error:', error);
     res.status(500).json({ error: 'Failed to get share', message: error.message });
+  }
+});
+
+// Pin/Unpin Operations
+app.post('/api/ipfs/pin', verifyAuth, async (req, res) => {
+  try {
+    const user = getOrCreateUser(req.user.uid, req.user.email, req.user.name);
+    const { cid } = req.body;
+
+    if (!cid) {
+      return res.status(400).json({ error: 'Missing CID parameter' });
+    }
+
+    const file = rowToObject(
+      db.prepare('SELECT * FROM files WHERE cid = ? AND user_id = ? AND is_deleted = 0').get(cid, user.id)
+    );
+    if (!file) {
+      return res.status(404).json({ error: 'File not found for this user' });
+    }
+
+    if (file.is_pinned) {
+      return res.json({
+        success: true,
+        cid,
+        message: 'File already pinned'
+      });
+    }
+
+    const pinnedRecords = db
+      .prepare('SELECT COUNT(*) AS count FROM files WHERE cid = ? AND is_pinned = 1 AND is_deleted = 0')
+      .get(cid);
+
+    if (!pinnedRecords || pinnedRecords.count === 0) {
+      await ipfs.pin.add(cid);
+    }
+
+    db.prepare(`
+      UPDATE files SET is_pinned = 1, pin_service = 'local', pin_status = 'pinned', updated_at = datetime("now")
+      WHERE cid = ? AND user_id = ?
+    `).run(cid, user.id);
+
+    res.json({
+      success: true,
+      cid,
+      message: 'File pinned successfully'
+    });
+  } catch (error) {
+    console.error('Pin error:', error);
+    res.status(500).json({ error: 'Failed to pin file', message: error.message });
+  }
+});
+
+app.delete('/api/ipfs/pin/:cid', verifyAuth, async (req, res) => {
+  try {
+    const user = getOrCreateUser(req.user.uid, req.user.email, req.user.name);
+    const { cid } = req.params;
+
+    if (!cid) {
+      return res.status(400).json({ error: 'Missing CID parameter' });
+    }
+
+    const file = rowToObject(
+      db.prepare('SELECT * FROM files WHERE cid = ? AND user_id = ? AND is_deleted = 0').get(cid, user.id)
+    );
+    if (!file) {
+      return res.status(404).json({ error: 'File not found for this user' });
+    }
+
+    if (!file.is_pinned) {
+      return res.json({
+        success: true,
+        cid,
+        message: 'File already unpinned'
+      });
+    }
+
+    const pinnedReferences = db
+      .prepare('SELECT COUNT(*) as count FROM files WHERE cid = ? AND is_pinned = 1 AND is_deleted = 0')
+      .get(cid);
+
+    if (!pinnedReferences) {
+      return res.status(500).json({ error: 'Unable to verify pin references' });
+    }
+
+    if (pinnedReferences.count <= 1) {
+      // Safe to unpin from node (no other pinned references)
+      await ipfs.pin.rm(cid);
+    }
+
+    db.prepare(`
+      UPDATE files SET is_pinned = 0, pin_service = NULL, pin_status = 'unpinned', updated_at = datetime("now")
+      WHERE cid = ? AND user_id = ?
+    `).run(cid, user.id);
+
+    res.json({
+      success: true,
+      cid,
+      message: 'File unpinned successfully'
+    });
+  } catch (error) {
+    console.error('Unpin error:', error);
+    // If the pin doesn't exist, that's okay - consider it a success
+    if (error.message && error.message.includes('not pinned')) {
+      res.json({
+        success: true,
+        cid,
+        message: 'File unpinned successfully'
+      });
+    } else {
+      res.status(500).json({ error: 'Failed to unpin file', message: error.message });
+    }
   }
 });
 

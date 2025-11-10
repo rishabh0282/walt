@@ -2,9 +2,12 @@
 // Supports multiple pinning providers (Pinata, Web3.Storage, etc.)
 
 export interface PinningConfig {
-  service: 'pinata' | 'web3storage' | 'filebase' | 'local';
+  service: 'pinata' | 'web3storage' | 'filebase' | 'local' | 'backend' | 'walt';
   apiKey?: string;
   apiSecret?: string;
+  backendUrl?: string;
+  warning?: string;
+  fallback?: boolean;
 }
 
 export interface PinMetadata {
@@ -40,6 +43,10 @@ class PinningService {
     this.config = config;
   }
 
+  getConfig(): PinningConfig {
+    return this.config;
+  }
+
   /**
    * Pin a file to IPFS using the configured service
    */
@@ -69,12 +76,15 @@ class PinningService {
   /**
    * Pin an existing IPFS hash
    */
-  async pinByHash(ipfsHash: string, metadata?: PinMetadata): Promise<PinResponse> {
+  async pinByHash(ipfsHash: string, metadata?: PinMetadata, authToken?: string): Promise<PinResponse> {
     const hash = ipfsHash.replace('ipfs://', '');
     
     switch (this.config.service) {
       case 'pinata':
         return this.pinHashWithPinata(hash, metadata);
+      case 'backend':
+      case 'walt':
+        return this.pinHashWithBackend(hash, authToken);
       case 'local':
         return {
           success: true,
@@ -94,12 +104,15 @@ class PinningService {
   /**
    * Unpin a file from IPFS
    */
-  async unpinFile(ipfsHash: string): Promise<UnpinResponse> {
+  async unpinFile(ipfsHash: string, authToken?: string): Promise<UnpinResponse> {
     const hash = ipfsHash.replace('ipfs://', '');
 
     switch (this.config.service) {
       case 'pinata':
         return this.unpinWithPinata(hash);
+      case 'backend':
+      case 'walt':
+        return this.unpinWithBackend(hash, authToken);
       case 'local':
         return { success: true };
       default:
@@ -325,6 +338,91 @@ class PinningService {
       error: 'Web3.Storage integration not yet implemented'
     };
   }
+
+  // Backend implementation
+  private async pinHashWithBackend(hash: string, authToken?: string): Promise<PinResponse> {
+    const backendUrl = this.config.backendUrl || process.env.NEXT_PUBLIC_BACKEND_API_URL || 'https://api-walt.aayushman.dev';
+    
+    if (!authToken) {
+      return {
+        success: false,
+        ipfsHash: hash,
+        timestamp: Date.now(),
+        error: 'Authentication token required for backend pinning'
+      };
+    }
+
+    try {
+      const response = await fetch(`${backendUrl}/api/ipfs/pin`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify({ cid: hash })
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        return {
+          success: true,
+          ipfsHash: hash,
+          timestamp: Date.now()
+        };
+      }
+
+      return {
+        success: false,
+        ipfsHash: hash,
+        timestamp: Date.now(),
+        error: result.error || 'Backend pin failed'
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        ipfsHash: hash,
+        timestamp: Date.now(),
+        error: error.message || 'Network error'
+      };
+    }
+  }
+
+  private async unpinWithBackend(hash: string, authToken?: string): Promise<UnpinResponse> {
+    const backendUrl = this.config.backendUrl || process.env.NEXT_PUBLIC_BACKEND_API_URL || 'https://api-walt.aayushman.dev';
+    
+    if (!authToken) {
+      return {
+        success: false,
+        error: 'Authentication token required for backend unpinning'
+      };
+    }
+
+    try {
+      const response = await fetch(`${backendUrl}/api/ipfs/pin/${hash}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${authToken}`
+        }
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        return { success: true };
+      }
+
+      return {
+        success: false,
+        error: result.error || 'Backend unpin failed'
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || 'Network error'
+      };
+    }
+  }
 }
 
 // Singleton instance
@@ -339,14 +437,36 @@ export const getPinningService = (): PinningService | null => {
   return pinningServiceInstance;
 };
 
+export const getPinningServiceConfig = (): PinningConfig | null => {
+  return pinningServiceInstance ? pinningServiceInstance.getConfig() : null;
+};
+
 // Helper function to get config from environment
 export const getPinningConfigFromEnv = (): PinningConfig => {
-  const service = process.env.NEXT_PUBLIC_PINNING_SERVICE as PinningConfig['service'] || 'local';
+  const rawService = process.env.NEXT_PUBLIC_PINNING_SERVICE as PinningConfig['service'] | undefined;
+  const envService = rawService === 'walt' ? 'walt' : rawService;
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'https://api-walt.aayushman.dev';
+  let service: PinningConfig['service'] = envService || 'local';
+  let warning: string | undefined;
+  let fallback = false;
+
+  if (service === 'local') {
+    if (!envService && backendUrl) {
+      service = 'walt';
+      fallback = true;
+      warning = 'Pinning service not configured. Falling back to Walt-managed pins.';
+    } else if (!envService) {
+      warning = 'Pinning service is not configured. Files cannot be pinned persistently until you set NEXT_PUBLIC_PINNING_SERVICE or a backend URL.';
+    }
+  }
   
   return {
     service,
     apiKey: process.env.NEXT_PUBLIC_PINATA_API_KEY,
-    apiSecret: process.env.NEXT_PUBLIC_PINATA_API_SECRET
+    apiSecret: process.env.NEXT_PUBLIC_PINATA_API_SECRET,
+    backendUrl,
+    warning,
+    fallback
   };
 };
 

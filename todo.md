@@ -209,6 +209,9 @@
 - [x] 77. **Error Handling** - Centralized error handling with user-friendly messages and retry logic ✅
 - [x] 78. **Loading States** - Skeleton loaders for better UX ✅
 - [ ] 79. **Analytics** - Track usage patterns
+- [x] 85. **Respect Auto-pin Preference Server-side** - Ensure backend upload route only pins when the user’s stored preference (or explicit request) says so
+- [x] 86. **Pin Ownership Enforcement** - Pin/Unpin endpoints must verify CID ownership and maintain reference counts so one user can’t pin or unpin another user’s data
+- [x] 87. **Pinning Service Safety Net** - Frontend should detect misconfigured pinning service (e.g., defaulting to `local`) and route pin/unpin operations through the backend or show a blocking warning
 
 ### UI/UX Enhancements
 - [ ] 80. **Onboarding Tour** - Guide new users through features

@@ -23,7 +23,7 @@ const ERROR_MESSAGES: Record<ErrorType, string> = {
   [ErrorType.NETWORK]: 'Network connection issue. Please check your internet connection and try again.',
   [ErrorType.IPFS]: 'Failed to access decentralized storage. The content may be temporarily unavailable.',
   [ErrorType.FIRESTORE]: 'Database error occurred. Your changes may not have been saved.',
-  [ErrorType.PINNING]: 'Failed to pin file. The file may not persist long-term.',
+  [ErrorType.PINNING]: 'Pinning operation failed. The file may not persist long-term.',
   [ErrorType.AUTH]: 'Authentication error. Please sign in again.',
   [ErrorType.VALIDATION]: 'Invalid input. Please check your data and try again.',
   [ErrorType.UNKNOWN]: 'An unexpected error occurred. Please try again.'

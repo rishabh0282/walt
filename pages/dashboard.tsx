@@ -29,7 +29,7 @@ import NotificationBell from '../components/NotificationBell';
 import Toast from '../components/Toast';
 import ConfirmationModal from '../components/ConfirmationModal';
 import InputModal from '../components/InputModal';
-import { calculatePinningCost } from '../lib/pinningService';
+import { calculatePinningCost, getPinningServiceConfig, getPinningConfigFromEnv } from '../lib/pinningService';
 import { getOptimizedGatewayUrl } from '../lib/gatewayOptimizer';
 import { getFileCache } from '../lib/fileCache';
 import { BackendFileAPI } from '../lib/backendClient';
@@ -81,6 +81,14 @@ interface UploadProgress {
   progress: number;
   status: 'uploading' | 'complete' | 'error';
 }
+
+const getFriendlyPinServiceLabel = (): string => {
+  const config = getPinningServiceConfig() || getPinningConfigFromEnv();
+  const service = config?.service;
+  if (service === 'pinata') return 'pinata';
+  if (service === 'backend' || service === 'walt') return 'walt';
+  return 'local';
+};
 
 const Dashboard: NextPage = () => {
   const [isUploading, setIsUploading] = useState(false);
@@ -176,6 +184,7 @@ const Dashboard: NextPage = () => {
     clearAllFiles,
     pinFile,
     unpinFile,
+    pinningWarning,
     autoPinEnabled,
     setAutoPinEnabled,
     getStorageStats,
@@ -219,7 +228,12 @@ const Dashboard: NextPage = () => {
     getFilesByTag,
     // Custom Properties functions
     updateCustomProperties
-  } = useUserFileStorage(user?.uid || null);
+  } = useUserFileStorage(user?.uid || null, async () => {
+    if (user) {
+      return await user.getIdToken();
+    }
+    return null;
+  });
 
   // Load column preferences from localStorage
   useEffect(() => {
@@ -271,6 +285,12 @@ const Dashboard: NextPage = () => {
       }
     }
   }, [user]);
+
+  useEffect(() => {
+    if (pinningWarning) {
+      showToast(pinningWarning, 'error');
+    }
+  }, [pinningWarning]);
 
   // Generate search suggestions based on file names
   useEffect(() => {
@@ -638,6 +658,7 @@ const Dashboard: NextPage = () => {
       })));
 
       // Create uploaded file objects from backend response
+      const pinServiceLabel = getFriendlyPinServiceLabel();
       const newFiles: UploadedFile[] = uploadResults.map((result) => ({
         id: result.id,
         name: result.filename,
@@ -647,7 +668,7 @@ const Dashboard: NextPage = () => {
         type: result.mimeType || 'unknown',
         size: result.size,
         isPinned: result.isPinned || autoPinEnabled,
-        pinService: (result.isPinned || autoPinEnabled) ? 'local' : undefined,
+        pinService: (result.isPinned || autoPinEnabled) ? pinServiceLabel : undefined,
         pinDate: (result.isPinned || autoPinEnabled) ? Date.now() : undefined,
         parentFolderId: folderId,
         modifiedDate: Date.now()
@@ -735,6 +756,7 @@ const Dashboard: NextPage = () => {
       })));
 
       // Create uploaded file objects from backend response
+      const pinServiceLabel = getFriendlyPinServiceLabel();
       const newFiles: UploadedFile[] = uploadResults.map((result) => ({
         id: result.id,
         name: result.filename,
@@ -744,7 +766,7 @@ const Dashboard: NextPage = () => {
         type: result.mimeType || 'unknown',
         size: result.size,
         isPinned: result.isPinned || autoPinEnabled,
-        pinService: (result.isPinned || autoPinEnabled) ? 'local' : undefined,
+        pinService: (result.isPinned || autoPinEnabled) ? pinServiceLabel : undefined,
         pinDate: (result.isPinned || autoPinEnabled) ? Date.now() : undefined,
         parentFolderId: currentFolderId,
         modifiedDate: Date.now()
@@ -950,10 +972,9 @@ const Dashboard: NextPage = () => {
         onConfirm: async () => {
           const success = await unpinFile(index);
           if (success) {
-            showToast('File unpinned', 'info');
+            showToast('Unpinned successfully', 'success');
           } else {
-            const appError = ErrorHandler.createAppError(new Error('Failed to unpin file'));
-            showToast(appError.userMessage, 'error');
+            showToast('Failed to unpin file', 'error');
           }
           setConfirmationModal({ ...confirmationModal, isOpen: false });
         },
@@ -2140,6 +2161,15 @@ const Dashboard: NextPage = () => {
 
         {/* File Display Area */}
         <main className={styles.fileArea}>
+          {pinningWarning && (
+            <div className={styles.pinningWarningBanner}>
+              <div className={styles.pinningWarningIcon}>⚠️</div>
+              <div>
+                <div className={styles.pinningWarningTitle}>Pinning Service Attention Needed</div>
+                <p className={styles.pinningWarningText}>{pinningWarning}</p>
+              </div>
+            </div>
+          )}
           {/* Breadcrumb Navigation */}
           {activeView === 'drive' && (
             <div className={styles.breadcrumb}>
