@@ -13,7 +13,7 @@ import { getFileCache } from '../lib/fileCache';
 import { getGatewayOptimizer } from '../lib/gatewayOptimizer';
 import { checkNewFileForDuplicates, getAllDuplicates, DuplicateMatch } from '../lib/duplicateDetection';
 import { createFileVersion, FileVersion } from '../lib/versionHistory';
-import { uploadToIPFS } from '../lib/ipfsClient';
+import { BackendFileAPI } from '../lib/backendClient';
 
 interface ShareConfig {
   shareId: string;
@@ -362,11 +362,14 @@ export const useUserFileStorage = (userUid: string | null, getAuthToken?: () => 
         userId: userUid
       };
 
-      // Upload the file list to IPFS using backend IPFS node
+      // Upload the file list to IPFS using backend API
       const fileListJson = JSON.stringify(userFileList);
-      const fileListBuffer = new TextEncoder().encode(fileListJson);
-      const { cid } = await uploadToIPFS(fileListBuffer);
-      const fileListUri = `ipfs://${cid}`;
+      const authToken = getAuthToken ? await getAuthToken() : null;
+      if (!authToken) {
+        throw new Error('Authentication required to save files');
+      }
+      const result = await BackendFileAPI.addToIPFS(fileListJson, authToken, false); // Don't pin file lists
+      const fileListUri = result.ipfsUri;
       
       // Store the URI in Firestore (single source of truth)
       const userDocRef = doc(db, 'users', userUid);

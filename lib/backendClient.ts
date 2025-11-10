@@ -162,6 +162,21 @@ export const BackendFileAPI = {
 
     return await response.blob();
   },
+
+  /**
+   * Upload JSON/data to IPFS via backend
+   */
+  async addToIPFS(data: string, token: string, pin: boolean = true): Promise<{
+    cid: string;
+    size: number;
+    ipfsUri: string;
+  }> {
+    return backendRequest('/api/ipfs/add', {
+      method: 'POST',
+      body: { data, pin },
+      token,
+    });
+  },
 };
 
 // ============================================

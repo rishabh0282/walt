@@ -689,6 +689,43 @@ app.get('/api/shares/:token', async (req, res) => {
   }
 });
 
+// Upload JSON/Data to IPFS (for file lists, etc.)
+app.post('/api/ipfs/add', verifyAuth, async (req, res) => {
+  try {
+    const user = getOrCreateUser(req.user.uid, req.user.email, req.user.name);
+    const { data, pin } = req.body;
+
+    if (!data) {
+      return res.status(400).json({ error: 'Missing data parameter' });
+    }
+
+    // Convert data to buffer (handle both string and base64)
+    let buffer;
+    if (typeof data === 'string') {
+      // If it's a string, encode it as UTF-8
+      buffer = Buffer.from(data, 'utf-8');
+    } else {
+      return res.status(400).json({ error: 'Data must be a string' });
+    }
+
+    // Upload to IPFS
+    const shouldPin = pin === true || pin === 'true';
+    const result = await ipfs.add(buffer, { pin: shouldPin });
+    const cid = result.cid.toString();
+    const size = Number(result.size);
+
+    res.json({
+      success: true,
+      cid,
+      size,
+      ipfsUri: `ipfs://${cid}`
+    });
+  } catch (error) {
+    console.error('IPFS add error:', error);
+    res.status(500).json({ error: 'Failed to add data to IPFS', message: error.message });
+  }
+});
+
 // Pin/Unpin Operations
 app.post('/api/ipfs/pin', verifyAuth, async (req, res) => {
   try {
