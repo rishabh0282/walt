@@ -176,6 +176,13 @@ const HomePageHtml: React.FC = () => {
         { label: 'Changelog', href: '/changelog' },
       ],
     },
+    {
+      title: 'Contact Us',
+      links: [
+        { label: '+91 96505 93099', href: 'tel:+919650593099' },
+        { label: 'aayushman2702@gmail.com', href: 'mailto:aayushman2702@gmail.com' },
+      ],
+    },
   ];
 
   const classNames = (...classes: (string | undefined | false)[]) =>
