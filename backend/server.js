@@ -9,6 +9,8 @@ import { create } from 'ipfs-http-client';
 import { readFile } from 'fs/promises';
 import { randomUUID as uuidv4 } from 'crypto';
 import dotenv from 'dotenv';
+import * as paymentService from './paymentService.js';
+import * as billingUtils from './billingUtils.js';
 
 dotenv.config();
 
@@ -127,6 +129,50 @@ function initializeSchema() {
     CREATE INDEX IF NOT EXISTS idx_activity_logs_user_id ON activity_logs(user_id);
     CREATE INDEX IF NOT EXISTS idx_activity_logs_file_id ON activity_logs(file_id);
     CREATE INDEX IF NOT EXISTS idx_activity_logs_created_at ON activity_logs(created_at);
+    
+    CREATE TABLE IF NOT EXISTS billing_info (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      payment_method_added INTEGER DEFAULT 0,
+      payment_info_received_at TEXT,
+      services_blocked INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+    
+    CREATE INDEX IF NOT EXISTS idx_billing_info_user_id ON billing_info(user_id);
+    
+    CREATE TABLE IF NOT EXISTS orders (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      cashfree_order_id TEXT UNIQUE,
+      order_amount REAL NOT NULL,
+      order_currency TEXT DEFAULT 'INR',
+      order_status TEXT DEFAULT 'PENDING',
+      payment_session_id TEXT,
+      payment_link TEXT,
+      billing_period_start TEXT,
+      billing_period_end TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+    
+    CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id);
+    CREATE INDEX IF NOT EXISTS idx_orders_cashfree_order_id ON orders(cashfree_order_id);
+    CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(order_status);
+    
+    CREATE TABLE IF NOT EXISTS subscriptions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      billing_day INTEGER NOT NULL,
+      last_billed_at TEXT,
+      next_billing_at TEXT,
+      is_active INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+    
+    CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id ON subscriptions(user_id);
   `);
 }
 
@@ -161,7 +207,18 @@ allowedOrigins = [...new Set(allowedOrigins)];
 //   },
 //   credentials: true,
 // }));
-app.use(express.json());
+
+// Keep raw body for Cashfree webhook signature verification
+app.use('/api/payment/webhook', express.raw({ type: 'application/json' }));
+
+// JSON parser for all other routes
+const jsonParser = express.json();
+app.use((req, res, next) => {
+  if (req.originalUrl === '/api/payment/webhook') {
+    return next();
+  }
+  return jsonParser(req, res, next);
+});
 
 // Auth middleware
 async function verifyAuth(req, res, next) {
@@ -860,6 +917,378 @@ app.get('/ipfs/:cid(*)', async (req, res) => {
   }
 });
 */
+
+// ============================================
+// Billing & Payment Endpoints
+// ============================================
+
+// Get billing status for user
+app.get('/api/billing/status', verifyAuth, (req, res) => {
+  try {
+    const user = getOrCreateUser(req.user.uid, req.user.email, req.user.name);
+    
+    // Get user's pinned files total size
+    const pinnedFiles = db.prepare(`
+      SELECT COALESCE(SUM(size), 0) as total_pinned_size
+      FROM files
+      WHERE user_id = ? AND is_pinned = 1 AND is_deleted = 0
+    `).get(user.id);
+    
+    const pinnedSizeBytes = pinnedFiles?.total_pinned_size || 0;
+    const monthlyCostUSD = billingUtils.calculateMonthlyPinCost(pinnedSizeBytes);
+    const exceedsLimit = billingUtils.exceedsFreeTierLimit(pinnedSizeBytes);
+    const chargeAmountINR = billingUtils.calculateChargeAmount(pinnedSizeBytes);
+    
+    // Get billing info
+    let billingInfo = rowToObject(db.prepare('SELECT * FROM billing_info WHERE user_id = ?').get(user.id));
+    if (!billingInfo) {
+      // Create billing info record
+      const billingId = uuidv4();
+      db.prepare(`
+        INSERT INTO billing_info (id, user_id)
+        VALUES (?, ?)
+      `).run(billingId, user.id);
+      billingInfo = rowToObject(db.prepare('SELECT * FROM billing_info WHERE id = ?').get(billingId));
+    }
+    
+    // Get subscription
+    let subscription = rowToObject(db.prepare('SELECT * FROM subscriptions WHERE user_id = ?').get(user.id));
+    if (!subscription) {
+      // Create subscription with billing day from account creation
+      const billingDay = billingUtils.getBillingDay(user.created_at);
+      const subId = uuidv4();
+      const nextBilling = billingUtils.getNextBillingDate(billingDay);
+      db.prepare(`
+        INSERT INTO subscriptions (id, user_id, billing_day, next_billing_at)
+        VALUES (?, ?, ?, ?)
+      `).run(subId, user.id, billingDay, nextBilling.toISOString());
+      subscription = rowToObject(db.prepare('SELECT * FROM subscriptions WHERE id = ?').get(subId));
+    }
+    
+    const servicesBlocked = billingInfo.services_blocked === 1;
+    const paymentInfoReceived = billingInfo.payment_method_added === 1;
+    
+    res.json({
+      pinnedSizeBytes,
+      monthlyCostUSD: parseFloat(monthlyCostUSD.toFixed(2)),
+      exceedsLimit,
+      chargeAmountINR: parseFloat(chargeAmountINR.toFixed(2)),
+      freeTierLimitUSD: 5,
+      servicesBlocked,
+      paymentInfoReceived,
+      billingDay: subscription.billing_day,
+      nextBillingDate: subscription.next_billing_at,
+      billingPeriod: billingUtils.getBillingPeriod(subscription.billing_day)
+    });
+  } catch (error) {
+    console.error('Billing status error:', error);
+    res.status(500).json({ error: 'Failed to get billing status', message: error.message });
+  }
+});
+
+// Create payment order
+app.post('/api/payment/create-order', verifyAuth, async (req, res) => {
+  try {
+    const user = getOrCreateUser(req.user.uid, req.user.email, req.user.name);
+    
+    // Get user's pinned files total size
+    const pinnedFiles = db.prepare(`
+      SELECT COALESCE(SUM(size), 0) as total_pinned_size
+      FROM files
+      WHERE user_id = ? AND is_pinned = 1 AND is_deleted = 0
+    `).get(user.id);
+    
+    const pinnedSizeBytes = pinnedFiles?.total_pinned_size || 0;
+    const chargeAmountINR = billingUtils.calculateChargeAmount(pinnedSizeBytes);
+    
+    if (chargeAmountINR <= 0) {
+      return res.status(400).json({ error: 'No chargeable amount. You are within the free tier limit.' });
+    }
+    
+    // Get subscription for billing period
+    let subscription = rowToObject(db.prepare('SELECT * FROM subscriptions WHERE user_id = ?').get(user.id));
+    if (!subscription) {
+      const billingDay = billingUtils.getBillingDay(user.created_at);
+      const subId = uuidv4();
+      const nextBilling = billingUtils.getNextBillingDate(billingDay);
+      db.prepare(`
+        INSERT INTO subscriptions (id, user_id, billing_day, next_billing_at)
+        VALUES (?, ?, ?, ?)
+      `).run(subId, user.id, billingDay, nextBilling.toISOString());
+      subscription = rowToObject(db.prepare('SELECT * FROM subscriptions WHERE id = ?').get(subId));
+    }
+    
+    const billingPeriod = billingUtils.getBillingPeriod(subscription.billing_day);
+    
+    // Create order with Cashfree
+    const customerDetails = {
+      customer_id: user.id,
+      customer_email: user.email,
+      customer_phone: req.body.phone || "9999999999",
+      customer_name: user.display_name || user.email
+    };
+    
+    const result = await paymentService.createOrder(
+      user.id,
+      chargeAmountINR,
+      "INR",
+      customerDetails,
+      {
+        returnUrl: `${process.env.FRONTEND_URL || 'https://walt.aayushman.dev'}/payment/callback?order_id={order_id}`,
+        notifyUrl: `${process.env.BACKEND_URL || 'https://api-walt.aayushman.dev'}/api/payment/webhook`
+      }
+    );
+    
+    if (!result.success) {
+      return res.status(500).json({ error: 'Failed to create payment order', message: result.error });
+    }
+    
+    // Save order to database
+    const orderId = uuidv4();
+    db.prepare(`
+      INSERT INTO orders (
+        id, user_id, cashfree_order_id, order_amount, order_currency,
+        order_status, payment_session_id, payment_link,
+        billing_period_start, billing_period_end
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      orderId,
+      user.id,
+      result.cashfreeOrderId,
+      chargeAmountINR,
+      "INR",
+      "PENDING",
+      result.paymentSessionId,
+      result.paymentLink,
+      billingPeriod.start,
+      billingPeriod.end
+    );
+    
+    res.json({
+      success: true,
+      orderId, // internal UUID
+      cashfreeOrderId: result.cashfreeOrderId,
+      paymentSessionId: result.paymentSessionId,
+      paymentLink: result.paymentLink,
+      amount: chargeAmountINR,
+      currency: "INR"
+    });
+  } catch (error) {
+    console.error('Create order error:', error);
+    res.status(500).json({ error: 'Failed to create order', message: error.message });
+  }
+});
+
+// Get order status
+app.get('/api/payment/order/:orderId', verifyAuth, async (req, res) => {
+  try {
+    const user = getOrCreateUser(req.user.uid, req.user.email, req.user.name);
+    const { orderId } = req.params;
+    
+    // Get order from database
+    let order = rowToObject(db.prepare(`
+      SELECT * FROM orders WHERE id = ? AND user_id = ?
+    `).get(orderId, user.id));
+    
+    // Fallback: allow lookup by Cashfree order ID (used by return_url/callback)
+    if (!order) {
+      order = rowToObject(db.prepare(`
+        SELECT * FROM orders WHERE cashfree_order_id = ? AND user_id = ?
+      `).get(orderId, user.id));
+    }
+    
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+    
+    // Fetch latest status from Cashfree
+    if (order.cashfree_order_id) {
+      const cashfreeResult = await paymentService.fetchOrder(order.cashfree_order_id);
+      if (cashfreeResult.success) {
+        // Update order status
+        const orderStatus = cashfreeResult.data?.order_status || order.order_status;
+        db.prepare(`
+          UPDATE orders SET order_status = ?, updated_at = datetime('now')
+          WHERE id = ?
+        `).run(orderStatus, order.id);
+        
+        // If payment successful, update billing info
+        if (orderStatus === 'PAID') {
+          // Mark payment info as received and unblock services
+          let billingInfo = rowToObject(db.prepare('SELECT * FROM billing_info WHERE user_id = ?').get(user.id));
+          if (!billingInfo) {
+            const billingId = uuidv4();
+            db.prepare(`INSERT INTO billing_info (id, user_id) VALUES (?, ?)`).run(billingId, user.id);
+            billingInfo = rowToObject(db.prepare('SELECT * FROM billing_info WHERE id = ?').get(billingId));
+          }
+          
+          db.prepare(`
+            UPDATE billing_info 
+            SET payment_method_added = 1, 
+                payment_info_received_at = datetime('now'),
+                services_blocked = 0,
+                updated_at = datetime('now')
+            WHERE user_id = ?
+          `).run(user.id);
+          
+          // Update subscription next billing date
+          const subscription = rowToObject(db.prepare('SELECT * FROM subscriptions WHERE user_id = ?').get(user.id));
+          if (subscription) {
+            const nextBilling = billingUtils.getNextBillingDate(subscription.billing_day);
+            db.prepare(`
+              UPDATE subscriptions 
+              SET next_billing_at = ?, updated_at = datetime('now')
+              WHERE user_id = ?
+            `).run(nextBilling.toISOString(), user.id);
+          }
+        }
+      }
+    }
+    
+    const updatedOrder = rowToObject(db.prepare('SELECT * FROM orders WHERE id = ?').get(order.id));
+    res.json(updatedOrder);
+  } catch (error) {
+    console.error('Get order error:', error);
+    res.status(500).json({ error: 'Failed to get order', message: error.message });
+  }
+});
+
+// Webhook endpoint for Cashfree
+app.post('/api/payment/webhook', async (req, res) => {
+  try {
+    const signature = req.headers['x-webhook-signature'];
+    const timestamp = req.headers['x-webhook-timestamp'];
+    const rawBody = req.body;
+    
+    if (!signature || !timestamp) {
+      return res.status(400).json({ error: 'Missing webhook signature or timestamp' });
+    }
+    
+    // Verify webhook signature
+    const verification = paymentService.verifyWebhookSignature(signature, rawBody, timestamp);
+    if (!verification.success) {
+      return res.status(401).json({ error: 'Invalid webhook signature', message: verification.error });
+    }
+    
+    const webhookData = JSON.parse(rawBody.toString());
+    const { orderId, orderStatus, paymentStatus } = webhookData;
+    
+    // Find order by Cashfree order ID
+    const order = rowToObject(db.prepare('SELECT * FROM orders WHERE cashfree_order_id = ?').get(orderId));
+    if (!order) {
+      console.warn('Order not found for webhook:', orderId);
+      return res.status(404).json({ error: 'Order not found' });
+    }
+    
+    // Update order status
+    db.prepare(`
+      UPDATE orders SET order_status = ?, updated_at = datetime('now')
+      WHERE cashfree_order_id = ?
+    `).run(orderStatus, orderId);
+    
+    // If payment successful, update billing info
+    if (orderStatus === 'PAID' && paymentStatus === 'SUCCESS') {
+      const user = rowToObject(db.prepare('SELECT * FROM users WHERE id = ?').get(order.user_id));
+      if (user) {
+        // Mark payment info as received and unblock services
+        let billingInfo = rowToObject(db.prepare('SELECT * FROM billing_info WHERE user_id = ?').get(user.id));
+        if (!billingInfo) {
+          const billingId = uuidv4();
+          db.prepare(`INSERT INTO billing_info (id, user_id) VALUES (?, ?)`).run(billingId, user.id);
+          billingInfo = rowToObject(db.prepare('SELECT * FROM billing_info WHERE id = ?').get(billingId));
+        }
+        
+        db.prepare(`
+          UPDATE billing_info 
+          SET payment_method_added = 1, 
+              payment_info_received_at = datetime('now'),
+              services_blocked = 0,
+              updated_at = datetime('now')
+          WHERE user_id = ?
+        `).run(user.id);
+        
+        // Update subscription next billing date
+        const subscription = rowToObject(db.prepare('SELECT * FROM subscriptions WHERE user_id = ?').get(user.id));
+        if (subscription) {
+          const nextBilling = billingUtils.getNextBillingDate(subscription.billing_day);
+          db.prepare(`
+            UPDATE subscriptions 
+            SET next_billing_at = ?, updated_at = datetime('now')
+            WHERE user_id = ?
+          `).run(nextBilling.toISOString(), user.id);
+        }
+      }
+    }
+    
+    res.json({ success: true, message: 'Webhook processed' });
+  } catch (error) {
+    console.error('Webhook error:', error);
+    res.status(500).json({ error: 'Webhook processing failed', message: error.message });
+  }
+});
+
+// Check if services should be blocked (called before file operations)
+app.get('/api/billing/check-access', verifyAuth, (req, res) => {
+  try {
+    const user = getOrCreateUser(req.user.uid, req.user.email, req.user.name);
+    
+    // Get user's pinned files total size
+    const pinnedFiles = db.prepare(`
+      SELECT COALESCE(SUM(size), 0) as total_pinned_size
+      FROM files
+      WHERE user_id = ? AND is_pinned = 1 AND is_deleted = 0
+    `).get(user.id);
+    
+    const pinnedSizeBytes = pinnedFiles?.total_pinned_size || 0;
+    const exceedsLimit = billingUtils.exceedsFreeTierLimit(pinnedSizeBytes);
+    
+    if (!exceedsLimit) {
+      return res.json({ 
+        allowed: true,
+        reason: null
+      });
+    }
+    
+    // Check billing info
+    let billingInfo = rowToObject(db.prepare('SELECT * FROM billing_info WHERE user_id = ?').get(user.id));
+    if (!billingInfo) {
+      // Create billing info and block services
+      const billingId = uuidv4();
+      db.prepare(`
+        INSERT INTO billing_info (id, user_id, services_blocked)
+        VALUES (?, ?, 1)
+      `).run(billingId, user.id);
+      billingInfo = rowToObject(db.prepare('SELECT * FROM billing_info WHERE id = ?').get(billingId));
+    } else if (billingInfo.services_blocked === 0 && billingInfo.payment_method_added === 1) {
+      // Services not blocked and payment info received
+      return res.json({ 
+        allowed: true,
+        reason: null
+      });
+    } else if (billingInfo.services_blocked === 0) {
+      // Exceeds limit but services not blocked yet - block them
+      db.prepare(`
+        UPDATE billing_info SET services_blocked = 1, updated_at = datetime('now')
+        WHERE user_id = ?
+      `).run(user.id);
+    }
+    
+    const monthlyCostUSD = billingUtils.calculateMonthlyPinCost(pinnedSizeBytes);
+    const chargeAmountINR = billingUtils.calculateChargeAmount(pinnedSizeBytes);
+    
+    res.json({
+      allowed: false,
+      reason: 'BILLING_LIMIT_EXCEEDED',
+      monthlyCostUSD: parseFloat(monthlyCostUSD.toFixed(2)),
+      chargeAmountINR: parseFloat(chargeAmountINR.toFixed(2)),
+      freeTierLimitUSD: 5,
+      paymentInfoReceived: billingInfo.payment_method_added === 1
+    });
+  } catch (error) {
+    console.error('Check access error:', error);
+    res.status(500).json({ error: 'Failed to check access', message: error.message });
+  }
+});
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, '0.0.0.0', () => {

@@ -29,10 +29,12 @@ import NotificationBell from '../components/NotificationBell';
 import Toast from '../components/Toast';
 import ConfirmationModal from '../components/ConfirmationModal';
 import InputModal from '../components/InputModal';
+import PaymentModal from '../components/PaymentModal';
 import { calculatePinningCost, getPinningServiceConfig, getPinningConfigFromEnv } from '../lib/pinningService';
 import { getOptimizedGatewayUrl } from '../lib/gatewayOptimizer';
 import { getFileCache } from '../lib/fileCache';
 import { BackendFileAPI } from '../lib/backendClient';
+import { checkAccess, getBillingStatus, BillingStatus } from '../lib/billingClient';
 import styles from '../styles/Dashboard.module.css';
 
 interface ShareConfig {
@@ -166,6 +168,8 @@ const Dashboard: NextPage = () => {
     title: '',
     onConfirm: () => {}
   });
+  const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const router = useRouter();
   const { user, loading, logout } = useAuth();
 
@@ -291,6 +295,39 @@ const Dashboard: NextPage = () => {
       showToast(pinningWarning, 'error');
     }
   }, [pinningWarning]);
+
+  // Load billing status
+  useEffect(() => {
+    if (user) {
+      loadBillingStatus();
+    }
+  }, [user]);
+
+  const loadBillingStatus = async () => {
+    const status = await getBillingStatus();
+    if (status) {
+      setBillingStatus(status);
+      // Show payment modal if services are blocked
+      if (status.servicesBlocked && !status.paymentInfoReceived) {
+        setShowPaymentModal(true);
+      }
+    }
+  };
+
+  const checkBillingAccess = async (): Promise<boolean> => {
+    const access = await checkAccess();
+    if (!access) {
+      return true; // If check fails, allow access (fail open)
+    }
+    
+    if (!access.allowed) {
+      // Show payment modal
+      setShowPaymentModal(true);
+      return false;
+    }
+    
+    return true;
+  };
 
   // Generate search suggestions based on file names
   useEffect(() => {
@@ -715,6 +752,13 @@ const Dashboard: NextPage = () => {
       return;
     }
 
+    // Check billing access before upload
+    const hasAccess = await checkBillingAccess();
+    if (!hasAccess) {
+      showToast('Please add payment information to continue', 'error');
+      return;
+    }
+
     setIsUploading(true);
     
     // Initialize upload queue
@@ -957,6 +1001,14 @@ const Dashboard: NextPage = () => {
   });
 
   const handlePinToggle = async (fileId: string, file: UploadedFile, event?: React.MouseEvent) => {
+    // Check billing access before pinning
+    if (!file.isPinned) {
+      const hasAccess = await checkBillingAccess();
+      if (!hasAccess) {
+        showToast('Please add payment information to pin files', 'error');
+        return;
+      }
+    }
     if (event) {
       event.stopPropagation();
     }
@@ -3082,6 +3134,21 @@ const Dashboard: NextPage = () => {
         onConfirm={inputModal.onConfirm}
         onCancel={() => setInputModal({ ...inputModal, isOpen: false })}
       />
+
+      {/* Payment Modal */}
+      {billingStatus && (
+        <PaymentModal
+          isOpen={showPaymentModal}
+          onClose={() => setShowPaymentModal(false)}
+          monthlyCostUSD={billingStatus.monthlyCostUSD}
+          chargeAmountINR={billingStatus.chargeAmountINR}
+          freeTierLimitUSD={billingStatus.freeTierLimitUSD}
+          onPaymentSuccess={async () => {
+            await loadBillingStatus();
+            showToast('Payment information added successfully!', 'success');
+          }}
+        />
+      )}
 
       {/* Gateway Settings Modal */}
       <GatewaySettings
