@@ -41,3 +41,4 @@ backend/walt-b9f64-firebase-adminsdk-fbsvc-bb845e35c5.json
 /setup
 /backend/node_modules
 .env
+backend/.env
