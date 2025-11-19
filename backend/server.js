@@ -1290,6 +1290,124 @@ app.get('/api/billing/check-access', verifyAuth, (req, res) => {
   }
 });
 
+// Test endpoint for billing simulation (for testing only - remove in production or add proper auth)
+app.post('/api/billing/test-billing', verifyAuth, async (req, res) => {
+  try {
+    // Only allow in development/sandbox mode
+    if (process.env.CASHFREE_ENVIRONMENT === 'PRODUCTION' && process.env.NODE_ENV === 'production') {
+      return res.status(403).json({ error: 'Test endpoint not available in production' });
+    }
+
+    const { userId, simulateDate } = req.body;
+    
+    if (!userId) {
+      return res.status(400).json({ error: 'userId is required' });
+    }
+
+    // Get user
+    const user = rowToObject(db.prepare('SELECT * FROM users WHERE id = ?').get(userId));
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Get user's pinned files total size
+    const pinnedFiles = db.prepare(`
+      SELECT COALESCE(SUM(size), 0) as total_pinned_size
+      FROM files
+      WHERE user_id = ? AND is_pinned = 1 AND is_deleted = 0
+    `).get(user.id);
+    
+    const pinnedSizeBytes = pinnedFiles?.total_pinned_size || 0;
+    const monthlyCostUSD = billingUtils.calculateMonthlyPinCost(pinnedSizeBytes);
+    const chargeAmountINR = billingUtils.calculateChargeAmount(pinnedSizeBytes);
+    
+    if (chargeAmountINR <= 0) {
+      return res.json({
+        message: 'No chargeable amount. User is within free tier limit.',
+        monthlyCostUSD: parseFloat(monthlyCostUSD.toFixed(2)),
+        chargeAmountINR: 0,
+        freeTierLimitUSD: 5
+      });
+    }
+
+    // Get or create subscription
+    let subscription = rowToObject(db.prepare('SELECT * FROM subscriptions WHERE user_id = ?').get(user.id));
+    if (!subscription) {
+      const billingDay = billingUtils.getBillingDay(user.created_at);
+      const subId = uuidv4();
+      const nextBilling = billingUtils.getNextBillingDate(billingDay);
+      db.prepare(`
+        INSERT INTO subscriptions (id, user_id, billing_day, next_billing_at)
+        VALUES (?, ?, ?, ?)
+      `).run(subId, user.id, billingDay, nextBilling.toISOString());
+      subscription = rowToObject(db.prepare('SELECT * FROM subscriptions WHERE id = ?').get(subId));
+    }
+
+    const billingPeriod = billingUtils.getBillingPeriod(subscription.billing_day);
+    
+    // Create payment order
+    const customerDetails = {
+      customer_id: user.id,
+      customer_email: user.email,
+      customer_phone: "9999999999",
+      customer_name: user.display_name || user.email
+    };
+    
+    const result = await paymentService.createOrder(
+      user.id,
+      chargeAmountINR,
+      "INR",
+      customerDetails,
+      {
+        returnUrl: `${process.env.FRONTEND_URL || 'https://walt.aayushman.dev'}/payment/callback?order_id={order_id}`,
+        notifyUrl: `${process.env.BACKEND_URL || 'https://api-walt.aayushman.dev'}/api/payment/webhook`
+      }
+    );
+    
+    if (!result.success) {
+      return res.status(500).json({ error: 'Failed to create payment order', message: result.error });
+    }
+    
+    // Save order to database
+    const orderId = uuidv4();
+    db.prepare(`
+      INSERT INTO orders (
+        id, user_id, cashfree_order_id, order_amount, order_currency,
+        order_status, payment_session_id, payment_link,
+        billing_period_start, billing_period_end
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      orderId,
+      user.id,
+      result.cashfreeOrderId,
+      chargeAmountINR,
+      "INR",
+      "PENDING",
+      result.paymentSessionId,
+      result.paymentLink,
+      billingPeriod.start,
+      billingPeriod.end
+    );
+    
+    res.json({
+      success: true,
+      message: 'Test billing order created successfully',
+      orderId,
+      cashfreeOrderId: result.cashfreeOrderId,
+      paymentLink: result.paymentLink,
+      amount: chargeAmountINR,
+      currency: "INR",
+      monthlyCostUSD: parseFloat(monthlyCostUSD.toFixed(2)),
+      chargeAmountINR: parseFloat(chargeAmountINR.toFixed(2)),
+      freeTierLimitUSD: 5,
+      billingPeriod
+    });
+  } catch (error) {
+    console.error('Test billing error:', error);
+    res.status(500).json({ error: 'Failed to create test billing order', message: error.message });
+  }
+});
+
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, '0.0.0.0', () => {
   // Server started
