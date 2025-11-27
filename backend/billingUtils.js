@@ -2,8 +2,8 @@
  * Billing utility functions
  */
 
-// Free tier limit: $5
-const FREE_TIER_LIMIT_USD = 5;
+// Free tier limit: defaults to $5, can be overridden for testing via env
+const FREE_TIER_LIMIT_USD = Number(process.env.FREE_TIER_LIMIT_USD ?? 5);
 
 // Convert USD to INR (approximate, should use real-time rates in production)
 const USD_TO_INR = 83;
