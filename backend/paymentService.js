@@ -1,5 +1,14 @@
 // Import Cashfree SDK (version >=5 uses new API)
 import { Cashfree, CFEnvironment } from "cashfree-pg";
+import dotenv from "dotenv";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
+
+// Ensure .env in backend/ is loaded before we read credentials (server imports this
+// module before calling dotenv.config in server.js)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+dotenv.config({ path: join(__dirname, ".env") });
 
 // Validate imports
 if (!Cashfree) {
