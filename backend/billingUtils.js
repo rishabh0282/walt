@@ -2,8 +2,13 @@
  * Billing utility functions
  */
 
+const DEFAULT_FREE_TIER_LIMIT_USD = 5;
+
 // Free tier limit: defaults to $5, can be overridden for testing via env
-const FREE_TIER_LIMIT_USD = Number(process.env.FREE_TIER_LIMIT_USD ?? 5);
+export function getFreeTierLimitUSD() {
+  const parsed = Number(process.env.FREE_TIER_LIMIT_USD);
+  return Number.isFinite(parsed) ? parsed : DEFAULT_FREE_TIER_LIMIT_USD;
+}
 
 // Convert USD to INR (approximate, should use real-time rates in production)
 const USD_TO_INR = 83;
@@ -32,7 +37,7 @@ export function calculateMonthlyPinCost(pinnedSizeBytes) {
  */
 export function exceedsFreeTierLimit(pinnedSizeBytes) {
   const monthlyCost = calculateMonthlyPinCost(pinnedSizeBytes);
-  return monthlyCost > FREE_TIER_LIMIT_USD;
+  return monthlyCost > getFreeTierLimitUSD();
 }
 
 /**
@@ -40,11 +45,12 @@ export function exceedsFreeTierLimit(pinnedSizeBytes) {
  */
 export function calculateChargeAmount(pinnedSizeBytes) {
   const monthlyCost = calculateMonthlyPinCost(pinnedSizeBytes);
-  if (monthlyCost <= FREE_TIER_LIMIT_USD) {
+  const freeTierLimit = getFreeTierLimitUSD();
+  if (monthlyCost <= freeTierLimit) {
     return 0;
   }
   // Charge only the amount over $5
-  const chargeAmountUSD = monthlyCost - FREE_TIER_LIMIT_USD;
+  const chargeAmountUSD = monthlyCost - freeTierLimit;
   // Convert to INR and round to 2 decimal places
   const chargeAmountINR = Math.round(chargeAmountUSD * USD_TO_INR * 100) / 100;
   return chargeAmountINR;

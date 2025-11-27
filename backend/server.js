@@ -1027,7 +1027,7 @@ app.get('/api/billing/status', verifyAuth, (req, res) => {
       monthlyCostUSD: parseFloat(monthlyCostUSD.toFixed(2)),
       exceedsLimit,
       chargeAmountINR: parseFloat(chargeAmountINR.toFixed(2)),
-      freeTierLimitUSD: 5,
+      freeTierLimitUSD: billingUtils.getFreeTierLimitUSD(),
       servicesBlocked,
       paymentInfoReceived,
       billingDay: subscription.billing_day,
@@ -1335,7 +1335,7 @@ app.get('/api/billing/check-access', verifyAuth, (req, res) => {
       reason: 'BILLING_LIMIT_EXCEEDED',
       monthlyCostUSD: parseFloat(monthlyCostUSD.toFixed(2)),
       chargeAmountINR: parseFloat(chargeAmountINR.toFixed(2)),
-      freeTierLimitUSD: 5,
+      freeTierLimitUSD: billingUtils.getFreeTierLimitUSD(),
       paymentInfoReceived: billingInfo.payment_method_added === 1
     });
   } catch (error) {
@@ -1380,7 +1380,7 @@ app.post('/api/billing/test-billing', verifyAuth, async (req, res) => {
         message: 'No chargeable amount. User is within free tier limit.',
         monthlyCostUSD: parseFloat(monthlyCostUSD.toFixed(2)),
         chargeAmountINR: 0,
-        freeTierLimitUSD: 5
+        freeTierLimitUSD: billingUtils.getFreeTierLimitUSD()
       });
     }
 
@@ -1453,7 +1453,7 @@ app.post('/api/billing/test-billing', verifyAuth, async (req, res) => {
       currency: "INR",
       monthlyCostUSD: parseFloat(monthlyCostUSD.toFixed(2)),
       chargeAmountINR: parseFloat(chargeAmountINR.toFixed(2)),
-      freeTierLimitUSD: 5,
+      freeTierLimitUSD: billingUtils.getFreeTierLimitUSD(),
       billingPeriod
     });
   } catch (error) {
