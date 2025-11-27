@@ -65,17 +65,19 @@ export async function createOrder(userId, orderAmount, orderCurrency = "INR", cu
   try {
     const apiVersion = getApiVersion();
     const orderId = `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
+
+    // Sanitize metadata for Cashfree schema
+    const orderMeta = {
+      return_url: metadata.returnUrl || `${process.env.FRONTEND_URL || 'https://walt.aayushman.dev'}/payment/callback?order_id={order_id}`,
+      notify_url: metadata.notifyUrl || `${process.env.BACKEND_URL || 'https://api-walt.aayushman.dev'}/api/payment/webhook`,
+    };
+
     const request = {
       order_amount: orderAmount,
       order_currency: orderCurrency,
       order_id: orderId,
       customer_details: customerDetails,
-      order_meta: {
-        return_url: metadata.returnUrl || `${process.env.FRONTEND_URL || 'https://walt.aayushman.dev'}/payment/callback?order_id={order_id}`,
-        notify_url: metadata.notifyUrl || `${process.env.BACKEND_URL || 'https://api-walt.aayushman.dev'}/api/payment/webhook`,
-        ...metadata
-      }
+      order_meta: orderMeta
     };
 
     const response = await cashfree.PGCreateOrder(apiVersion, request);
