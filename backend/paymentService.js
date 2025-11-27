@@ -50,13 +50,8 @@ console.log("[Cashfree] X_CLIENT_SECRET:", masked(xClientSecret));
 const cashfree = new Cashfree(environment, xClientId, xClientSecret);
 
 // Get API version (use current date in YYYY-MM-DD format)
-const getApiVersion = () => {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, '0');
-  const day = String(today.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
+// Use a stable, supported API version (per Cashfree PG docs)
+const getApiVersion = () => "2023-08-01";
 
 /**
  * Create a payment order
@@ -65,6 +60,16 @@ export async function createOrder(userId, orderAmount, orderCurrency = "INR", cu
   try {
     const apiVersion = getApiVersion();
     const orderId = `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const normalizedAmount = Number(Number(orderAmount).toFixed(2));
+    if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
+      throw new Error(`Invalid order amount: ${orderAmount}`);
+    }
+    if (normalizedAmount < 1) {
+      return {
+        success: false,
+        error: `Order amount below Cashfree minimum (₹1). Amount: ${normalizedAmount}`
+      };
+    }
 
     // Sanitize metadata for Cashfree schema
     const orderMeta = {
@@ -73,12 +78,31 @@ export async function createOrder(userId, orderAmount, orderCurrency = "INR", cu
     };
 
     const request = {
-      order_amount: orderAmount,
+      order_amount: normalizedAmount,
       order_currency: orderCurrency,
       order_id: orderId,
-      customer_details: customerDetails,
+      customer_details: {
+        customer_id: customerDetails.customer_id || userId,
+        customer_email: customerDetails.customer_email || customerDetails.customerEmail,
+        customer_phone: customerDetails.customer_phone || customerDetails.customerPhone,
+        customer_name: customerDetails.customer_name || customerDetails.customerName || customerDetails.customer_email || "Customer"
+      },
       order_meta: orderMeta
     };
+
+    // Log sanitized request (mask phone/email) to debug shape issues
+    const maskPhone = (p) => (p ? `${String(p).slice(0, 3)}***${String(p).slice(-2)}` : "");
+    const maskedRequest = {
+      ...request,
+      customer_details: {
+        ...request.customer_details,
+        customer_email: request.customer_details.customer_email
+          ? `${request.customer_details.customer_email.slice(0, 2)}***`
+          : undefined,
+        customer_phone: maskPhone(request.customer_details.customer_phone)
+      }
+    };
+    console.log("[Cashfree] createOrder request:", JSON.stringify(maskedRequest));
 
     const response = await cashfree.PGCreateOrder(apiVersion, request);
     
