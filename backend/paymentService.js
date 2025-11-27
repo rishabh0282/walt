@@ -19,16 +19,29 @@ if (!CFEnvironment) {
   throw new Error("CFEnvironment is undefined. The cashfree-pg package may not be properly installed or is an incompatible version. Please check: npm list cashfree-pg");
 }
 
-// Get credentials from environment
-const xClientId = process.env.CASHFREE_X_CLIENT_ID || process.env.X_CLIENT_ID || "";
-const xClientSecret = process.env.CASHFREE_X_CLIENT_SECRET || process.env.X_CLIENT_SECRET || "";
+// Determine environment first
 const environment = (process.env.CASHFREE_ENVIRONMENT === "PRODUCTION" || process.env.X_ENVIRONMENT === "PRODUCTION")
   ? CFEnvironment.PRODUCTION 
   : CFEnvironment.SANDBOX;
 
+// Get credentials from environment
+// If SANDBOX, prefer *_TEST variants when provided
+const useTestCreds = environment === CFEnvironment.SANDBOX;
+const xClientId = useTestCreds
+  ? (process.env.CASHFREE_X_CLIENT_ID_TEST || process.env.X_CLIENT_ID_TEST || process.env.CASHFREE_X_CLIENT_ID || process.env.X_CLIENT_ID || "")
+  : (process.env.CASHFREE_X_CLIENT_ID || process.env.X_CLIENT_ID || "");
+const xClientSecret = useTestCreds
+  ? (process.env.CASHFREE_X_CLIENT_SECRET_TEST || process.env.X_CLIENT_SECRET_TEST || process.env.CASHFREE_X_CLIENT_SECRET || process.env.X_CLIENT_SECRET || "")
+  : (process.env.CASHFREE_X_CLIENT_SECRET || process.env.X_CLIENT_SECRET || "");
+
 // Log credential presence (values masked) to help debug startup
-const masked = (v) => (v ? `${v.slice(0, 4)}***${v.slice(-4)}` : "");
+const masked = (v) => {
+  if (!v) return "";
+  if (v.length <= 8) return `${v[0]}***${v.slice(-1)}`;
+  return `${v.slice(0, 4)}***${v.slice(-4)}`;
+};
 console.log("[Cashfree] Environment:", environment === CFEnvironment.PRODUCTION ? "PRODUCTION" : "SANDBOX");
+console.log("[Cashfree] Using test creds:", useTestCreds);
 console.log("[Cashfree] X_CLIENT_ID:", masked(xClientId));
 console.log("[Cashfree] X_CLIENT_SECRET:", masked(xClientSecret));
 
