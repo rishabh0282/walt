@@ -26,6 +26,12 @@ const environment = (process.env.CASHFREE_ENVIRONMENT === "PRODUCTION" || proces
   ? CFEnvironment.PRODUCTION 
   : CFEnvironment.SANDBOX;
 
+// Log credential presence (values masked) to help debug startup
+const masked = (v) => (v ? `${v.slice(0, 4)}***${v.slice(-4)}` : "");
+console.log("[Cashfree] Environment:", environment === CFEnvironment.PRODUCTION ? "PRODUCTION" : "SANDBOX");
+console.log("[Cashfree] X_CLIENT_ID:", masked(xClientId));
+console.log("[Cashfree] X_CLIENT_SECRET:", masked(xClientSecret));
+
 // Initialize Cashfree instance
 // Version >=5 requires creating an instance with environment and credentials
 const cashfree = new Cashfree(environment, xClientId, xClientSecret);
