@@ -8,31 +8,77 @@ import Database from 'better-sqlite3';
 import { create } from 'ipfs-http-client';
 import { readFile } from 'fs/promises';
 import { randomUUID as uuidv4 } from 'crypto';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import dotenv from 'dotenv';
 import * as paymentService from './paymentService.js';
 import * as billingUtils from './billingUtils.js';
 
-dotenv.config();
+// Get the directory of the current file (backend directory)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Load environment variables from .env file in the backend directory
+// This ensures it works whether you run from root (node backend/server.js) or from backend (node server.js)
+dotenv.config({ path: join(__dirname, '.env') });
+
+// If Firebase env vars are empty strings (from shell), treat them as unset
+// and reload from .env file with override enabled
+const firebaseVarsEmpty = 
+  process.env.FIREBASE_PROJECT_ID === '' || 
+  process.env.FIREBASE_CLIENT_EMAIL === '' || 
+  process.env.FIREBASE_PRIVATE_KEY === '';
+
+if (firebaseVarsEmpty) {
+  // Reload with override to get values from .env file
+  dotenv.config({ path: join(__dirname, '.env'), override: true });
+}
 
 const app = express();
 const upload = multer({ dest: '/tmp' });
 
 // Initialize Firebase Admin
+let firestore = null;
+let firebaseAuth = null;
 if (getApps().length === 0) {
   const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT
     ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
     : {
-        projectId: process.env.FIREBASE_PROJECT_ID,
-        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-        privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+        project_id: process.env.FIREBASE_PROJECT_ID,
+        client_email: process.env.FIREBASE_CLIENT_EMAIL,
+        private_key: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
       };
 
-  initializeApp({
-    credential: cert(serviceAccount),
-  });
-}
+  // Debug: Check what we have
+  const hasProjectId = !!serviceAccount.project_id;
+  const hasClientEmail = !!serviceAccount.client_email;
+  const hasPrivateKey = !!serviceAccount.private_key;
 
-const firestore = getFirestore();
+  // Only initialize if we have required credentials
+  if (hasProjectId && hasClientEmail && hasPrivateKey) {
+    try {
+      initializeApp({
+        credential: cert(serviceAccount),
+      });
+      firestore = getFirestore();
+      firebaseAuth = getAuth();
+      console.log('✓ Firebase Admin initialized successfully');
+    } catch (error) {
+      console.error('✗ Firebase Admin initialization failed:', error.message);
+      console.error('Error details:', error);
+    }
+  } else {
+    console.warn('Firebase Admin not initialized: Missing required credentials');
+    console.warn(`  - FIREBASE_PROJECT_ID: ${hasProjectId ? 'SET' : 'MISSING'}`);
+    console.warn(`  - FIREBASE_CLIENT_EMAIL: ${hasClientEmail ? 'SET' : 'MISSING'}`);
+    console.warn(`  - FIREBASE_PRIVATE_KEY: ${hasPrivateKey ? 'SET' : 'MISSING'}`);
+    console.warn('⚠ Authentication will not work without Firebase credentials');
+  }
+} else {
+  // Firebase already initialized
+  firestore = getFirestore();
+  firebaseAuth = getAuth();
+}
 
 // Initialize SQLite database
 const dbPath = process.env.DATABASE_URL?.replace('sqlite://', '') || './data/ipfs-drive.db';
@@ -229,7 +275,15 @@ async function verifyAuth(req, res, next) {
     }
 
     const token = authHeader.split('Bearer ')[1];
-    const decodedToken = await getAuth().verifyIdToken(token);
+    
+    if (!firebaseAuth) {
+      return res.status(503).json({ 
+        error: 'Authentication service unavailable', 
+        message: 'Firebase Admin is not initialized. Please configure FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY environment variables.' 
+      });
+    }
+    
+    const decodedToken = await firebaseAuth.verifyIdToken(token);
     req.user = decodedToken;
     next();
   } catch (error) {

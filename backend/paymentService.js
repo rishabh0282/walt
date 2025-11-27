@@ -1,11 +1,25 @@
-import { Cashfree } from "cashfree-pg";
+// Import Cashfree SDK (version >=5 uses new API)
+import { Cashfree, CFEnvironment } from "cashfree-pg";
 
-// Initialize Cashfree
-Cashfree.XClientId = process.env.CASHFREE_X_CLIENT_ID || process.env.X_CLIENT_ID || "";
-Cashfree.XClientSecret = process.env.CASHFREE_X_CLIENT_SECRET || process.env.X_CLIENT_SECRET || "";
-Cashfree.XEnvironment = (process.env.CASHFREE_ENVIRONMENT === "PRODUCTION" || process.env.X_ENVIRONMENT === "PRODUCTION")
-  ? Cashfree.Environment.PRODUCTION 
-  : Cashfree.Environment.SANDBOX;
+// Validate imports
+if (!Cashfree) {
+  throw new Error("Failed to import Cashfree from cashfree-pg. Please ensure the package is installed: npm install cashfree-pg");
+}
+
+if (!CFEnvironment) {
+  throw new Error("CFEnvironment is undefined. The cashfree-pg package may not be properly installed or is an incompatible version. Please check: npm list cashfree-pg");
+}
+
+// Get credentials from environment
+const xClientId = process.env.CASHFREE_X_CLIENT_ID || process.env.X_CLIENT_ID || "";
+const xClientSecret = process.env.CASHFREE_X_CLIENT_SECRET || process.env.X_CLIENT_SECRET || "";
+const environment = (process.env.CASHFREE_ENVIRONMENT === "PRODUCTION" || process.env.X_ENVIRONMENT === "PRODUCTION")
+  ? CFEnvironment.PRODUCTION 
+  : CFEnvironment.SANDBOX;
+
+// Initialize Cashfree instance
+// Version >=5 requires creating an instance with environment and credentials
+const cashfree = new Cashfree(environment, xClientId, xClientSecret);
 
 // Get API version (use current date in YYYY-MM-DD format)
 const getApiVersion = () => {
@@ -36,7 +50,7 @@ export async function createOrder(userId, orderAmount, orderCurrency = "INR", cu
       }
     };
 
-    const response = await Cashfree.PGCreateOrder(apiVersion, request);
+    const response = await cashfree.PGCreateOrder(apiVersion, request);
     
     return {
       success: true,
@@ -61,7 +75,7 @@ export async function createOrder(userId, orderAmount, orderCurrency = "INR", cu
 export async function fetchOrder(orderId) {
   try {
     const apiVersion = getApiVersion();
-    const response = await Cashfree.PGFetchOrder(apiVersion, orderId);
+    const response = await cashfree.PGFetchOrder(apiVersion, orderId);
     
     return {
       success: true,
@@ -81,7 +95,7 @@ export async function fetchOrder(orderId) {
  */
 export function verifyWebhookSignature(signature, rawBody, timestamp) {
   try {
-    Cashfree.PGVerifyWebhookSignature(signature, rawBody, timestamp);
+    cashfree.PGVerifyWebhookSignature(signature, rawBody, timestamp);
     return { success: true };
   } catch (error) {
     console.error('Webhook verification error:', error);
