@@ -91,7 +91,11 @@ export async function createOrder(userId, orderAmount, orderCurrency = "INR", cu
       data: response.data
     };
   } catch (error) {
-    console.error('Cashfree create order error:', error);
+    const respData = error.response?.data;
+    console.error('Cashfree create order error:', error.message || error);
+    if (respData) {
+      console.error('Cashfree response data:', JSON.stringify(respData, null, 2));
+    }
     return {
       success: false,
       error: error.response?.data?.message || error.message || 'Failed to create order'
