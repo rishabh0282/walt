@@ -77,67 +77,142 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
 
   const loadCashfree = async (): Promise<any | null> => {
     if (typeof window === 'undefined') return null;
+    
+    // Check if already loaded
     const existing = (window as any).Cashfree;
-    if (existing) return existing;
+    if (existing) {
+      console.log('[Cashfree] SDK already loaded');
+      return existing;
+    }
+    
     const src = getCashfreeScriptUrl();
-    await new Promise<void>((resolve, reject) => {
+    console.log('[Cashfree] Loading SDK from:', src);
+    
+    return new Promise((resolve, reject) => {
+      // Check if script is already in the DOM
+      const existingScript = document.querySelector(`script[src="${src}"]`);
+      if (existingScript) {
+        // Wait a bit for it to load
+        const checkLoaded = setInterval(() => {
+          if ((window as any).Cashfree) {
+            clearInterval(checkLoaded);
+            console.log('[Cashfree] SDK loaded from existing script');
+            resolve((window as any).Cashfree);
+          }
+        }, 100);
+        
+        setTimeout(() => {
+          clearInterval(checkLoaded);
+          if ((window as any).Cashfree) {
+            resolve((window as any).Cashfree);
+          } else {
+            reject(new Error('Cashfree SDK script exists but failed to load'));
+          }
+        }, 5000);
+        return;
+      }
+      
       const script = document.createElement('script');
       script.src = src;
       script.async = true;
-      script.onload = () => resolve();
-      script.onerror = () => reject(new Error('Failed to load Cashfree SDK'));
-      document.body.appendChild(script);
+      script.onload = () => {
+        // Give the SDK a moment to attach to window
+        setTimeout(() => {
+          const cf = (window as any).Cashfree;
+          if (cf) {
+            console.log('[Cashfree] SDK loaded successfully');
+            resolve(cf);
+          } else {
+            console.error('[Cashfree] SDK script loaded but Cashfree object not found');
+            reject(new Error('Cashfree object not found after script load'));
+          }
+        }, 100);
+      };
+      script.onerror = () => {
+        console.error('[Cashfree] Failed to load SDK script');
+        reject(new Error('Failed to load Cashfree SDK'));
+      };
+      document.head.appendChild(script);
     });
-    // SDK attaches Cashfree instead of injecting a class
-    const cf = (window as any).Cashfree;
-    return cf || null;
   };
 
   const startCheckout = async (sessionId: string) => {
     try {
+      console.log('[Cashfree] Starting checkout with session:', sessionId);
       const cashfreeLib = await loadCashfree();
+      
       if (!cashfreeLib) {
         throw new Error('Cashfree SDK not available');
       }
 
-      const mode = cashfreeEnv === 'PRODUCTION' ? 'production' : 'sandbox';
-      let cfInstance: any = null;
+      console.log('[Cashfree] SDK loaded, type:', typeof cashfreeLib);
+      console.log('[Cashfree] SDK properties:', Object.keys(cashfreeLib));
 
-      // Attempt constructor pattern
+      const mode = cashfreeEnv === 'PRODUCTION' ? 'production' : 'sandbox';
+      console.log('[Cashfree] Using mode:', mode);
+      
+      let cfInstance: any = null;
+      let checkoutFn: any = null;
+
+      // Method 1: Try factory-style usage (Cashfree({ mode }))
       if (typeof cashfreeLib === 'function') {
+        console.log('[Cashfree] Attempting factory-style initialization');
         try {
-          cfInstance = new (cashfreeLib as any)({ mode });
-        } catch {
+          cfInstance = cashfreeLib({ mode });
+          console.log('[Cashfree] Factory-style succeeded');
+        } catch (e) {
+          console.log('[Cashfree] Factory-style failed, trying with new keyword');
+          // Some builds need `new Cashfree({ mode })`
           try {
-            cfInstance = new (cashfreeLib as any)(mode);
-          } catch {
-            // ignore and try direct usage
+            cfInstance = new cashfreeLib({ mode });
+            console.log('[Cashfree] New keyword succeeded');
+          } catch (err) {
+            console.log('[Cashfree] New keyword failed');
+            cfInstance = null;
           }
         }
       }
 
-      // If constructor failed or not provided, try direct object
+      // Method 2: Fallback - use the global object directly
       if (!cfInstance && typeof cashfreeLib === 'object') {
+        console.log('[Cashfree] Using global object directly');
         cfInstance = cashfreeLib;
       }
 
-      const checkoutFn =
-        cfInstance?.checkout ||
-        (typeof cashfreeLib === 'function' ? (cashfreeLib as any).checkout : null);
+      // Find the checkout function
+      if (cfInstance) {
+        checkoutFn = cfInstance.checkout;
+        console.log('[Cashfree] Checkout function on instance:', typeof checkoutFn);
+      }
+      
+      if (!checkoutFn && typeof cashfreeLib.checkout === 'function') {
+        checkoutFn = cashfreeLib.checkout;
+        cfInstance = cashfreeLib;
+        console.log('[Cashfree] Using checkout from global object');
+      }
 
       if (typeof checkoutFn !== 'function') {
+        console.error('[Cashfree] Checkout function not found');
+        console.error('[Cashfree] Available on instance:', cfInstance ? Object.keys(cfInstance) : 'no instance');
         throw new Error('Cashfree checkout not available');
       }
 
-      await checkoutFn.call(cfInstance, {
+      console.log('[Cashfree] Calling checkout with config:', {
         paymentSessionId: sessionId,
-        redirectTarget: '_blank',
-        env: cashfreeEnv === 'PRODUCTION' ? 'PROD' : 'SANDBOX',
-        mode
+        redirectTarget: '_blank'
       });
+
+      // Call checkout
+      const result = await checkoutFn.call(cfInstance, {
+        paymentSessionId: sessionId,
+        redirectTarget: '_blank'
+      });
+      
+      console.log('[Cashfree] Checkout result:', result);
     } catch (sdkErr: any) {
       console.error('Cashfree checkout error:', sdkErr);
-      setError('Unable to start checkout. Please try again.');
+      console.error('Error stack:', sdkErr.stack);
+      setError(`Unable to start checkout: ${sdkErr.message || 'Please try again.'}`);
     }
   };
 
