@@ -319,7 +319,8 @@ const Dashboard: NextPage = () => {
     if (!access) {
       return true; // If check fails, allow access (fail open)
     }
-    
+    await loadBillingStatus(); // Keep sidebar/modal limits in sync with backend
+
     if (!access.allowed) {
       // Show payment modal
       setShowPaymentModal(true);

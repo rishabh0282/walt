@@ -5,6 +5,7 @@
 const DEFAULT_FREE_TIER_LIMIT_USD = 5;
 // Current billing cycle duration (monthly)
 export const BILLING_CYCLE_DAYS = 30;
+const DEFAULT_MIN_CHARGE_INR = 1; // Minimum charge to ensure test payments have a non-zero amount
 
 // Free tier limit: defaults to $5, can be overridden for testing via env
 export function getFreeTierLimitUSD() {
@@ -54,7 +55,11 @@ export function calculateChargeAmount(pinnedSizeBytes) {
   // Charge only the amount over $5
   const chargeAmountUSD = monthlyCost - freeTierLimit;
   // Convert to INR and round to 2 decimal places
-  const chargeAmountINR = Math.round(chargeAmountUSD * USD_TO_INR * 100) / 100;
+  const rawINR = Math.round(chargeAmountUSD * USD_TO_INR * 100) / 100;
+  const minCharge = Number.isFinite(Number(process.env.MIN_CHARGE_INR))
+    ? Math.max(Number(process.env.MIN_CHARGE_INR), DEFAULT_MIN_CHARGE_INR)
+    : DEFAULT_MIN_CHARGE_INR;
+  const chargeAmountINR = Math.max(rawINR, minCharge);
   return chargeAmountINR;
 }
 

@@ -48,6 +48,8 @@ console.log("[Cashfree] X_CLIENT_SECRET:", masked(xClientSecret));
 // Initialize Cashfree instance
 // Version >=5 requires creating an instance with environment and credentials
 const cashfree = new Cashfree(environment, xClientId, xClientSecret);
+// Set API version expected by SDK (Cashfree v5 reads this property)
+cashfree.XApiVersion = getApiVersion();
 
 // Get API version (use current date in YYYY-MM-DD format)
 // Use a stable, supported API version (per Cashfree PG docs)
@@ -58,7 +60,6 @@ const getApiVersion = () => "2023-08-01";
  */
 export async function createOrder(userId, orderAmount, orderCurrency = "INR", customerDetails, metadata = {}) {
   try {
-    const apiVersion = getApiVersion();
     const orderId = `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const normalizedAmount = Number(Number(orderAmount).toFixed(2));
     if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
@@ -104,7 +105,7 @@ export async function createOrder(userId, orderAmount, orderCurrency = "INR", cu
     };
     console.log("[Cashfree] createOrder request:", JSON.stringify(maskedRequest));
 
-    const response = await cashfree.PGCreateOrder(apiVersion, request);
+    const response = await cashfree.PGCreateOrder(request);
     
     return {
       success: true,
@@ -132,8 +133,7 @@ export async function createOrder(userId, orderAmount, orderCurrency = "INR", cu
  */
 export async function fetchOrder(orderId) {
   try {
-    const apiVersion = getApiVersion();
-    const response = await cashfree.PGFetchOrder(apiVersion, orderId);
+    const response = await cashfree.PGFetchOrder(orderId);
     
     return {
       success: true,
