@@ -93,14 +93,18 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
 
   const startCheckout = async (sessionId: string) => {
     try {
-      const cashfree = await loadCashfree();
-      if (!cashfree) {
+      const cashfreeCtor = await loadCashfree();
+      if (!cashfreeCtor) {
         throw new Error('Cashfree SDK not available');
       }
-      await cashfree.checkout({
+      const mode = cashfreeEnv === 'PRODUCTION' ? 'production' : 'sandbox';
+      const cfInstance = typeof cashfreeCtor === 'function' ? new cashfreeCtor(mode) : cashfreeCtor;
+      if (!cfInstance?.checkout) {
+        throw new Error('Cashfree checkout not available');
+      }
+      await cfInstance.checkout({
         paymentSessionId: sessionId,
-        redirectTarget: '_blank',
-        env: cashfreeEnv === 'PRODUCTION' ? 'PROD' : 'SANDBOX'
+        redirectTarget: '_blank'
       });
     } catch (sdkErr: any) {
       console.error('Cashfree checkout error:', sdkErr);
