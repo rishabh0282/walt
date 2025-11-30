@@ -32,6 +32,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paymentLink, setPaymentLink] = useState<string | null>(null);
+  const [paymentSessionId, setPaymentSessionId] = useState<string | null>(null);
+  const [orderId, setOrderId] = useState<string | null>(null);
 
   const formatDate = (iso?: string) => {
     if (!iso) return null;
@@ -57,8 +59,58 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
       setPhone('');
       setError(null);
       setPaymentLink(null);
+      setPaymentSessionId(null);
+      setOrderId(null);
     }
   }, [isOpen]);
+
+  const cashfreeEnv = (process.env.NEXT_PUBLIC_CASHFREE_ENVIRONMENT || process.env.CASHFREE_ENVIRONMENT || '').toUpperCase() === 'PRODUCTION'
+    ? 'PRODUCTION'
+    : 'SANDBOX';
+
+  const getCashfreeScriptUrl = () => {
+    // Use Cashfree hosted checkout SDK (Drop) matching env
+    return cashfreeEnv === 'PRODUCTION'
+      ? 'https://sdk.cashfree.com/js/ui/2.0.0/cashfree.prod.js'
+      : 'https://sdk.cashfree.com/js/ui/2.0.0/cashfree.sandbox.js';
+  };
+
+  const loadCashfree = async (): Promise<any | null> => {
+    if (typeof window === 'undefined') return null;
+    const existing = (window as any).Cashfree;
+    if (existing) return existing;
+    const src = getCashfreeScriptUrl();
+    await new Promise<void>((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = src;
+      script.async = true;
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('Failed to load Cashfree SDK'));
+      document.body.appendChild(script);
+    });
+    return (window as any).Cashfree || null;
+  };
+
+  const startCheckout = async (sessionId: string, fallbackLink?: string) => {
+    try {
+      const cashfree = await loadCashfree();
+      if (!cashfree) {
+        throw new Error('Cashfree SDK not available');
+      }
+      await cashfree.checkout({
+        paymentSessionId: sessionId,
+        redirectTarget: '_blank',
+        env: cashfreeEnv === 'PRODUCTION' ? 'PROD' : 'SANDBOX'
+      });
+    } catch (sdkErr: any) {
+      console.error('Cashfree checkout error:', sdkErr);
+      if (fallbackLink) {
+        window.open(fallbackLink, '_blank');
+      } else {
+        setError('Payment link not received');
+      }
+    }
+  };
 
   const handleCreateOrder = async () => {
     if (!phone || phone.length < 10) {
@@ -93,15 +145,21 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
         throw new Error(data.error || 'Failed to create payment order');
       }
 
-      if (data.paymentLink) {
-        setPaymentLink(data.paymentLink);
-        // Open payment link in new window
+      if (data.orderId) setOrderId(data.orderId);
+      if (data.paymentSessionId) setPaymentSessionId(data.paymentSessionId);
+      if (data.paymentLink) setPaymentLink(data.paymentLink);
+
+      // Prefer session-based checkout; fallback to hosted payment link
+      if (data.paymentSessionId) {
+        startCheckout(data.paymentSessionId, data.paymentLink);
+      } else if (data.paymentLink) {
         window.open(data.paymentLink, '_blank');
-        
-        // Poll for payment status
-        pollPaymentStatus(data.orderId);
       } else {
         setError('Payment link not received');
+      }
+
+      if (data.orderId) {
+        pollPaymentStatus(data.orderId);
       }
     } catch (err: any) {
       setError(err.message || 'Failed to create payment order');
