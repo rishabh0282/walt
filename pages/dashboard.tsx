@@ -30,7 +30,7 @@ import Toast from '../components/Toast';
 import ConfirmationModal from '../components/ConfirmationModal';
 import InputModal from '../components/InputModal';
 import PaymentModal from '../components/PaymentModal';
-import { calculatePinningCost, getPinningServiceConfig, getPinningConfigFromEnv } from '../lib/pinningService';
+import { calculatePinningCost, getPinningServiceConfig, getPinningConfigFromEnv, DEFAULT_BILLING_CYCLE_DAYS } from '../lib/pinningService';
 import { getOptimizedGatewayUrl } from '../lib/gatewayOptimizer';
 import { getFileCache } from '../lib/fileCache';
 import { BackendFileAPI } from '../lib/backendClient';
@@ -582,12 +582,12 @@ const Dashboard: NextPage = () => {
     const largeFiles = acceptedFiles.filter(f => f.size > 100 * 1024 * 1024);
     if (largeFiles.length > 0) {
       const totalSize = largeFiles.reduce((sum, f) => sum + f.size, 0);
-      const costEstimate = calculatePinningCost(totalSize, 365);
+      const costEstimate = calculatePinningCost(totalSize, DEFAULT_BILLING_CYCLE_DAYS);
       const fileNames = largeFiles.map(f => `${f.name} (${formatFileSize(f.size)})`).join(', ');
       setConfirmationModal({
         isOpen: true,
         title: 'Large Files Detected',
-        message: `Large files detected:\n${fileNames}\n\nTotal size: ${formatFileSize(totalSize)}\nEstimated pinning cost (1 year): ${costEstimate}\n\nLarge files may take longer to upload and cost more to pin. Continue?`,
+        message: `Large files detected:\n${fileNames}\n\nTotal size: ${formatFileSize(totalSize)}\nEstimated pinning cost (${billingCycleTitle}): ${costEstimate}\n\nLarge files may take longer to upload and cost more to pin. Continue?`,
         confirmText: 'Continue',
         cancelText: 'Cancel',
         onConfirm: async () => {
@@ -609,12 +609,12 @@ const Dashboard: NextPage = () => {
     const largeFiles = acceptedFiles.filter(f => f.size > 100 * 1024 * 1024);
     if (largeFiles.length > 0) {
       const totalSize = largeFiles.reduce((sum, f) => sum + f.size, 0);
-      const costEstimate = calculatePinningCost(totalSize, 365);
+      const costEstimate = calculatePinningCost(totalSize, DEFAULT_BILLING_CYCLE_DAYS);
       const fileNames = largeFiles.map(f => `${f.name} (${formatFileSize(f.size)})`).join(', ');
       setConfirmationModal({
         isOpen: true,
         title: 'Large Files Detected',
-        message: `Large files detected:\n${fileNames}\n\nTotal size: ${formatFileSize(totalSize)}\nEstimated pinning cost (1 year): ${costEstimate}\n\nLarge files may take longer to upload and cost more to pin. Continue?`,
+        message: `Large files detected:\n${fileNames}\n\nTotal size: ${formatFileSize(totalSize)}\nEstimated pinning cost (${billingCycleTitle}): ${costEstimate}\n\nLarge files may take longer to upload and cost more to pin. Continue?`,
         confirmText: 'Continue',
         cancelText: 'Cancel',
         onConfirm: async () => {
@@ -907,6 +907,21 @@ const Dashboard: NextPage = () => {
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
+
+  const formatDate = (isoDate?: string) => {
+    if (!isoDate) return '—';
+    const date = new Date(isoDate);
+    if (isNaN(date.getTime())) return '—';
+    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  const formatBillingPeriod = (period?: { start: string; end: string }) => {
+    if (!period?.start || !period?.end) return null;
+    return `${formatDate(period.start)} - ${formatDate(period.end)}`;
+  };
+
+  const billingCycleLabel = DEFAULT_BILLING_CYCLE_DAYS === 30 ? 'month' : `${DEFAULT_BILLING_CYCLE_DAYS}-day cycle`;
+  const billingCycleTitle = DEFAULT_BILLING_CYCLE_DAYS === 30 ? 'Monthly' : `${DEFAULT_BILLING_CYCLE_DAYS}-Day Cycle`;
 
   const getFileIcon = (type: string) => {
     if (type.startsWith('image/')) return '🖼️';
@@ -2046,11 +2061,29 @@ const Dashboard: NextPage = () => {
                 </div>
                 {storageStats.pinnedSize > 0 && (
                   <div className={styles.statRow}>
-                    <span className={styles.statLabel}>💰 Est. Cost (1yr):</span>
+                    <span className={styles.statLabel}>💰 Est. {billingCycleTitle} Cost:</span>
                     <span className={styles.statValue}>
-                      {calculatePinningCost(storageStats.pinnedSize, 365)}
+                      {calculatePinningCost(storageStats.pinnedSize, DEFAULT_BILLING_CYCLE_DAYS)}
                     </span>
                   </div>
+                )}
+                {billingStatus && (
+                  <>
+                    <div className={styles.statRow}>
+                      <span className={styles.statLabel}>Billing Cycle:</span>
+                      <span className={styles.statValue}>
+                        {billingCycleTitle} {formatBillingPeriod(billingStatus.billingPeriod) ? `• ${formatBillingPeriod(billingStatus.billingPeriod)}` : ''}
+                      </span>
+                    </div>
+                    <div className={styles.statRow}>
+                      <span className={styles.statLabel}>Next Billing:</span>
+                      <span className={styles.statValue}>{formatDate(billingStatus.nextBillingDate)}</span>
+                    </div>
+                    <div className={styles.statRow}>
+                      <span className={styles.statLabel}>Free Tier Limit:</span>
+                      <span className={styles.statValue}>${billingStatus.freeTierLimitUSD.toFixed(2)}/month</span>
+                    </div>
+                  </>
                 )}
                 <div className={styles.statRow}>
                   <span className={styles.statLabel}>🆓 Unpinned (Free):</span>
@@ -2190,11 +2223,29 @@ const Dashboard: NextPage = () => {
               </div>
               {storageStats.pinnedSize > 0 && (
                 <div className={styles.statRow}>
-                  <span className={styles.statLabel}>💰 Est. Cost:</span>
+                  <span className={styles.statLabel}>💰 Est. {billingCycleTitle} Cost:</span>
                   <span className={styles.statValue}>
-                    {calculatePinningCost(storageStats.pinnedSize, 365)}/year
+                    {calculatePinningCost(storageStats.pinnedSize, DEFAULT_BILLING_CYCLE_DAYS)}/month
                   </span>
                 </div>
+              )}
+              {billingStatus && (
+                <>
+                  <div className={styles.statRow}>
+                    <span className={styles.statLabel}>Billing Cycle:</span>
+                    <span className={styles.statValue}>
+                      {billingCycleTitle} {formatBillingPeriod(billingStatus.billingPeriod) ? `• ${formatBillingPeriod(billingStatus.billingPeriod)}` : ''}
+                    </span>
+                  </div>
+                  <div className={styles.statRow}>
+                    <span className={styles.statLabel}>Next Billing:</span>
+                    <span className={styles.statValue}>{formatDate(billingStatus.nextBillingDate)}</span>
+                  </div>
+                  <div className={styles.statRow}>
+                    <span className={styles.statLabel}>Free Tier Limit:</span>
+                    <span className={styles.statValue}>${billingStatus.freeTierLimitUSD.toFixed(2)}/month</span>
+                  </div>
+                </>
               )}
               <div className={styles.statRow}>
                 <span className={styles.statLabel}>🆓 Unpinned (FREE):</span>
@@ -3143,6 +3194,9 @@ const Dashboard: NextPage = () => {
           monthlyCostUSD={billingStatus.monthlyCostUSD}
           chargeAmountINR={billingStatus.chargeAmountINR}
           freeTierLimitUSD={billingStatus.freeTierLimitUSD}
+          billingPeriod={billingStatus.billingPeriod}
+          nextBillingDate={billingStatus.nextBillingDate}
+          billingCycleDays={DEFAULT_BILLING_CYCLE_DAYS}
           onPaymentSuccess={async () => {
             await loadBillingStatus();
             showToast('Payment information added successfully!', 'success');

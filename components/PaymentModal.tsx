@@ -8,6 +8,12 @@ interface PaymentModalProps {
   monthlyCostUSD: number;
   chargeAmountINR: number;
   freeTierLimitUSD: number;
+  billingPeriod?: {
+    start: string;
+    end: string;
+  };
+  nextBillingDate?: string;
+  billingCycleDays?: number;
   onPaymentSuccess?: () => void;
 }
 
@@ -17,12 +23,34 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
   monthlyCostUSD,
   chargeAmountINR,
   freeTierLimitUSD,
+  billingPeriod,
+  nextBillingDate,
+  billingCycleDays = 30,
   onPaymentSuccess
 }) => {
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paymentLink, setPaymentLink] = useState<string | null>(null);
+
+  const formatDate = (iso?: string) => {
+    if (!iso) return null;
+    const date = new Date(iso);
+    if (isNaN(date.getTime())) return null;
+    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  const formatBillingPeriod = () => {
+    if (!billingPeriod?.start || !billingPeriod?.end) return null;
+    const start = formatDate(billingPeriod.start);
+    const end = formatDate(billingPeriod.end);
+    if (!start || !end) return null;
+    return `${start} - ${end}`;
+  };
+
+  const billingCycleLabel = billingCycleDays === 30 ? 'Monthly' : `${billingCycleDays}-Day Cycle`;
+  const billingPeriodLabel = formatBillingPeriod();
+  const nextBillingLabel = formatDate(nextBillingDate);
 
   useEffect(() => {
     if (isOpen) {
@@ -139,7 +167,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
         
         <div className={styles.content}>
           <div className={styles.warning}>
-            <p>⚠️ Your estimated pin cost (${monthlyCostUSD.toFixed(2)}/month) exceeds the free tier limit of ${freeTierLimitUSD}/month.</p>
+            <p>⚠️ Your estimated pin cost (${monthlyCostUSD.toFixed(2)}/month) exceeds the free tier limit of ${freeTierLimitUSD.toFixed(2)}/month.</p>
             <p>To continue using our services, please add payment information.</p>
           </div>
 
@@ -150,14 +178,30 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
             </div>
             <div className={styles.infoRow}>
               <span>Free Tier:</span>
-              <span>${freeTierLimitUSD}</span>
+              <span>${freeTierLimitUSD.toFixed(2)}/month</span>
             </div>
             <div className={styles.infoRow}>
               <span>Amount to Pay:</span>
               <span className={styles.chargeAmount}>₹{chargeAmountINR.toFixed(2)}</span>
             </div>
+            <div className={styles.infoRow}>
+              <span>Billing Cycle:</span>
+              <span>{billingCycleLabel}</span>
+            </div>
+            {billingPeriodLabel && (
+              <div className={styles.infoRow}>
+                <span>Current Period:</span>
+                <span>{billingPeriodLabel}</span>
+              </div>
+            )}
+            {nextBillingLabel && (
+              <div className={styles.infoRow}>
+                <span>Next Billing:</span>
+                <span>{nextBillingLabel}</span>
+              </div>
+            )}
             <div className={styles.note}>
-              <small>You will only be charged for the amount over ${freeTierLimitUSD}. Billing occurs monthly on your account creation date.</small>
+              <small>You will only be charged for the amount over ${freeTierLimitUSD.toFixed(2)}. Charges are calculated on a monthly cycle.</small>
             </div>
           </div>
 

@@ -3,6 +3,8 @@
  */
 
 const DEFAULT_FREE_TIER_LIMIT_USD = 5;
+// Current billing cycle duration (monthly)
+export const BILLING_CYCLE_DAYS = 30;
 
 // Free tier limit: defaults to $5, can be overridden for testing via env
 export function getFreeTierLimitUSD() {
@@ -17,7 +19,7 @@ const USD_TO_INR = 83;
  * Calculate estimated pin cost in USD
  * Based on: ~$0.15/GB/month for pinning services
  */
-export function calculateEstimatedPinCost(pinnedSizeBytes, durationDays = 365) {
+export function calculateEstimatedPinCost(pinnedSizeBytes, durationDays = BILLING_CYCLE_DAYS) {
   const sizeGB = pinnedSizeBytes / (1024 * 1024 * 1024);
   const monthlyGBCost = 0.15; // $0.15 per GB per month
   const months = durationDays / 30;
@@ -29,7 +31,7 @@ export function calculateEstimatedPinCost(pinnedSizeBytes, durationDays = 365) {
  * Calculate monthly pin cost in USD
  */
 export function calculateMonthlyPinCost(pinnedSizeBytes) {
-  return calculateEstimatedPinCost(pinnedSizeBytes, 30);
+  return calculateEstimatedPinCost(pinnedSizeBytes, BILLING_CYCLE_DAYS);
 }
 
 /**

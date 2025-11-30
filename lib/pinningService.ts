@@ -446,18 +446,13 @@ export const getPinningConfigFromEnv = (): PinningConfig => {
   const rawService = process.env.NEXT_PUBLIC_PINNING_SERVICE as PinningConfig['service'] | undefined;
   const envService = rawService === 'walt' ? 'walt' : rawService;
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'https://api-walt.aayushman.dev';
-  let service: PinningConfig['service'] = envService || 'local';
+  let service: PinningConfig['service'] = envService || 'walt';
   let warning: string | undefined;
   let fallback = false;
 
   if (service === 'local') {
-    if (!envService && backendUrl) {
-      service = 'walt';
-      fallback = true;
-      warning = 'Pinning service not configured. Falling back to Walt-managed pins.';
-    } else if (!envService) {
-      warning = 'Pinning service is not configured. Files cannot be pinned persistently until you set NEXT_PUBLIC_PINNING_SERVICE or a backend URL.';
-    }
+    service = 'walt';
+    fallback = true;
   }
   
   return {
@@ -471,7 +466,9 @@ export const getPinningConfigFromEnv = (): PinningConfig => {
 };
 
 // Calculate storage costs (example pricing)
-export const calculatePinningCost = (fileSizeBytes: number, durationDays: number = 365): string => {
+export const DEFAULT_BILLING_CYCLE_DAYS = 30;
+
+export const calculatePinningCost = (fileSizeBytes: number, durationDays: number = DEFAULT_BILLING_CYCLE_DAYS): string => {
   const sizeGB = fileSizeBytes / (1024 * 1024 * 1024);
   
   // Example pricing (adjust based on actual service)
