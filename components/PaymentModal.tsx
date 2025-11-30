@@ -88,23 +88,26 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
       script.onerror = () => reject(new Error('Failed to load Cashfree SDK'));
       document.body.appendChild(script);
     });
-    return (window as any).Cashfree || null;
+    // SDK attaches Cashfree instead of injecting a class
+    const cf = (window as any).Cashfree;
+    return cf || null;
   };
 
   const startCheckout = async (sessionId: string) => {
     try {
-      const cashfreeCtor = await loadCashfree();
-      if (!cashfreeCtor) {
+      const cashfree = await loadCashfree();
+      if (!cashfree) {
         throw new Error('Cashfree SDK not available');
       }
-      const mode = cashfreeEnv === 'PRODUCTION' ? 'production' : 'sandbox';
-      const cfInstance = typeof cashfreeCtor === 'function' ? new cashfreeCtor(mode) : cashfreeCtor;
-      if (!cfInstance?.checkout) {
+      // V2 SDK exposes a checkout method directly on the object
+      const cfInstance = cashfree;
+      if (typeof cfInstance?.checkout !== 'function') {
         throw new Error('Cashfree checkout not available');
       }
       await cfInstance.checkout({
         paymentSessionId: sessionId,
-        redirectTarget: '_blank'
+        redirectTarget: '_blank',
+        env: cashfreeEnv === 'PRODUCTION' ? 'PROD' : 'SANDBOX'
       });
     } catch (sdkErr: any) {
       console.error('Cashfree checkout error:', sdkErr);
