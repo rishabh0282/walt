@@ -95,19 +95,45 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
 
   const startCheckout = async (sessionId: string) => {
     try {
-      const cashfree = await loadCashfree();
-      if (!cashfree) {
+      const cashfreeLib = await loadCashfree();
+      if (!cashfreeLib) {
         throw new Error('Cashfree SDK not available');
       }
-      // V2 SDK exposes a checkout method directly on the object
-      const cfInstance = cashfree;
-      if (typeof cfInstance?.checkout !== 'function') {
+
+      const mode = cashfreeEnv === 'PRODUCTION' ? 'production' : 'sandbox';
+      let cfInstance: any = null;
+
+      // Attempt constructor pattern
+      if (typeof cashfreeLib === 'function') {
+        try {
+          cfInstance = new (cashfreeLib as any)({ mode });
+        } catch {
+          try {
+            cfInstance = new (cashfreeLib as any)(mode);
+          } catch {
+            // ignore and try direct usage
+          }
+        }
+      }
+
+      // If constructor failed or not provided, try direct object
+      if (!cfInstance && typeof cashfreeLib === 'object') {
+        cfInstance = cashfreeLib;
+      }
+
+      const checkoutFn =
+        cfInstance?.checkout ||
+        (typeof cashfreeLib === 'function' ? (cashfreeLib as any).checkout : null);
+
+      if (typeof checkoutFn !== 'function') {
         throw new Error('Cashfree checkout not available');
       }
-      await cfInstance.checkout({
+
+      await checkoutFn.call(cfInstance, {
         paymentSessionId: sessionId,
         redirectTarget: '_blank',
-        env: cashfreeEnv === 'PRODUCTION' ? 'PROD' : 'SANDBOX'
+        env: cashfreeEnv === 'PRODUCTION' ? 'PROD' : 'SANDBOX',
+        mode
       });
     } catch (sdkErr: any) {
       console.error('Cashfree checkout error:', sdkErr);
