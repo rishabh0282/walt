@@ -11,15 +11,6 @@ const activeChain = "ethereum";
 // Get client ID from environment variable
 const clientId = process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID || "test-api";
 
-// Determine Cashfree environment
-const cashfreeEnv = (process.env.NEXT_PUBLIC_CASHFREE_ENVIRONMENT || '').toUpperCase() === 'PRODUCTION'
-  ? 'PRODUCTION'
-  : 'SANDBOX';
-
-const cashfreeScriptUrl = cashfreeEnv === 'PRODUCTION'
-  ? 'https://sdk.cashfree.com/js/ui/2.0.0/cashfree.prod.js'
-  : 'https://sdk.cashfree.com/js/ui/2.0.0/cashfree.sandbox.js';
-
 function MyApp({ Component, pageProps }: AppProps) {
   return (
     <>
@@ -33,15 +24,15 @@ function MyApp({ Component, pageProps }: AppProps) {
         {/* Add other global head elements here */}
       </Head>
       
-      {/* Load Cashfree SDK globally */}
+      {/* Load Cashfree SDK v3 globally */}
       <Script
-        src={cashfreeScriptUrl}
+        src="https://sdk.cashfree.com/js/v3/cashfree.js"
         strategy="lazyOnload"
         onLoad={() => {
-          console.log('[Cashfree] SDK loaded globally');
+          console.log('[Cashfree] SDK v3 loaded globally');
         }}
         onError={(e) => {
-          console.error('[Cashfree] Failed to load SDK globally:', e);
+          console.error('[Cashfree] Failed to load SDK v3 globally:', e);
         }}
       />
       

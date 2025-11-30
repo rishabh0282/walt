@@ -68,35 +68,27 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
     ? 'PRODUCTION'
     : 'SANDBOX';
 
-  const getCashfreeScriptUrl = () => {
-    // Use Cashfree hosted checkout SDK (Drop) matching env
-    return cashfreeEnv === 'PRODUCTION'
-      ? 'https://sdk.cashfree.com/js/ui/2.0.0/cashfree.prod.js'
-      : 'https://sdk.cashfree.com/js/ui/2.0.0/cashfree.sandbox.js';
-  };
-
   const loadCashfree = async (): Promise<any | null> => {
     if (typeof window === 'undefined') return null;
     
-    // Check if already loaded
+    // Check if SDK v3 is loaded (window.Cashfree is a function)
     const existing = (window as any).Cashfree;
     if (existing) {
-      console.log('[Cashfree] SDK already loaded');
+      console.log('[Cashfree] SDK v3 already loaded');
       return existing;
     }
     
-    const src = getCashfreeScriptUrl();
-    console.log('[Cashfree] Loading SDK from:', src);
+    // Load SDK v3
+    const src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
+    console.log('[Cashfree] Loading SDK v3 from:', src);
     
     return new Promise((resolve, reject) => {
-      // Check if script is already in the DOM
       const existingScript = document.querySelector(`script[src="${src}"]`);
       if (existingScript) {
-        // Wait a bit for it to load
         const checkLoaded = setInterval(() => {
           if ((window as any).Cashfree) {
             clearInterval(checkLoaded);
-            console.log('[Cashfree] SDK loaded from existing script');
+            console.log('[Cashfree] SDK v3 loaded from existing script');
             resolve((window as any).Cashfree);
           }
         }, 100);
@@ -106,7 +98,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
           if ((window as any).Cashfree) {
             resolve((window as any).Cashfree);
           } else {
-            reject(new Error('Cashfree SDK script exists but failed to load'));
+            reject(new Error('Cashfree SDK v3 script exists but failed to load'));
           }
         }, 5000);
         return;
@@ -116,104 +108,58 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
       script.src = src;
       script.async = true;
       script.onload = () => {
-        // Give the SDK a moment to attach to window
         setTimeout(() => {
           const cf = (window as any).Cashfree;
           if (cf) {
-            console.log('[Cashfree] SDK loaded successfully');
+            console.log('[Cashfree] SDK v3 loaded successfully');
             resolve(cf);
           } else {
-            console.error('[Cashfree] SDK script loaded but Cashfree object not found');
+            console.error('[Cashfree] SDK v3 script loaded but Cashfree object not found');
             reject(new Error('Cashfree object not found after script load'));
           }
         }, 100);
       };
       script.onerror = () => {
-        console.error('[Cashfree] Failed to load SDK script');
-        reject(new Error('Failed to load Cashfree SDK'));
+        console.error('[Cashfree] Failed to load SDK v3 script');
+        reject(new Error('Failed to load Cashfree SDK v3'));
       };
       document.head.appendChild(script);
     });
   };
 
-  const startCheckout = async (sessionId: string) => {
+  const startCheckout = async (sessionId: string, paymentLinkUrl?: string) => {
     try {
       console.log('[Cashfree] Starting checkout with session:', sessionId);
-      const cashfreeLib = await loadCashfree();
+      console.log('[Cashfree] Payment link from backend:', paymentLinkUrl);
       
-      if (!cashfreeLib) {
-        throw new Error('Cashfree SDK not available');
+      // Load Cashfree SDK v3
+      const Cashfree = await loadCashfree();
+      
+      if (!Cashfree || typeof Cashfree !== 'function') {
+        throw new Error('Cashfree SDK v3 not available');
       }
 
-      console.log('[Cashfree] SDK loaded, type:', typeof cashfreeLib);
-      console.log('[Cashfree] SDK properties:', Object.keys(cashfreeLib));
-
+      console.log('[Cashfree] SDK v3 loaded, type:', typeof Cashfree);
+      
+      // Initialize Cashfree SDK v3
       const mode = cashfreeEnv === 'PRODUCTION' ? 'production' : 'sandbox';
-      console.log('[Cashfree] Using mode:', mode);
+      console.log('[Cashfree] Initializing SDK v3 with mode:', mode);
       
-      let cfInstance: any = null;
-
-      // Method 1: Try factory-style usage (Cashfree({ mode }))
-      if (typeof cashfreeLib === 'function') {
-        console.log('[Cashfree] Attempting factory-style initialization');
-        try {
-          cfInstance = cashfreeLib({ mode });
-          console.log('[Cashfree] Factory-style succeeded');
-        } catch (e) {
-          console.log('[Cashfree] Factory-style failed, trying with new keyword');
-          // Some builds need `new Cashfree({ mode })`
-          try {
-            cfInstance = new cashfreeLib({ mode });
-            console.log('[Cashfree] New keyword succeeded');
-          } catch (err) {
-            console.log('[Cashfree] New keyword failed');
-            cfInstance = null;
-          }
-        }
-      }
-
-      // Method 2: Fallback - use the global object directly
-      if (!cfInstance && typeof cashfreeLib === 'object') {
-        console.log('[Cashfree] Using global object directly');
-        cfInstance = cashfreeLib;
-      }
-
-      // Find the drop/redirect function (Cashfree SDK v2 uses 'drop' not 'checkout')
-      let dropFn: any = null;
+      const cashfree = Cashfree({ mode });
       
-      if (cfInstance) {
-        dropFn = cfInstance.drop || cfInstance.checkout;
-        console.log('[Cashfree] Drop function on instance:', typeof dropFn);
-      }
+      console.log('[Cashfree] Opening checkout with session ID:', sessionId);
       
-      if (!dropFn && (typeof cashfreeLib.drop === 'function' || typeof cashfreeLib.checkout === 'function')) {
-        dropFn = cashfreeLib.drop || cashfreeLib.checkout;
-        cfInstance = cashfreeLib;
-        console.log('[Cashfree] Using drop from global object');
-      }
-
-      if (typeof dropFn !== 'function') {
-        console.error('[Cashfree] Drop/checkout function not found');
-        console.error('[Cashfree] Available on instance:', cfInstance ? Object.keys(cfInstance) : 'no instance');
-        throw new Error('Cashfree drop method not available');
-      }
-
-      console.log('[Cashfree] Calling drop with config:', {
+      // Open checkout using SDK v3 method
+      cashfree.checkout({
         paymentSessionId: sessionId,
-        redirectTarget: '_modal'
-      });
-
-      // Call drop method
-      const result = await dropFn.call(cfInstance, {
-        paymentSessionId: sessionId,
-        redirectTarget: '_modal' // Use '_modal' for embedded checkout
+        redirectTarget: '_modal' // Options: '_self', '_blank', '_modal'
       });
       
-      console.log('[Cashfree] Drop result:', result);
-    } catch (sdkErr: any) {
-      console.error('Cashfree checkout error:', sdkErr);
-      console.error('Error stack:', sdkErr.stack);
-      setError(`Unable to start checkout: ${sdkErr.message || 'Please try again.'}`);
+      console.log('[Cashfree] Checkout opened successfully');
+      
+    } catch (error: any) {
+      console.error('[Cashfree] Checkout error:', error);
+      setError(`Unable to open payment page: ${error.message || 'Please try again.'}`);
     }
   };
 
@@ -256,7 +202,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
 
       // Prefer session-based checkout; if missing, surface error
       if (data.paymentSessionId) {
-        startCheckout(data.paymentSessionId);
+        startCheckout(data.paymentSessionId, data.paymentLink);
       } else {
         setError('Payment session not received');
       }
