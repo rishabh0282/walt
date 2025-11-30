@@ -45,15 +45,15 @@ console.log("[Cashfree] Using test creds:", useTestCreds);
 console.log("[Cashfree] X_CLIENT_ID:", masked(xClientId));
 console.log("[Cashfree] X_CLIENT_SECRET:", masked(xClientSecret));
 
+// Get API version (use current date in YYYY-MM-DD format)
+// Use a stable, supported API version (per Cashfree PG docs)
+const getApiVersion = () => "2023-08-01";
+
 // Initialize Cashfree instance
 // Version >=5 requires creating an instance with environment and credentials
 const cashfree = new Cashfree(environment, xClientId, xClientSecret);
 // Set API version expected by SDK (Cashfree v5 reads this property)
 cashfree.XApiVersion = getApiVersion();
-
-// Get API version (use current date in YYYY-MM-DD format)
-// Use a stable, supported API version (per Cashfree PG docs)
-const getApiVersion = () => "2023-08-01";
 
 /**
  * Create a payment order
