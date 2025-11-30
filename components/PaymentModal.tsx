@@ -152,7 +152,6 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
       console.log('[Cashfree] Using mode:', mode);
       
       let cfInstance: any = null;
-      let checkoutFn: any = null;
 
       // Method 1: Try factory-style usage (Cashfree({ mode }))
       if (typeof cashfreeLib === 'function') {
@@ -179,36 +178,38 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
         cfInstance = cashfreeLib;
       }
 
-      // Find the checkout function
+      // Find the drop/redirect function (Cashfree SDK v2 uses 'drop' not 'checkout')
+      let dropFn: any = null;
+      
       if (cfInstance) {
-        checkoutFn = cfInstance.checkout;
-        console.log('[Cashfree] Checkout function on instance:', typeof checkoutFn);
+        dropFn = cfInstance.drop || cfInstance.checkout;
+        console.log('[Cashfree] Drop function on instance:', typeof dropFn);
       }
       
-      if (!checkoutFn && typeof cashfreeLib.checkout === 'function') {
-        checkoutFn = cashfreeLib.checkout;
+      if (!dropFn && (typeof cashfreeLib.drop === 'function' || typeof cashfreeLib.checkout === 'function')) {
+        dropFn = cashfreeLib.drop || cashfreeLib.checkout;
         cfInstance = cashfreeLib;
-        console.log('[Cashfree] Using checkout from global object');
+        console.log('[Cashfree] Using drop from global object');
       }
 
-      if (typeof checkoutFn !== 'function') {
-        console.error('[Cashfree] Checkout function not found');
+      if (typeof dropFn !== 'function') {
+        console.error('[Cashfree] Drop/checkout function not found');
         console.error('[Cashfree] Available on instance:', cfInstance ? Object.keys(cfInstance) : 'no instance');
-        throw new Error('Cashfree checkout not available');
+        throw new Error('Cashfree drop method not available');
       }
 
-      console.log('[Cashfree] Calling checkout with config:', {
+      console.log('[Cashfree] Calling drop with config:', {
         paymentSessionId: sessionId,
-        redirectTarget: '_blank'
+        redirectTarget: '_modal'
       });
 
-      // Call checkout
-      const result = await checkoutFn.call(cfInstance, {
+      // Call drop method
+      const result = await dropFn.call(cfInstance, {
         paymentSessionId: sessionId,
-        redirectTarget: '_blank'
+        redirectTarget: '_modal' // Use '_modal' for embedded checkout
       });
       
-      console.log('[Cashfree] Checkout result:', result);
+      console.log('[Cashfree] Drop result:', result);
     } catch (sdkErr: any) {
       console.error('Cashfree checkout error:', sdkErr);
       console.error('Error stack:', sdkErr.stack);
