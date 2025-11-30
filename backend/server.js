@@ -1097,13 +1097,8 @@ app.post('/api/payment/create-order', verifyAuth, async (req, res) => {
       return res.status(500).json({ error: 'Failed to create payment order', message: result.error });
     }
 
-    // Hosted checkout link fallback (Cashfree PG v5 may not return payment_link)
-    const isProd = process.env.CASHFREE_ENVIRONMENT === 'PRODUCTION' || process.env.X_ENVIRONMENT === 'PRODUCTION';
-    const hostedCheckoutBase = isProd
-      ? 'https://payments.cashfree.com/pg/web/checkout'
-      : 'https://www.cashfree.com/devstudio/preview/pg/web/checkout';
-    const fallbackPaymentLink = result.cashfreeOrderId ? `${hostedCheckoutBase}?order_id=${result.cashfreeOrderId}` : null;
-    const paymentLink = result.paymentLink || fallbackPaymentLink;
+    // Hosted checkout links are deprecated for prod; rely on session-based checkout
+    const paymentLink = result.paymentLink || null;
     
     // Save order to database
     const orderId = uuidv4();

@@ -91,7 +91,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
     return (window as any).Cashfree || null;
   };
 
-  const startCheckout = async (sessionId: string, fallbackLink?: string) => {
+  const startCheckout = async (sessionId: string) => {
     try {
       const cashfree = await loadCashfree();
       if (!cashfree) {
@@ -104,11 +104,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
       });
     } catch (sdkErr: any) {
       console.error('Cashfree checkout error:', sdkErr);
-      if (fallbackLink) {
-        window.open(fallbackLink, '_blank');
-      } else {
-        setError('Payment link not received');
-      }
+      setError('Unable to start checkout. Please try again.');
     }
   };
 
@@ -149,13 +145,11 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
       if (data.paymentSessionId) setPaymentSessionId(data.paymentSessionId);
       if (data.paymentLink) setPaymentLink(data.paymentLink);
 
-      // Prefer session-based checkout; fallback to hosted payment link
+      // Prefer session-based checkout; if missing, surface error
       if (data.paymentSessionId) {
-        startCheckout(data.paymentSessionId, data.paymentLink);
-      } else if (data.paymentLink) {
-        window.open(data.paymentLink, '_blank');
+        startCheckout(data.paymentSessionId);
       } else {
-        setError('Payment link not received');
+        setError('Payment session not received');
       }
 
       if (data.orderId) {
