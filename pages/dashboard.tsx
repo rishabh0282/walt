@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { NextPage } from 'next';
 import { useRouter } from 'next/router';
 import Image from 'next/image';
@@ -334,13 +334,7 @@ const Dashboard: NextPage = () => {
   };
 
   // Load billing status
-  useEffect(() => {
-    if (user) {
-      loadBillingStatus();
-    }
-  }, [user, loadBillingStatus]);
-
-  const loadBillingStatus = async () => {
+  const loadBillingStatus = useCallback(async () => {
     const status = await getBillingStatus();
     if (!status) {
       setShowBillingWarning(false);
@@ -362,7 +356,13 @@ const Dashboard: NextPage = () => {
     const now = Date.now();
     const shouldShowWarning = status.exceedsLimit && !billingDayToday && (!dismissedUntil || now >= dismissedUntil);
     setShowBillingWarning(shouldShowWarning);
-  };
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      loadBillingStatus();
+    }
+  }, [user, loadBillingStatus]);
 
   const checkBillingAccess = async (): Promise<boolean> => {
     const access = await checkAccess();
