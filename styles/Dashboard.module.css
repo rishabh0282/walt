@@ -120,6 +120,28 @@
   background: rgba(255, 255, 255, 0.1);
 }
 
+.billingDueButton {
+  background: linear-gradient(120deg, #0f766e, #14b8a6);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 0 8px 16px rgba(20, 184, 166, 0.25);
+  margin-right: 10px;
+}
+
+.billingDueButton:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 18px rgba(20, 184, 166, 0.35);
+}
+
+.dark .billingDueButton {
+  box-shadow: 0 8px 16px rgba(20, 184, 166, 0.2);
+}
+
 .searchContainer {
   max-width: 720px;
   flex: 1;
@@ -912,6 +934,90 @@
   font-size: 12px;
   color: #b45309;
   text-align: center;
+}
+
+.billingWarningBanner {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  background: #fff4ed;
+  border: 1px solid #fb923c;
+  color: #9a3412;
+  padding: 12px 16px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+
+.dark .billingWarningBanner {
+  background: #3b1a0a;
+  border-color: #fb923c;
+  color: #fed7aa;
+}
+
+.billingWarningIcon {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.billingWarningContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.billingWarningTitle {
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.billingWarningText {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.dark .billingWarningText {
+  color: #fed7aa;
+}
+
+.billingWarningActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.billingWarningAction {
+  background: #0f766e;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.billingWarningAction:hover {
+  background: #115e59;
+}
+
+.billingWarningDismiss {
+  background: transparent;
+  color: inherit;
+  border: 1px solid currentColor;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.billingWarningDismiss:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.dark .billingWarningDismiss:hover {
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .pinningWarningBanner {

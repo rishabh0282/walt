@@ -92,6 +92,9 @@ const getFriendlyPinServiceLabel = (): string => {
   return 'local';
 };
 
+const BILLING_WARNING_SNOOZE_DAYS = 14;
+const BILLING_WARNING_SNOOZE_MS = BILLING_WARNING_SNOOZE_DAYS * 24 * 60 * 60 * 1000;
+
 const Dashboard: NextPage = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadQueue, setUploadQueue] = useState<UploadProgress[]>([]);
@@ -170,11 +173,33 @@ const Dashboard: NextPage = () => {
   });
   const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showBillingWarning, setShowBillingWarning] = useState(false);
   const router = useRouter();
   const { user, loading, logout } = useAuth();
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setToast({ message, type });
+  };
+
+  const getBillingWarningStorageKey = () => {
+    return user ? `billing_warning_dismissed_until_${user.uid}` : null;
+  };
+
+  const getBillingWarningDismissedUntil = (): number | null => {
+    if (typeof window === 'undefined') return null;
+    const key = getBillingWarningStorageKey();
+    if (!key) return null;
+    const raw = localStorage.getItem(key);
+    const parsed = raw ? parseInt(raw, 10) : NaN;
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+
+  const dismissBillingWarning = () => {
+    const key = getBillingWarningStorageKey();
+    if (!key) return;
+    const snoozeUntil = Date.now() + BILLING_WARNING_SNOOZE_MS;
+    localStorage.setItem(key, snoozeUntil.toString());
+    setShowBillingWarning(false);
   };
   
   // Use the new IPFS-based storage hook
@@ -268,6 +293,12 @@ const Dashboard: NextPage = () => {
     }
   }, [user, loading, router]);
 
+  useEffect(() => {
+    if (!user) {
+      setShowBillingWarning(false);
+    }
+  }, [user]);
+
   // Load recent searches and saved searches from localStorage
   useEffect(() => {
     if (user) {
@@ -296,6 +327,12 @@ const Dashboard: NextPage = () => {
     }
   }, [pinningWarning]);
 
+  const isTodayBillingDay = (billingDay?: number) => {
+    if (typeof billingDay !== 'number' || Number.isNaN(billingDay)) return false;
+    const today = new Date();
+    return today.getDate() === billingDay;
+  };
+
   // Load billing status
   useEffect(() => {
     if (user) {
@@ -305,13 +342,26 @@ const Dashboard: NextPage = () => {
 
   const loadBillingStatus = async () => {
     const status = await getBillingStatus();
-    if (status) {
-      setBillingStatus(status);
-      // Show payment modal if services are blocked
-      if (status.servicesBlocked && !status.paymentInfoReceived) {
-        setShowPaymentModal(true);
-      }
+    if (!status) {
+      setShowBillingWarning(false);
+      return;
     }
+
+    setBillingStatus(status);
+
+    const billingDayToday = isTodayBillingDay(status.billingDay);
+    const shouldForcePayment = !status.paymentInfoReceived && (billingDayToday || status.servicesBlocked);
+
+    if (shouldForcePayment) {
+      setShowPaymentModal(true);
+      setShowBillingWarning(false);
+      return;
+    }
+
+    const dismissedUntil = getBillingWarningDismissedUntil();
+    const now = Date.now();
+    const shouldShowWarning = status.exceedsLimit && !billingDayToday && (!dismissedUntil || now >= dismissedUntil);
+    setShowBillingWarning(shouldShowWarning);
   };
 
   const checkBillingAccess = async (): Promise<boolean> => {
@@ -909,11 +959,34 @@ const Dashboard: NextPage = () => {
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
+  const shouldShowBillingCTA = () => {
+    if (!billingStatus) return false;
+    return !billingStatus.paymentInfoReceived && isTodayBillingDay(billingStatus.billingDay);
+  };
+
   const formatDate = (isoDate?: string) => {
     if (!isoDate) return '—';
     const date = new Date(isoDate);
     if (isNaN(date.getTime())) return '—';
     return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  const formatChargeAmount = (status?: BillingStatus | null) => {
+    if (!status) return '';
+    if (status.chargeAmountINR > 0) {
+      return `₹${status.chargeAmountINR.toFixed(2)}`;
+    }
+    const overageUSD = Math.max(0, status.monthlyCostUSD - status.freeTierLimitUSD);
+    return `$${overageUSD.toFixed(2)}`;
+  };
+
+  const getBillingDayLabel = (status: BillingStatus) => {
+    const dateLabel = formatDate(status.nextBillingDate);
+    if (dateLabel !== '—') return dateLabel;
+    if (status.billingDay) {
+      return `day ${status.billingDay}`;
+    }
+    return 'your billing day';
   };
 
   const formatBillingPeriod = (period?: { start: string; end: string }) => {
@@ -1883,6 +1956,16 @@ const Dashboard: NextPage = () => {
           >
             {theme === 'light' ? '🌙' : '☀️'}
           </button>
+
+          {shouldShowBillingCTA() && (
+            <button
+              className={styles.billingDueButton}
+              onClick={() => setShowPaymentModal(true)}
+              title="Billing day: add payment info now"
+            >
+              💳 Pay now
+            </button>
+          )}
           
           {/* Notifications */}
           <NotificationBell />
@@ -2222,11 +2305,19 @@ const Dashboard: NextPage = () => {
                   {storageStats.pinnedCount} ({formatFileSize(storageStats.pinnedSize)})
                 </span>
               </div>
-              {storageStats.pinnedSize > 0 && (
+              {billingStatus && storageStats.pinnedSize > 0 && (
                 <div className={styles.statRow}>
-                  <span className={styles.statLabel}>💰 Est. {billingCycleTitle} Cost:</span>
+                  <span className={styles.statLabel}>💰 Usage:</span>
                   <span className={styles.statValue}>
-                    {calculatePinningCost(storageStats.pinnedSize, DEFAULT_BILLING_CYCLE_DAYS)}/month
+                    {billingStatus.pinnedSizeGB.toFixed(2)} GB / {billingStatus.freeTierGB} GB free
+                  </span>
+                </div>
+              )}
+              {billingStatus && billingStatus.monthlyCostUSD > 0 && (
+                <div className={styles.statRow}>
+                  <span className={styles.statLabel}>Est. Monthly Cost:</span>
+                  <span className={styles.statValue}>
+                    ${billingStatus.monthlyCostUSD.toFixed(2)}/month
                   </span>
                 </div>
               )}
@@ -2243,8 +2334,8 @@ const Dashboard: NextPage = () => {
                     <span className={styles.statValue}>{formatDate(billingStatus.nextBillingDate)}</span>
                   </div>
                   <div className={styles.statRow}>
-                    <span className={styles.statLabel}>Free Tier Limit:</span>
-                    <span className={styles.statValue}>${billingStatus.freeTierLimitUSD.toFixed(2)}/month</span>
+                    <span className={styles.statLabel}>Pricing:</span>
+                    <span className={styles.statValue}>{billingStatus.freeTierGB} GB free, then ${billingStatus.costPerGB}/GB</span>
                   </div>
                 </>
               )}
@@ -2265,6 +2356,32 @@ const Dashboard: NextPage = () => {
 
         {/* File Display Area */}
         <main className={styles.fileArea}>
+          {showBillingWarning && billingStatus && (
+            <div className={styles.billingWarningBanner}>
+              <div className={styles.billingWarningIcon}>⚠️</div>
+              <div className={styles.billingWarningContent}>
+                <div className={styles.billingWarningTitle}>Free tier exceeded</div>
+                <p className={styles.billingWarningText}>
+                  You're using {billingStatus.pinnedSizeGB.toFixed(2)} GB (free tier: {billingStatus.freeTierGB} GB). 
+                  Overage of {formatChargeAmount(billingStatus)} will be charged on {getBillingDayLabel(billingStatus)}.
+                </p>
+                <div className={styles.billingWarningActions}>
+                  <button
+                    className={styles.billingWarningAction}
+                    onClick={() => setShowPaymentModal(true)}
+                  >
+                    Add payment now
+                  </button>
+                  <button
+                    className={styles.billingWarningDismiss}
+                    onClick={dismissBillingWarning}
+                  >
+                    Dismiss for 14 days
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
           {pinningWarning && (
             <div className={styles.pinningWarningBanner}>
               <div className={styles.pinningWarningIcon}>⚠️</div>
@@ -3195,6 +3312,9 @@ const Dashboard: NextPage = () => {
           monthlyCostUSD={billingStatus.monthlyCostUSD}
           chargeAmountINR={billingStatus.chargeAmountINR}
           freeTierLimitUSD={billingStatus.freeTierLimitUSD}
+          pinnedSizeGB={billingStatus.pinnedSizeGB}
+          freeTierGB={billingStatus.freeTierGB}
+          costPerGB={billingStatus.costPerGB}
           billingPeriod={billingStatus.billingPeriod}
           nextBillingDate={billingStatus.nextBillingDate}
           billingCycleDays={DEFAULT_BILLING_CYCLE_DAYS}

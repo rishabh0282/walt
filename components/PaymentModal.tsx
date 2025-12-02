@@ -7,7 +7,10 @@ interface PaymentModalProps {
   onClose: () => void;
   monthlyCostUSD: number;
   chargeAmountINR: number;
-  freeTierLimitUSD: number;
+  freeTierLimitUSD: number; // Legacy
+  pinnedSizeGB?: number;
+  freeTierGB?: number;
+  costPerGB?: number;
   billingPeriod?: {
     start: string;
     end: string;
@@ -23,12 +26,23 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
   monthlyCostUSD,
   chargeAmountINR,
   freeTierLimitUSD,
+  pinnedSizeGB,
+  freeTierGB,
+  costPerGB,
   billingPeriod,
   nextBillingDate,
   billingCycleDays = 30,
   onPaymentSuccess
 }) => {
   const [phone, setPhone] = useState('');
+  const [billingAddress, setBillingAddress] = useState({
+    line1: '',
+    line2: '',
+    city: '',
+    state: '',
+    postalCode: '',
+    country: ''
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paymentLink, setPaymentLink] = useState<string | null>(null);
@@ -57,6 +71,14 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       setPhone('');
+      setBillingAddress({
+        line1: '',
+        line2: '',
+        city: '',
+        state: '',
+        postalCode: '',
+        country: ''
+      });
       setError(null);
       setPaymentLink(null);
       setPaymentSessionId(null);
@@ -169,6 +191,11 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
       return;
     }
 
+    if (!billingAddress.line1 || !billingAddress.city || !billingAddress.state || !billingAddress.postalCode || !billingAddress.country) {
+      setError('Please enter your full billing address');
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -187,7 +214,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ phone })
+        body: JSON.stringify({ phone, billingAddress })
       });
 
       const data = await response.json();
@@ -274,23 +301,59 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
         
         <div className={styles.content}>
           <div className={styles.warning}>
-            <p>⚠️ Your estimated pin cost (${monthlyCostUSD.toFixed(2)}/month) exceeds the free tier limit of ${freeTierLimitUSD.toFixed(2)}/month.</p>
-            <p>To continue using our services, please add payment information.</p>
+            {pinnedSizeGB && freeTierGB ? (
+              <>
+                <p>⚠️ Your storage usage ({pinnedSizeGB.toFixed(2)} GB) exceeds the free tier limit ({freeTierGB} GB).</p>
+                <p>To continue using our services, please add payment information.</p>
+              </>
+            ) : (
+              <>
+                <p>⚠️ Your estimated pin cost (${monthlyCostUSD.toFixed(2)}/month) exceeds the free tier limit of ${freeTierLimitUSD.toFixed(2)}/month.</p>
+                <p>To continue using our services, please add payment information.</p>
+              </>
+            )}
           </div>
 
           <div className={styles.billingInfo}>
-            <div className={styles.infoRow}>
-              <span>Monthly Cost:</span>
-              <span className={styles.amount}>${monthlyCostUSD.toFixed(2)}</span>
-            </div>
-            <div className={styles.infoRow}>
-              <span>Free Tier:</span>
-              <span>${freeTierLimitUSD.toFixed(2)}/month</span>
-            </div>
-            <div className={styles.infoRow}>
-              <span>Amount to Pay:</span>
-              <span className={styles.chargeAmount}>₹{chargeAmountINR.toFixed(2)}</span>
-            </div>
+            {pinnedSizeGB && freeTierGB && costPerGB ? (
+              <>
+                <div className={styles.infoRow}>
+                  <span>Your Storage:</span>
+                  <span className={styles.amount}>{pinnedSizeGB.toFixed(2)} GB</span>
+                </div>
+                <div className={styles.infoRow}>
+                  <span>Free Tier:</span>
+                  <span>{freeTierGB} GB</span>
+                </div>
+                <div className={styles.infoRow}>
+                  <span>Overage:</span>
+                  <span>{(pinnedSizeGB - freeTierGB).toFixed(2)} GB × ${costPerGB}/GB</span>
+                </div>
+                <div className={styles.infoRow}>
+                  <span>Monthly Cost:</span>
+                  <span className={styles.amount}>${monthlyCostUSD.toFixed(2)}</span>
+                </div>
+                <div className={styles.infoRow}>
+                  <span>Amount to Pay:</span>
+                  <span className={styles.chargeAmount}>₹{chargeAmountINR.toFixed(2)}</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className={styles.infoRow}>
+                  <span>Monthly Cost:</span>
+                  <span className={styles.amount}>${monthlyCostUSD.toFixed(2)}</span>
+                </div>
+                <div className={styles.infoRow}>
+                  <span>Free Tier:</span>
+                  <span>${freeTierLimitUSD.toFixed(2)}/month</span>
+                </div>
+                <div className={styles.infoRow}>
+                  <span>Amount to Pay:</span>
+                  <span className={styles.chargeAmount}>₹{chargeAmountINR.toFixed(2)}</span>
+                </div>
+              </>
+            )}
             <div className={styles.infoRow}>
               <span>Billing Cycle:</span>
               <span>{billingCycleLabel}</span>
@@ -308,7 +371,11 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
               </div>
             )}
             <div className={styles.note}>
-              <small>You will only be charged for the amount over ${freeTierLimitUSD.toFixed(2)}. Charges are calculated on a monthly cycle.</small>
+              {freeTierGB ? (
+                <small>You will only be charged for storage above {freeTierGB} GB. Charges are calculated on a monthly cycle.</small>
+              ) : (
+                <small>You will only be charged for the amount over ${freeTierLimitUSD.toFixed(2)}. Charges are calculated on a monthly cycle.</small>
+              )}
             </div>
           </div>
 
@@ -323,6 +390,64 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                 placeholder="Enter your phone number"
                 disabled={loading}
               />
+
+              <label>Billing Address</label>
+              <div className={styles.addressGrid}>
+                <input
+                  id="address-line1"
+                  type="text"
+                  value={billingAddress.line1}
+                  onChange={(e) => setBillingAddress({ ...billingAddress, line1: e.target.value })}
+                  placeholder="Address line 1"
+                  disabled={loading}
+                  aria-label="Address line 1"
+                />
+                <input
+                  id="address-line2"
+                  type="text"
+                  value={billingAddress.line2}
+                  onChange={(e) => setBillingAddress({ ...billingAddress, line2: e.target.value })}
+                  placeholder="Address line 2 (optional)"
+                  disabled={loading}
+                  aria-label="Address line 2"
+                />
+                <input
+                  id="address-city"
+                  type="text"
+                  value={billingAddress.city}
+                  onChange={(e) => setBillingAddress({ ...billingAddress, city: e.target.value })}
+                  placeholder="City"
+                  disabled={loading}
+                  aria-label="City"
+                />
+                <input
+                  id="address-state"
+                  type="text"
+                  value={billingAddress.state}
+                  onChange={(e) => setBillingAddress({ ...billingAddress, state: e.target.value })}
+                  placeholder="State / Province"
+                  disabled={loading}
+                  aria-label="State or Province"
+                />
+                <input
+                  id="address-postal"
+                  type="text"
+                  value={billingAddress.postalCode}
+                  onChange={(e) => setBillingAddress({ ...billingAddress, postalCode: e.target.value })}
+                  placeholder="Postal code"
+                  disabled={loading}
+                  aria-label="Postal code"
+                />
+                <input
+                  id="address-country"
+                  type="text"
+                  value={billingAddress.country}
+                  onChange={(e) => setBillingAddress({ ...billingAddress, country: e.target.value })}
+                  placeholder="Country"
+                  disabled={loading}
+                  aria-label="Country"
+                />
+              </div>
               
               {error && <div className={styles.error}>{error}</div>}
               
@@ -350,4 +475,3 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
 };
 
 export default PaymentModal;
-

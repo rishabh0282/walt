@@ -1,232 +1,333 @@
-# Walt IPFS Drive - Frontend
+# Walt - Self-Hostable IPFS File Storage
 
-A decentralized file storage application built with IPFS and Next.js.
+<div align="center">
 
-**Live Demo:** [walt.aayushman.dev](https://walt.aayushman.dev)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Self-Hostable](https://img.shields.io/badge/self--hostable-yes-brightgreen)](#-self-hosting)
+[![Next.js](https://img.shields.io/badge/Next.js-14-black)](https://nextjs.org/)
+[![IPFS](https://img.shields.io/badge/IPFS-Enabled-blue)](https://ipfs.tech/)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-## Overview
+**A decentralized, open-source file storage platform built on IPFS**
 
-This is the **frontend** repository deployed on Vercel. It communicates with a separate backend at `api-walt.aayushman.dev` which handles database and IPFS operations.
+[Live Demo](https://walt.aayushman.dev) · [Self-Hosting Guide](SELF_HOSTING.md) · [Documentation](#-documentation) · [Report Bug](https://github.com/YOUR_USERNAME/walt/issues) · [Request Feature](https://github.com/YOUR_USERNAME/walt/issues)
 
-### Architecture
+</div>
+
+---
+
+## 🌟 Why Walt?
+
+**Walt** is a modern, self-hostable alternative to centralized cloud storage. Built on IPFS (InterPlanetary File System), it gives you true ownership of your data with the convenience of a modern web interface.
+
+### Key Benefits
+
+- 🌐 **Decentralized**: Files stored on IPFS are content-addressed and distributed
+- 🔒 **Private**: Self-host on your own infrastructure, no third-party access
+- 💰 **Affordable**: 5GB free tier, then just $0.40/GB/month (if using our hosted version)
+- 🚀 **Fast**: Edge caching and multiple gateway support
+- 📦 **Open Source**: MIT licensed, fork and modify freely
+- 🔧 **Self-Hostable**: Run on AWS, DigitalOcean, or even a Raspberry Pi
+
+### Perfect For
+
+- 💼 Small teams wanting data sovereignty
+- 👨‍💻 Developers building on IPFS
+- 🏠 Self-hosting enthusiasts
+- 🔬 Projects requiring decentralized storage
+- 📚 Archiving important files permanently
+
+---
+
+## ✨ Features
+
+### Core Functionality
+- 📁 **File Management**: Upload, download, organize files and folders
+- 📌 **Pinning**: Choose what to persist permanently on IPFS
+- ⭐ **Favorites**: Star important files for quick access
+- 🗑️ **Trash**: Safe deletion with 30-day recovery
+- 🔗 **Sharing**: Generate links with passwords and expiration
+- 🔄 **Versioning**: Track file history and restore previous versions
+
+### Advanced Features
+- 🔐 **Authentication**: Secure login via Firebase Auth
+- 💰 **Billing**: Built-in usage tracking and payment integration (optional)
+- 🎨 **Modern UI**: Clean, responsive interface
+- ⚡ **Gateway Settings**: Configure custom IPFS gateways
+- 📊 **Storage Stats**: Monitor usage and costs
+- 🔔 **Notifications**: Real-time updates on file operations
+
+### Developer Features
+- 🛠️ **RESTful API**: Well-documented endpoints
+- 🐳 **Docker Ready**: Easy deployment with Docker Compose
+- 📝 **TypeScript**: Type-safe frontend code
+- 🔌 **Modular**: Easy to extend and customize
+
+---
+
+## 🚀 Quick Start
+
+### Option 1: Use Our Hosted Version (Easiest)
+
+Try Walt instantly at **[walt.aayushman.dev](https://walt.aayushman.dev)**
+
+- ✅ 5GB free storage
+- ✅ No setup required
+- ✅ Managed infrastructure
+- ✅ $0.40/GB above free tier
+
+### Option 2: Self-Host (Full Control)
+
+Host Walt on your own infrastructure:
+
+```bash
+# Clone the repository
+git clone https://github.com/YOUR_USERNAME/walt.git
+cd walt
+
+# Follow the complete guide
+cat SELF_HOSTING.md
+```
+
+**Estimated setup time**: 1-2 hours  
+**Monthly cost**: $10-30 depending on provider
+
+📖 **[Read the Complete Self-Hosting Guide →](SELF_HOSTING.md)**
+
+---
+
+## 📋 Architecture
 
 ```
-Frontend (This Repo)
-  walt.aayushman.dev
-  ├─ Next.js UI
-  ├─ API Routes (proxy to backend)
-  └─ Vercel Deployment
-
-Backend (Separate Repo)
-  api-walt.aayushman.dev
-  ├─ SQLite Database
-  ├─ IPFS Node
-  └─ EC2 Deployment
+┌─────────────────────────────────────────────┐
+│            Frontend (Next.js)               │
+│  - React UI                                 │
+│  - Firebase Auth                            │
+│  - Deployed on Vercel                       │
+└─────────────────┬───────────────────────────┘
+                  │ HTTPS/REST API
+┌─────────────────▼───────────────────────────┐
+│         Backend (Node.js/Express)           │
+│  - API endpoints                            │
+│  - Authentication validation                │
+│  - Billing logic                            │
+└─────────────┬─────────────────┬─────────────┘
+              │                 │
+    ┌─────────▼─────────┐  ┌───▼──────────┐
+    │  SQLite Database  │  │  IPFS Node   │
+    │  - User data      │  │  - File      │
+    │  - Metadata       │  │    storage   │
+    │  - Billing info   │  │  - Pinning   │
+    └───────────────────┘  └──────────────┘
 ```
 
-## Features
+---
 
-- 📁 File upload/download via IPFS
-- 🗂️ Folder organization
-- ⭐ Starred files
-- 🗑️ Trash/restore functionality
-- 🔗 Share links with permissions
-- 🔒 Firebase authentication
-- 📊 Storage quota management
-- 📱 Responsive design
+## 💻 Technology Stack
 
-## Quick Start
+### Frontend
+- **Framework**: Next.js 14 with TypeScript
+- **Styling**: Tailwind CSS + CSS Modules
+- **Authentication**: Firebase Auth
+- **Deployment**: Vercel (or self-hosted)
+
+### Backend
+- **Runtime**: Node.js 20+
+- **Framework**: Express.js
+- **Database**: SQLite (or PostgreSQL)
+- **Storage**: IPFS (Kubo)
+- **Deployment**: AWS EC2, DigitalOcean, or any VPS
+
+### Services
+- **IPFS**: Content-addressed file storage
+- **Firebase**: User authentication
+- **Cashfree**: Payment processing (optional)
+
+---
+
+## 📖 Documentation
+
+- 📘 [Self-Hosting Guide](SELF_HOSTING.md) - Complete setup instructions
+- 🤝 [Contributing Guide](CONTRIBUTING.md) - How to contribute
+- 🔒 [Security Policy](SECURITY.md) - Security best practices
+- 📝 [Billing Integration](PAYMENT_INTEGRATION.md) - Payment setup
+- 🐛 [Troubleshooting](SELF_HOSTING.md#-troubleshooting) - Common issues
+
+---
+
+## 🛠️ Development
 
 ### Prerequisites
 
 - Node.js 18+
+- Docker & Docker Compose
 - Firebase account
-- Backend deployed at api-walt.aayushman.dev
 
-### Installation
+### Local Setup
 
 ```bash
-# Clone the repository
-git clone <your-repo-url>
+# Clone repository
+git clone https://github.com/YOUR_USERNAME/walt.git
 cd walt
 
-# Install dependencies
+# Install frontend dependencies
 npm install
-# or
-pnpm install
 
-# Copy environment variables
-cp .env.local.example .env.local
+# Setup backend
+cd backend
+npm install
+cp env.example .env
+# Edit .env with your settings
 
-# Edit .env.local with your Firebase config
+# Start IPFS node
+docker-compose up -d
 
-# Run development server
+# Start backend
+npm run dev
+
+# In another terminal, start frontend
+cd ..
 npm run dev
 
 # Open http://localhost:3000
 ```
 
-### Environment Configuration
-
-See `.env.local.example` for required environment variables.
-
-**Required:**
-- Firebase configuration (from Firebase Console)
-- `NEXT_PUBLIC_BACKEND_API_URL=https://api-walt.aayushman.dev`
-- `NEXT_PUBLIC_IPFS_GATEWAY=https://api-walt.aayushman.dev/ipfs`
-
-## Deployment
-
-This app is designed to be deployed on **Vercel**.
-
-```bash
-# Install Vercel CLI
-npm install -g vercel
-
-# Deploy
-vercel --prod
-```
-
-See [setup/FRONTEND_DEPLOYMENT.md](setup/FRONTEND_DEPLOYMENT.md) for detailed deployment instructions.
-
-## Documentation
-
-- [Quick Start Guide](setup/QUICK_START.md) - Get up and running
-- [Frontend Deployment](setup/FRONTEND_DEPLOYMENT.md) - Vercel deployment guide
-- [Docker Setup](setup/DOCKER_SETUP_INSTRUCTIONS.md) - Backend IPFS/Docker setup
-
-## Project Structure
+### Project Structure
 
 ```
 walt/
 ├── pages/              # Next.js pages
+│   ├── dashboard.tsx   # Main app interface
 │   ├── api/           # API routes (proxy to backend)
-│   ├── dashboard.tsx  # Main app interface
 │   └── index.tsx      # Landing page
 ├── components/        # React components
-│   ├── FileUpload.tsx
-│   ├── ShareModal.tsx
-│   └── ...
-├── lib/              # Utilities
-│   ├── backendClient.ts   # Backend API client
-│   ├── ipfsClient.ts      # IPFS operations
-│   ├── apiAuth.ts         # Firebase auth
-│   └── ...
-├── styles/           # CSS styling
+├── lib/              # Utilities and helpers
+├── backend/          # Backend server
+│   ├── server.js     # Express server
+│   ├── billingUtils.js  # Billing logic
+│   └── paymentService.js # Payment integration
+├── styles/           # CSS modules
 ├── hooks/            # React hooks
-├── contexts/         # React contexts
-└── setup/            # Documentation
+└── docs/             # Documentation
 ```
 
-## Technology Stack
+---
 
-- **Framework:** Next.js 14
-- **Styling:** Tailwind CSS
-- **Authentication:** Firebase Auth
-- **Storage:** IPFS (via backend)
-- **Database:** SQLite (via backend)
-- **Deployment:** Vercel
-- **UI Components:** Radix UI
+## 🤝 Contributing
 
-## API Routes
+We love contributions! Here's how you can help:
 
-Frontend API routes proxy requests to the backend:
+- 🐛 **Report bugs**: Open an issue with detailed reproduction steps
+- 💡 **Suggest features**: Share your ideas in discussions
+- 📝 **Improve docs**: Fix typos, add examples, write guides
+- 💻 **Submit PRs**: Fix bugs or add features
 
-- `/api/ipfs/upload` → Upload files
-- `/api/ipfs/list` → List user files
-- `/api/ipfs/download` → Download files
-- `/api/ipfs/status` → IPFS node status
+**[Read our Contributing Guide →](CONTRIBUTING.md)**
 
-All routes require Firebase authentication.
+### Good First Issues
 
-## Backend Requirements
+New to the project? Look for issues labeled [`good first issue`](https://github.com/YOUR_USERNAME/walt/labels/good%20first%20issue)
 
-The frontend expects these endpoints from `api-walt.aayushman.dev`:
+---
 
-```
-POST /api/ipfs/upload       - Upload file
-GET  /api/ipfs/list         - List files/folders
-GET  /api/ipfs/download     - Download file
-GET  /api/ipfs/status       - Node status
-GET  /ipfs/:cid             - IPFS gateway
-POST /api/folders           - Create folder
-GET  /api/user/storage      - Storage stats
-```
+## 🌍 Community
 
-## Development
+- 💬 **[GitHub Discussions](https://github.com/YOUR_USERNAME/walt/discussions)** - Ask questions, share ideas
+- 🐛 **[Issue Tracker](https://github.com/YOUR_USERNAME/walt/issues)** - Report bugs, request features
+- 📢 **[Twitter](https://twitter.com/YOUR_TWITTER)** - Follow for updates
+- 📧 **Email**: your-email@example.com
 
-```bash
-# Run development server
-npm run dev
+---
 
-# Build for production
-npm run build
+## 💰 Pricing (Hosted Version)
 
-# Start production server
-npm start
+Our hosted version at [walt.aayushman.dev](https://walt.aayushman.dev):
 
-# Lint code
-npm run lint
-```
+| Tier | Storage | Price |
+|------|---------|-------|
+| **Free** | 5 GB | $0/month |
+| **Pay-as-you-go** | Above 5 GB | $0.40/GB/month |
 
-## Environment Variables
+**Why self-host?**
+- Full control over your data
+- No usage limits
+- Customize as needed
+- Learn IPFS and decentralized tech
 
-### Client-Side (Exposed to Browser)
-- `NEXT_PUBLIC_FIREBASE_*` - Firebase config
-- `NEXT_PUBLIC_BACKEND_API_URL` - Backend API URL
-- `NEXT_PUBLIC_IPFS_GATEWAY` - IPFS gateway URL
+---
 
-### Server-Side (API Routes Only)
-- `BACKEND_API_URL` - Internal backend URL
-- `FIREBASE_PROJECT_ID` - Firebase project ID
-- `FIREBASE_PRIVATE_KEY` - Firebase admin key
+## 📊 Roadmap
 
-## Contributing
+- [x] Basic file upload/download
+- [x] IPFS integration
+- [x] User authentication
+- [x] Folder organization
+- [x] File sharing
+- [x] Billing system
+- [ ] Mobile app (React Native)
+- [ ] Team collaboration features
+- [ ] Client-side encryption
+- [ ] IPFS cluster support
+- [ ] S3-compatible API
+- [ ] Desktop app (Electron)
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
+**[View Full Roadmap →](https://github.com/YOUR_USERNAME/walt/projects)**
 
-## Security
+---
 
-- All API requests require authentication
-- Firebase tokens verified on backend
-- CORS configured for walt.aayushman.dev only
-- Environment variables not committed to Git
+## 🔒 Security
 
-## Troubleshooting
+Security is our priority. If you discover a vulnerability:
 
-### Build Errors
-```bash
-npm run build
-npm run lint
-```
+- 🚨 **Do NOT** open a public issue
+- 📧 Email security concerns to: your-security-email@example.com
+- 📖 Read our [Security Policy](SECURITY.md)
 
-### API Connection Issues
-- Check `NEXT_PUBLIC_BACKEND_API_URL` is correct
-- Verify backend is running at api-walt.aayushman.dev
-- Check CORS configuration on backend
+---
 
-### Firebase Auth Issues
-- Verify Firebase config in `.env.local`
-- Check authorized domains in Firebase Console
-- Ensure API keys are correct
+## 📄 License
 
-## License
+This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
 
-MIT
+**TL;DR**: You can use, modify, and distribute this software freely, even commercially. Just keep the copyright notice.
 
-## Support
+---
 
-For issues related to:
-- **Frontend:** Check this repo's issues
-- **Backend/Database:** Check backend repo
-- **IPFS:** See [IPFS Documentation](https://docs.ipfs.tech/)
-- **Vercel Deployment:** See [Vercel Docs](https://vercel.com/docs)
+## 🙏 Acknowledgments
 
-## Links
+Built with these amazing open-source projects:
 
-- **Frontend:** https://walt.aayushman.dev
-- **Backend API:** https://api-walt.aayushman.dev
-- **IPFS Gateway:** https://api-walt.aayushman.dev/ipfs
+- [IPFS](https://ipfs.tech/) - Decentralized storage protocol
+- [Next.js](https://nextjs.org/) - React framework
+- [Firebase](https://firebase.google.com/) - Authentication
+- [Express](https://expressjs.com/) - Backend framework
+- [SQLite](https://sqlite.org/) - Database
+
+---
+
+## 🌟 Star History
+
+If you find Walt useful, give it a star! ⭐
+
+[![Star History Chart](https://api.star-history.com/svg?repos=YOUR_USERNAME/walt&type=Date)](https://star-history.com/#YOUR_USERNAME/walt&Date)
+
+---
+
+## 📧 Contact
+
+- **Author**: Your Name
+- **Website**: [walt.aayushman.dev](https://walt.aayushman.dev)
+- **Email**: your-email@example.com
+- **Twitter**: [@your_handle](https://twitter.com/your_handle)
+
+---
+
+<div align="center">
+
+**[⬆ Back to Top](#walt---self-hostable-ipfs-file-storage)**
+
+Made with ❤️ by the open-source community
+
+[⭐ Star us on GitHub](https://github.com/YOUR_USERNAME/walt) · [🐛 Report Bug](https://github.com/YOUR_USERNAME/walt/issues) · [💡 Request Feature](https://github.com/YOUR_USERNAME/walt/issues)
+
+</div>

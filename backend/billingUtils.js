@@ -1,61 +1,95 @@
 /**
  * Billing utility functions
+ * 
+ * Pricing Model:
+ * - Free tier: 5 GB
+ * - Cost: $0.40/GB/month above free tier
+ * - Using self-hosted IPFS node (no external pinning service costs)
  */
 
-const DEFAULT_FREE_TIER_LIMIT_USD = 5;
 // Current billing cycle duration (monthly)
 export const BILLING_CYCLE_DAYS = 30;
 const DEFAULT_MIN_CHARGE_INR = 1; // Minimum charge to ensure test payments have a non-zero amount
 
-// Free tier limit: defaults to $5, can be overridden for testing via env
+// Free tier: 5 GB (can be overridden via env for testing)
+const DEFAULT_FREE_TIER_GB = 5;
+
+export function getFreeTierGB() {
+  const parsed = Number(process.env.FREE_TIER_GB);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_FREE_TIER_GB;
+}
+
+// Legacy function for backward compatibility
 export function getFreeTierLimitUSD() {
-  const parsed = Number(process.env.FREE_TIER_LIMIT_USD);
-  return Number.isFinite(parsed) ? parsed : DEFAULT_FREE_TIER_LIMIT_USD;
+  // Convert GB to USD equivalent for display purposes
+  return getFreeTierGB() * getCostPerGB();
+}
+
+// Cost per GB per month: $0.40/GB
+const DEFAULT_COST_PER_GB = 0.40;
+
+export function getCostPerGB() {
+  const parsed = Number(process.env.COST_PER_GB_USD);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_COST_PER_GB;
 }
 
 // Convert USD to INR (approximate, should use real-time rates in production)
 const USD_TO_INR = 83;
 
 /**
- * Calculate estimated pin cost in USD
- * Based on: ~$0.15/GB/month for pinning services
+ * Calculate storage in GB from bytes
  */
-export function calculateEstimatedPinCost(pinnedSizeBytes, durationDays = BILLING_CYCLE_DAYS) {
-  const sizeGB = pinnedSizeBytes / (1024 * 1024 * 1024);
-  const monthlyGBCost = 0.15; // $0.15 per GB per month
-  const months = durationDays / 30;
-  const totalCostUSD = sizeGB * monthlyGBCost * months;
-  return totalCostUSD;
+export function bytesToGB(bytes) {
+  return bytes / (1024 * 1024 * 1024);
 }
 
 /**
- * Calculate monthly pin cost in USD
+ * Calculate monthly cost in USD based on actual GB usage
+ * Free tier: 5 GB
+ * Cost: $0.40/GB/month above free tier
  */
 export function calculateMonthlyPinCost(pinnedSizeBytes) {
-  return calculateEstimatedPinCost(pinnedSizeBytes, BILLING_CYCLE_DAYS);
+  const sizeGB = bytesToGB(pinnedSizeBytes);
+  const freeTierGB = getFreeTierGB();
+  const costPerGB = getCostPerGB();
+  
+  if (sizeGB <= freeTierGB) {
+    return 0;
+  }
+  
+  const billableGB = sizeGB - freeTierGB;
+  return billableGB * costPerGB;
+}
+
+/**
+ * Calculate estimated pin cost in USD (legacy function for backward compatibility)
+ */
+export function calculateEstimatedPinCost(pinnedSizeBytes, durationDays = BILLING_CYCLE_DAYS) {
+  const monthlyCost = calculateMonthlyPinCost(pinnedSizeBytes);
+  const months = durationDays / 30;
+  return monthlyCost * months;
 }
 
 /**
  * Check if user exceeds free tier limit
  */
 export function exceedsFreeTierLimit(pinnedSizeBytes) {
-  const monthlyCost = calculateMonthlyPinCost(pinnedSizeBytes);
-  return monthlyCost > getFreeTierLimitUSD();
+  const sizeGB = bytesToGB(pinnedSizeBytes);
+  return sizeGB > getFreeTierGB();
 }
 
 /**
- * Calculate amount to charge (only amount over $5)
+ * Calculate amount to charge in INR (only amount over free tier)
  */
 export function calculateChargeAmount(pinnedSizeBytes) {
-  const monthlyCost = calculateMonthlyPinCost(pinnedSizeBytes);
-  const freeTierLimit = getFreeTierLimitUSD();
-  if (monthlyCost <= freeTierLimit) {
+  const monthlyCostUSD = calculateMonthlyPinCost(pinnedSizeBytes);
+  
+  if (monthlyCostUSD <= 0) {
     return 0;
   }
-  // Charge only the amount over $5
-  const chargeAmountUSD = monthlyCost - freeTierLimit;
+  
   // Convert to INR and round to 2 decimal places
-  const rawINR = Math.round(chargeAmountUSD * USD_TO_INR * 100) / 100;
+  const rawINR = Math.round(monthlyCostUSD * USD_TO_INR * 100) / 100;
   const minCharge = Number.isFinite(Number(process.env.MIN_CHARGE_INR))
     ? Math.max(Number(process.env.MIN_CHARGE_INR), DEFAULT_MIN_CHARGE_INR)
     : DEFAULT_MIN_CHARGE_INR;

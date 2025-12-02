@@ -162,6 +162,26 @@
   cursor: not-allowed;
 }
 
+.addressGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+@media (min-width: 520px) {
+  .addressGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .addressGrid input:nth-child(1) {
+    grid-column: span 2;
+  }
+
+  .addressGrid input:nth-child(2) {
+    grid-column: span 2;
+  }
+}
+
 .payButton {
   background-color: #3b82f6;
   color: white;

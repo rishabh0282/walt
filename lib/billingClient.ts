@@ -4,10 +4,13 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'https://api-walt
 
 export interface BillingStatus {
   pinnedSizeBytes: number;
+  pinnedSizeGB: number;
+  freeTierGB: number;
+  costPerGB: number;
   monthlyCostUSD: number;
   exceedsLimit: boolean;
   chargeAmountINR: number;
-  freeTierLimitUSD: number;
+  freeTierLimitUSD: number; // Legacy support
   servicesBlocked: boolean;
   paymentInfoReceived: boolean;
   billingDay: number;
@@ -25,6 +28,8 @@ export interface AccessCheck {
   chargeAmountINR?: number;
   freeTierLimitUSD?: number;
   paymentInfoReceived?: boolean;
+  billingDay?: number;
+  nextBillingDate?: string;
 }
 
 /**

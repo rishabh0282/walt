@@ -989,6 +989,9 @@ app.get('/api/billing/status', verifyAuth, (req, res) => {
     `).get(user.id);
     
     const pinnedSizeBytes = pinnedFiles?.total_pinned_size || 0;
+    const pinnedSizeGB = billingUtils.bytesToGB(pinnedSizeBytes);
+    const freeTierGB = billingUtils.getFreeTierGB();
+    const costPerGB = billingUtils.getCostPerGB();
     const monthlyCostUSD = billingUtils.calculateMonthlyPinCost(pinnedSizeBytes);
     const exceedsLimit = billingUtils.exceedsFreeTierLimit(pinnedSizeBytes);
     const chargeAmountINR = billingUtils.calculateChargeAmount(pinnedSizeBytes);
@@ -1019,15 +1022,31 @@ app.get('/api/billing/status', verifyAuth, (req, res) => {
       subscription = rowToObject(db.prepare('SELECT * FROM subscriptions WHERE id = ?').get(subId));
     }
     
-    const servicesBlocked = billingInfo.services_blocked === 1;
+    const isBillingDay = billingUtils.isBillingDay(subscription.billing_day);
+
+    // If we previously blocked services but it's no longer the billing day, unblock
+    if (billingInfo.services_blocked === 1 && !isBillingDay) {
+      db.prepare(`
+        UPDATE billing_info 
+        SET services_blocked = 0,
+            updated_at = datetime('now')
+        WHERE user_id = ?
+      `).run(user.id);
+      billingInfo.services_blocked = 0;
+    }
+
+    const servicesBlocked = billingInfo.services_blocked === 1 && isBillingDay;
     const paymentInfoReceived = billingInfo.payment_method_added === 1;
     
     res.json({
       pinnedSizeBytes,
+      pinnedSizeGB: parseFloat(pinnedSizeGB.toFixed(2)),
+      freeTierGB,
+      costPerGB,
       monthlyCostUSD: parseFloat(monthlyCostUSD.toFixed(2)),
       exceedsLimit,
       chargeAmountINR: parseFloat(chargeAmountINR.toFixed(2)),
-      freeTierLimitUSD: billingUtils.getFreeTierLimitUSD(),
+      freeTierLimitUSD: billingUtils.getFreeTierLimitUSD(), // Legacy support
       servicesBlocked,
       paymentInfoReceived,
       billingDay: subscription.billing_day,
@@ -1298,6 +1317,8 @@ app.get('/api/billing/check-access', verifyAuth, (req, res) => {
     
     const pinnedSizeBytes = pinnedFiles?.total_pinned_size || 0;
     const exceedsLimit = billingUtils.exceedsFreeTierLimit(pinnedSizeBytes);
+    const monthlyCostUSD = billingUtils.calculateMonthlyPinCost(pinnedSizeBytes);
+    const chargeAmountINR = billingUtils.calculateChargeAmount(pinnedSizeBytes);
     
     if (!exceedsLimit) {
       return res.json({ 
@@ -1309,37 +1330,86 @@ app.get('/api/billing/check-access', verifyAuth, (req, res) => {
     // Check billing info
     let billingInfo = rowToObject(db.prepare('SELECT * FROM billing_info WHERE user_id = ?').get(user.id));
     if (!billingInfo) {
-      // Create billing info and block services
       const billingId = uuidv4();
       db.prepare(`
-        INSERT INTO billing_info (id, user_id, services_blocked)
-        VALUES (?, ?, 1)
+        INSERT INTO billing_info (id, user_id)
+        VALUES (?, ?)
       `).run(billingId, user.id);
       billingInfo = rowToObject(db.prepare('SELECT * FROM billing_info WHERE id = ?').get(billingId));
-    } else if (billingInfo.services_blocked === 0 && billingInfo.payment_method_added === 1) {
-      // Services not blocked and payment info received
-      return res.json({ 
-        allowed: true,
-        reason: null
-      });
-    } else if (billingInfo.services_blocked === 0) {
-      // Exceeds limit but services not blocked yet - block them
+    }
+
+    // Get subscription (needed for billing day checks)
+    let subscription = rowToObject(db.prepare('SELECT * FROM subscriptions WHERE user_id = ?').get(user.id));
+    if (!subscription) {
+      const billingDay = billingUtils.getBillingDay(user.created_at);
+      const subId = uuidv4();
+      const nextBilling = billingUtils.getNextBillingDate(billingDay);
       db.prepare(`
-        UPDATE billing_info SET services_blocked = 1, updated_at = datetime('now')
+        INSERT INTO subscriptions (id, user_id, billing_day, next_billing_at)
+        VALUES (?, ?, ?, ?)
+      `).run(subId, user.id, billingDay, nextBilling.toISOString());
+      subscription = rowToObject(db.prepare('SELECT * FROM subscriptions WHERE id = ?').get(subId));
+    }
+
+    const paymentInfoReceived = billingInfo.payment_method_added === 1;
+    const isBillingDay = billingUtils.isBillingDay(subscription.billing_day);
+
+    // If we exceeded the free tier but it's not billing day yet, show a warning and allow access
+    if (!paymentInfoReceived && !isBillingDay) {
+      if (billingInfo.services_blocked === 1) {
+        db.prepare(`
+          UPDATE billing_info 
+          SET services_blocked = 0,
+              updated_at = datetime('now')
+          WHERE user_id = ?
+        `).run(user.id);
+      }
+
+      return res.json({
+        allowed: true,
+        reason: 'FREE_TIER_EXCEEDED',
+        monthlyCostUSD: parseFloat(monthlyCostUSD.toFixed(2)),
+        chargeAmountINR: parseFloat(chargeAmountINR.toFixed(2)),
+        freeTierLimitUSD: billingUtils.getFreeTierLimitUSD(),
+        paymentInfoReceived,
+        billingDay: subscription.billing_day,
+        nextBillingDate: subscription.next_billing_at
+      });
+    }
+
+    // If payment info already exists, allow access even on billing day
+    if (paymentInfoReceived) {
+      return res.json({
+        allowed: true,
+        reason: null,
+        monthlyCostUSD: parseFloat(monthlyCostUSD.toFixed(2)),
+        chargeAmountINR: parseFloat(chargeAmountINR.toFixed(2)),
+        freeTierLimitUSD: billingUtils.getFreeTierLimitUSD(),
+        paymentInfoReceived,
+        billingDay: subscription.billing_day,
+        nextBillingDate: subscription.next_billing_at
+      });
+    }
+
+    // Billing day without payment info: block and require payment
+    if (billingInfo.services_blocked === 0) {
+      db.prepare(`
+        UPDATE billing_info 
+        SET services_blocked = 1,
+            updated_at = datetime('now')
         WHERE user_id = ?
       `).run(user.id);
     }
-    
-    const monthlyCostUSD = billingUtils.calculateMonthlyPinCost(pinnedSizeBytes);
-    const chargeAmountINR = billingUtils.calculateChargeAmount(pinnedSizeBytes);
-    
+
     res.json({
       allowed: false,
-      reason: 'BILLING_LIMIT_EXCEEDED',
+      reason: 'BILLING_DAY_PAYMENT_REQUIRED',
       monthlyCostUSD: parseFloat(monthlyCostUSD.toFixed(2)),
       chargeAmountINR: parseFloat(chargeAmountINR.toFixed(2)),
       freeTierLimitUSD: billingUtils.getFreeTierLimitUSD(),
-      paymentInfoReceived: billingInfo.payment_method_added === 1
+      paymentInfoReceived,
+      billingDay: subscription.billing_day,
+      nextBillingDate: subscription.next_billing_at
     });
   } catch (error) {
     console.error('Check access error:', error);
