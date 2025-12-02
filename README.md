@@ -10,7 +10,7 @@
 
 **A decentralized, open-source file storage platform built on IPFS**
 
-[Live Demo](https://walt.aayushman.dev) · [Self-Hosting Guide](SELF_HOSTING.md) · [Documentation](#-documentation) · [Report Bug](https://github.com/YOUR_USERNAME/walt/issues) · [Request Feature](https://github.com/YOUR_USERNAME/walt/issues)
+[Live Demo](https://walt.aayushman.dev) · [Self-Hosting Guide](SELF_HOSTING.md) · [Documentation](#-documentation) · [Report Bug](https://github.com/aayushman-singh/walt/issues) · [Request Feature](https://github.com/aayushman-singh/walt/issues)
 
 </div>
 
@@ -82,7 +82,7 @@ Host Walt on your own infrastructure:
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/walt.git
+git clone https://github.com/aayushman-singh/walt.git
 cd walt
 
 # Follow the complete guide
@@ -167,7 +167,7 @@ cat SELF_HOSTING.md
 
 ```bash
 # Clone repository
-git clone https://github.com/YOUR_USERNAME/walt.git
+git clone https://github.com/aayushman-singh/walt.git
 cd walt
 
 # Install frontend dependencies
@@ -226,16 +226,16 @@ We love contributions! Here's how you can help:
 
 ### Good First Issues
 
-New to the project? Look for issues labeled [`good first issue`](https://github.com/YOUR_USERNAME/walt/labels/good%20first%20issue)
+New to the project? Look for issues labeled [`good first issue`](https://github.com/aayushman-singh/walt/labels/good%20first%20issue)
 
 ---
 
 ## 🌍 Community
 
-- 💬 **[GitHub Discussions](https://github.com/YOUR_USERNAME/walt/discussions)** - Ask questions, share ideas
-- 🐛 **[Issue Tracker](https://github.com/YOUR_USERNAME/walt/issues)** - Report bugs, request features
+- 💬 **[GitHub Discussions](https://github.com/aayushman-singh/walt/discussions)** - Ask questions, share ideas
+- 🐛 **[Issue Tracker](https://github.com/aayushman-singh/walt/issues)** - Report bugs, request features
 - 📢 **[Twitter](https://twitter.com/YOUR_TWITTER)** - Follow for updates
-- 📧 **Email**: your-email@example.com
+- 📧 **Email**: aayushman2702@gmail.com
 
 ---
 
@@ -271,7 +271,7 @@ Our hosted version at [walt.aayushman.dev](https://walt.aayushman.dev):
 - [ ] S3-compatible API
 - [ ] Desktop app (Electron)
 
-**[View Full Roadmap →](https://github.com/YOUR_USERNAME/walt/projects)**
+**[View Full Roadmap →](https://github.com/aayushman-singh/walt/projects)**
 
 ---
 
@@ -309,7 +309,7 @@ Built with these amazing open-source projects:
 
 If you find Walt useful, give it a star! ⭐
 
-[![Star History Chart](https://api.star-history.com/svg?repos=YOUR_USERNAME/walt&type=Date)](https://star-history.com/#YOUR_USERNAME/walt&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=aayushman-singh/walt&type=Date)](https://star-history.com/#aayushman-singh/walt&Date)
 
 ---
 
@@ -317,8 +317,8 @@ If you find Walt useful, give it a star! ⭐
 
 - **Author**: Your Name
 - **Website**: [walt.aayushman.dev](https://walt.aayushman.dev)
-- **Email**: your-email@example.com
-- **Twitter**: [@your_handle](https://twitter.com/your_handle)
+- **Email**: aayushman2702@gmail.com
+- **Twitter**: [@aayushman2703](https://twitter.com/your_handle)
 
 ---
 
@@ -328,6 +328,6 @@ If you find Walt useful, give it a star! ⭐
 
 Made with ❤️ by the open-source community
 
-[⭐ Star us on GitHub](https://github.com/YOUR_USERNAME/walt) · [🐛 Report Bug](https://github.com/YOUR_USERNAME/walt/issues) · [💡 Request Feature](https://github.com/YOUR_USERNAME/walt/issues)
+[⭐ Star us on GitHub](https://github.com/aayushman-singh/walt) · [🐛 Report Bug](https://github.com/aayushman-singh/walt/issues) · [💡 Request Feature](https://github.com/aayushman-singh/walt/issues)
 
 </div>

@@ -23,7 +23,7 @@ Thank you for your interest in contributing to Walt! We welcome contributions fr
 
 1. **Fork and Clone**
    ```bash
-   git clone https://github.com/YOUR_USERNAME/walt.git
+   git clone https://github.com/aayushman-singh/walt.git
    cd walt
    ```
 

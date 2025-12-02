@@ -15,7 +15,7 @@ We take security seriously. The following versions are currently supported with 
 
 If you discover a security vulnerability, please report it privately:
 
-1. **Email**: [INSERT YOUR SECURITY EMAIL]
+1. **Email**: aayushman2702@gmail.com
 2. **Subject**: "[SECURITY] Brief description"
 3. **Include**:
    - Type of vulnerability

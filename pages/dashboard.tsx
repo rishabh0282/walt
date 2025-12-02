@@ -338,7 +338,7 @@ const Dashboard: NextPage = () => {
     if (user) {
       loadBillingStatus();
     }
-  }, [user]);
+  }, [user, loadBillingStatus]);
 
   const loadBillingStatus = async () => {
     const status = await getBillingStatus();
@@ -2362,7 +2362,7 @@ const Dashboard: NextPage = () => {
               <div className={styles.billingWarningContent}>
                 <div className={styles.billingWarningTitle}>Free tier exceeded</div>
                 <p className={styles.billingWarningText}>
-                  You're using {billingStatus.pinnedSizeGB.toFixed(2)} GB (free tier: {billingStatus.freeTierGB} GB). 
+                  You&apos;re using {billingStatus.pinnedSizeGB.toFixed(2)} GB (free tier: {billingStatus.freeTierGB} GB). 
                   Overage of {formatChargeAmount(billingStatus)} will be charged on {getBillingDayLabel(billingStatus)}.
                 </p>
                 <div className={styles.billingWarningActions}>

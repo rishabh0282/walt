@@ -96,7 +96,7 @@ mkdir -p ~/ipfs-drive
 cd ~/ipfs-drive
 
 # Clone backend
-git clone https://github.com/YOUR_USERNAME/walt.git backend
+git clone https://github.com/aayushman-singh/walt.git backend
 cd backend
 
 # Create docker-compose.yml for IPFS
@@ -313,7 +313,7 @@ Follow prompts to get free SSL from Let's Encrypt.
 ```bash
 # On your server (can be same as backend)
 cd ~/ipfs-drive
-git clone https://github.com/YOUR_USERNAME/walt.git frontend
+git clone https://github.com/aayushman-singh/walt.git frontend
 cd frontend
 
 # Install dependencies
