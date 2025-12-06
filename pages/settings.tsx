@@ -11,7 +11,6 @@ import { useUserFileStorage } from '../hooks/useUserFileStorage';
 import TwoFactorSetup from '../components/TwoFactorSetup';
 import GatewaySettings from '../components/GatewaySettings';
 import Toast from '../components/Toast';
-import SunIcon from '@rsuite/icons/Sun';
 import styles from '../styles/Settings.module.css';
 
 const Settings: NextPage = () => {
@@ -150,7 +149,7 @@ const Settings: NextPage = () => {
                 className={`${styles.themeOption} ${theme === 'light' ? styles.active : ''}`}
                 onClick={() => handleThemeChange('light')}
               >
-                <SunIcon /> Light
+                ☀️ Light
               </button>
               <button
                 className={`${styles.themeOption} ${theme === 'dark' ? styles.active : ''}`}
