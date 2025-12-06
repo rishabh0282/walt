@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getAuth } from 'firebase/auth';
+import WarningRoundIcon from '@rsuite/icons/WarningRound';
 import styles from '../styles/PaymentModal.module.css';
 
 interface PaymentModalProps {
@@ -303,13 +304,13 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
           <div className={styles.warning}>
             {pinnedSizeGB && freeTierGB ? (
               <>
-                <p>⚠️ Your storage usage ({pinnedSizeGB.toFixed(2)} GB) exceeds the free tier limit ({freeTierGB} GB).</p>
+                <p><WarningRoundIcon /> Your storage usage ({pinnedSizeGB.toFixed(2)} GB) exceeds the free tier limit ({freeTierGB} GB).</p>
                 <p>To continue using our services, please add payment information.</p>
               </>
             ) : (
               <>
-                <p>⚠️ Your estimated pin cost (${monthlyCostUSD.toFixed(2)}/month) exceeds the free tier limit of ${freeTierLimitUSD.toFixed(2)}/month.</p>
-                <p>To continue using our services, please add payment information.</p>
+            <p><WarningRoundIcon /> Your estimated pin cost (${monthlyCostUSD.toFixed(2)}/month) exceeds the free tier limit of ${freeTierLimitUSD.toFixed(2)}/month.</p>
+            <p>To continue using our services, please add payment information.</p>
               </>
             )}
           </div>
@@ -340,18 +341,18 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
               </>
             ) : (
               <>
-                <div className={styles.infoRow}>
-                  <span>Monthly Cost:</span>
-                  <span className={styles.amount}>${monthlyCostUSD.toFixed(2)}</span>
-                </div>
-                <div className={styles.infoRow}>
-                  <span>Free Tier:</span>
-                  <span>${freeTierLimitUSD.toFixed(2)}/month</span>
-                </div>
-                <div className={styles.infoRow}>
-                  <span>Amount to Pay:</span>
-                  <span className={styles.chargeAmount}>₹{chargeAmountINR.toFixed(2)}</span>
-                </div>
+            <div className={styles.infoRow}>
+              <span>Monthly Cost:</span>
+              <span className={styles.amount}>${monthlyCostUSD.toFixed(2)}</span>
+            </div>
+            <div className={styles.infoRow}>
+              <span>Free Tier:</span>
+              <span>${freeTierLimitUSD.toFixed(2)}/month</span>
+            </div>
+            <div className={styles.infoRow}>
+              <span>Amount to Pay:</span>
+              <span className={styles.chargeAmount}>₹{chargeAmountINR.toFixed(2)}</span>
+            </div>
               </>
             )}
             <div className={styles.infoRow}>
@@ -374,7 +375,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
               {freeTierGB ? (
                 <small>You will only be charged for storage above {freeTierGB} GB. Charges are calculated on a monthly cycle.</small>
               ) : (
-                <small>You will only be charged for the amount over ${freeTierLimitUSD.toFixed(2)}. Charges are calculated on a monthly cycle.</small>
+              <small>You will only be charged for the amount over ${freeTierLimitUSD.toFixed(2)}. Charges are calculated on a monthly cycle.</small>
               )}
             </div>
           </div>

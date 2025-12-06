@@ -1,4 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import CloseIcon from '@rsuite/icons/Close';
+import CopyIcon from '@rsuite/icons/Copy';
+import LockRoundIcon from '@rsuite/icons/LockRound';
+import ShareRoundIcon from '@rsuite/icons/ShareRound';
+import WaitIcon from '@rsuite/icons/Wait';
+import WarningRoundIcon from '@rsuite/icons/WarningRound';
 import styles from '../styles/ShareModal.module.css';
 
 interface ShareConfig {
@@ -11,6 +17,8 @@ interface ShareConfig {
   password?: string;
   accessCount?: number;
   lastAccessedDate?: number;
+  shortCode?: string;
+  shortUrl?: string;
 }
 
 interface ShareModalProps {
@@ -38,13 +46,24 @@ const ShareModal: React.FC<ShareModalProps> = ({
   const [passwordEnabled, setPasswordEnabled] = useState(false);
   const [password, setPassword] = useState('');
   const [shareLink, setShareLink] = useState('');
+  const [shortLink, setShortLink] = useState('');
   const [isSharing, setIsSharing] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [shortCopied, setShortCopied] = useState(false);
 
   useEffect(() => {
     if (existingShare?.enabled) {
       setPermission(existingShare.permission);
       setShareLink(getShareLink(existingShare.shareId));
+      
+      if (existingShare.shortUrl) {
+        setShortLink(existingShare.shortUrl);
+      } else if (existingShare.shortCode) {
+        const shortUrl = typeof window !== 'undefined' 
+          ? `${window.location.origin}/s/${existingShare.shortCode}`
+          : '';
+        setShortLink(shortUrl);
+      }
       
       if (existingShare.expiryDate) {
         setExpiryEnabled(true);
@@ -110,6 +129,14 @@ const ShareModal: React.FC<ShareModalProps> = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const copyShortLink = () => {
+    if (shortLink) {
+      navigator.clipboard.writeText(shortLink);
+      setShortCopied(true);
+      setTimeout(() => setShortCopied(false), 2000);
+    }
+  };
+
   if (!isOpen) return null;
 
   const isShared = existingShare?.enabled && shareLink;
@@ -119,7 +146,9 @@ const ShareModal: React.FC<ShareModalProps> = ({
       <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
         <div className={styles.header}>
           <h2>Share &quot;{fileName}&quot;</h2>
-          <button className={styles.closeBtn} onClick={onClose}>×</button>
+          <button className={styles.closeBtn} onClick={onClose} aria-label="Close share modal">
+            <CloseIcon />
+          </button>
         </div>
 
         <div className={styles.content}>
@@ -128,7 +157,9 @@ const ShareModal: React.FC<ShareModalProps> = ({
               {/* Existing Share */}
               <div className={styles.shareActive}>
                 <div className={styles.shareInfo}>
-                  <span className={styles.shareIcon}>🔗</span>
+                  <span className={styles.shareIcon} aria-hidden>
+                    <ShareRoundIcon />
+                  </span>
                   <div>
                     <div className={styles.shareLabel}>Share link is active</div>
                     <div className={styles.shareMeta}>
@@ -145,7 +176,38 @@ const ShareModal: React.FC<ShareModalProps> = ({
                   </div>
                 </div>
 
+                {shortLink && (
+                  <div className={styles.linkBox} style={{ marginBottom: '1rem' }}>
+                    <label className={`${styles.shareLabel} ${styles.labelWithIcon}`} style={{ marginBottom: '0.5rem', display: 'block' }}>
+                      <ShareRoundIcon className={styles.inlineIcon} />
+                      Short Link
+                    </label>
+                    <input 
+                      type="text" 
+                      value={shortLink} 
+                      readOnly 
+                      className={styles.linkInput}
+                    />
+                    <button 
+                      className={styles.copyBtn}
+                      onClick={copyShortLink}
+                    >
+                      {shortCopied ? (
+                        'Copied!'
+                      ) : (
+                        <>
+                          <CopyIcon className={styles.buttonIcon} />
+                          Copy
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+                
                 <div className={styles.linkBox}>
+                  <label className={styles.shareLabel} style={{ marginBottom: '0.5rem', display: 'block' }}>
+                    Full Share Link
+                  </label>
                   <input 
                     type="text" 
                     value={shareLink} 
@@ -156,7 +218,14 @@ const ShareModal: React.FC<ShareModalProps> = ({
                     className={styles.copyBtn}
                     onClick={copyLink}
                   >
-                    {copied ? '✓ Copied!' : '📋 Copy'}
+                    {copied ? (
+                      'Copied!'
+                    ) : (
+                      <>
+                        <CopyIcon className={styles.buttonIcon} />
+                        Copy
+                      </>
+                    )}
                   </button>
                 </div>
 
@@ -165,7 +234,8 @@ const ShareModal: React.FC<ShareModalProps> = ({
                   onClick={handleDisableShare}
                   disabled={isSharing}
                 >
-                  🔒 Disable Sharing
+                  <LockRoundIcon className={styles.buttonIcon} />
+                  Disable Sharing
                 </button>
               </div>
             </>
@@ -179,8 +249,8 @@ const ShareModal: React.FC<ShareModalProps> = ({
                   value={permission}
                   onChange={(e) => setPermission(e.target.value as 'viewer' | 'editor')}
                 >
-                  <option value="viewer">👁️ Viewer - Can view only</option>
-                  <option value="editor">✏️ Editor - Can view and download</option>
+                  <option value="viewer">Viewer - Can view only</option>
+                  <option value="editor">Editor - Can view and download</option>
                 </select>
                 <p className={styles.hint}>
                   {permission === 'viewer' 
@@ -234,7 +304,10 @@ const ShareModal: React.FC<ShareModalProps> = ({
               </div>
 
               <div className={styles.warning}>
-                ⚠️ Anyone with the link will be able to {permission === 'viewer' ? 'view' : 'view and download'} this {isFolder ? 'folder' : 'file'}.
+                <WarningRoundIcon className={styles.inlineIcon} />
+                <span>
+                  Anyone with the link will be able to {permission === 'viewer' ? 'view' : 'view and download'} this {isFolder ? 'folder' : 'file'}.
+                </span>
               </div>
 
               <button 
@@ -242,7 +315,17 @@ const ShareModal: React.FC<ShareModalProps> = ({
                 onClick={handleShare}
                 disabled={isSharing || (passwordEnabled && !password)}
               >
-                {isSharing ? '⏳ Creating...' : '🔗 Create Share Link'}
+                {isSharing ? (
+                  <>
+                    <WaitIcon className={styles.buttonIcon} />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <ShareRoundIcon className={styles.buttonIcon} />
+                    Create Share Link
+                  </>
+                )}
               </button>
             </>
           )}

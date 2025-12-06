@@ -774,7 +774,6 @@
 
 .navItem.active {
   background: var(--color-accent);
-  opacity: 0.5;
   color: var(--color-secondary);
 }
 
@@ -790,6 +789,7 @@
 .dark .navItem.active {
   background: rgba(173, 235, 255, 0.25);
   color: #adebff;
+  opacity: 1;
 }
 
 .navIcon {
@@ -1687,6 +1687,25 @@
 
 .dark .menuDanger {
   color: #ff6b6b !important;
+}
+
+.menuDisabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+  color: #9aa0a6 !important;
+  pointer-events: none !important;
+}
+
+.dark .menuDisabled {
+  color: rgba(255, 255, 255, 0.4) !important;
+}
+
+.menuDisabled:hover {
+  background: transparent !important;
+}
+
+.dark .menuDisabled:hover {
+  background: transparent !important;
 }
 
 .fileIconLarge {

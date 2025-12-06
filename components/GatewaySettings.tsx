@@ -5,6 +5,9 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { getGatewayOptimizer, GatewayStats } from '../lib/gatewayOptimizer';
+import WarningRoundIcon from '@rsuite/icons/WarningRound';
+import CloseIcon from '@rsuite/icons/Close';
+import CheckIcon from '@rsuite/icons/Check';
 import styles from '../styles/GatewaySettings.module.css';
 
 interface GatewaySettingsProps {
@@ -125,8 +128,8 @@ const GatewaySettings: React.FC<GatewaySettingsProps> = ({ isOpen, onClose }) =>
                         className={styles.performanceBadge}
                         style={{ backgroundColor: getPerformanceColor(stats) }}
                       >
-                        {stats.successRate >= 0.8 && stats.responseTime < 1500 ? '✓ Fast' : 
-                         stats.successRate >= 0.5 ? '⚠ Slow' : '✗ Unreliable'}
+                        {stats.successRate >= 0.8 && stats.responseTime < 1500 ? <><CheckIcon /> Fast</> : 
+                         stats.successRate >= 0.5 ? <><WarningRoundIcon /> Slow</> : <><CloseIcon /> Unreliable</>}
                       </div>
                     </div>
                     <div className={styles.statMetrics}>

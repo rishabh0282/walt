@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
+import ImageIcon from '@rsuite/icons/Image';
 import styles from '../styles/FilePreviewHover.module.css';
 
 interface FilePreviewHoverProps {
@@ -121,7 +122,9 @@ const FilePreviewHover: React.FC<FilePreviewHoverProps> = ({ file, position, onC
           </>
         ) : (
           <div className={styles.errorState}>
-            <span className={styles.errorIcon}>🖼️</span>
+            <span className={styles.errorIcon}>
+              <ImageIcon />
+            </span>
             <span className={styles.errorText}>Preview unavailable</span>
           </div>
         )}

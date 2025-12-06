@@ -7,6 +7,9 @@ import {
   CleanupFilters
 } from '../lib/storageCleanup';
 import { UploadedFile } from '../hooks/useUserFileStorage';
+import StorageIcon from '@rsuite/icons/Storage';
+import WarningRoundIcon from '@rsuite/icons/WarningRound';
+import TrashIcon from '@rsuite/icons/Trash';
 
 interface StorageCleanupModalProps {
   isOpen: boolean;
@@ -121,7 +124,7 @@ const StorageCleanupModal: React.FC<StorageCleanupModalProps> = ({
                 <h3>Cleanup Opportunities</h3>
                 <div className={styles.summaryGrid}>
                   <div className={styles.summaryCard}>
-                    <div className={styles.summaryLabel}>📦 Large Files (100MB+)</div>
+                    <div className={styles.summaryLabel}><StorageIcon /> Large Files (100MB+)</div>
                     <div className={styles.summaryValue}>{recommendations.largeFiles}</div>
                   </div>
                   <div className={styles.summaryCard}>
@@ -129,7 +132,7 @@ const StorageCleanupModal: React.FC<StorageCleanupModalProps> = ({
                     <div className={styles.summaryValue}>{recommendations.oldFiles}</div>
                   </div>
                   <div className={styles.summaryCard}>
-                    <div className={styles.summaryLabel}>⚠️ Old Unpinned (30+ days)</div>
+                    <div className={styles.summaryLabel}><WarningRoundIcon /> Old Unpinned (30+ days)</div>
                     <div className={styles.summaryValue}>{recommendations.oldUnpinnedFiles}</div>
                   </div>
                   <div className={styles.summaryCard}>
@@ -230,7 +233,7 @@ const StorageCleanupModal: React.FC<StorageCleanupModalProps> = ({
             <div className={styles.footerActions}>
               <button onClick={onClose} className={styles.cancelBtn}>Cancel</button>
               <button onClick={handleDelete} className={styles.deleteBtn}>
-                🗑️ Delete Selected
+                <TrashIcon /> Delete Selected
               </button>
             </div>
           </div>

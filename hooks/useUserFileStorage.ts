@@ -25,6 +25,8 @@ interface ShareConfig {
   password?: string;
   accessCount?: number;
   lastAccessedDate?: number;
+  shortCode?: string;
+  shortUrl?: string;
 }
 
 interface ActivityLog {
@@ -1024,31 +1026,79 @@ export const useUserFileStorage = (userUid: string | null, getAuthToken?: () => 
     const file = uploadedFiles[index];
     if (!file) return null;
 
-    const shareId = `share_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
-    const shareConfig: ShareConfig = {
-      shareId,
-      enabled: true,
-      createdDate: Date.now(),
-      createdBy: userUid || 'unknown',
-      permission,
-      expiryDate,
-      password,
-      accessCount: 0
-    };
+    try {
+      // Get auth token
+      const token = getAuthToken ? await getAuthToken() : null;
+      if (!token) {
+        console.error('No auth token available for sharing');
+        return null;
+      }
 
-    const updatedFiles = [...uploadedFiles];
-    updatedFiles[index] = {
-      ...file,
-      shareConfig,
-      modifiedDate: Date.now()
-    };
+      // Call backend API to create share (which auto-generates short link)
+      const { BackendShareAPI } = await import('../lib/backendClient');
+      const shareResponse = await BackendShareAPI.create(
+        file.id,
+        {
+          permissionLevel: permission,
+          expiresAt: expiryDate ? new Date(expiryDate).toISOString() : null,
+          password: password || null,
+        },
+        token
+      );
 
-    setUploadedFiles(updatedFiles);
-    await saveUserFiles(updatedFiles);
-    await addActivityLog(index, 'shared', `Shared with ${permission} permission`);
+      const shareConfig: ShareConfig = {
+        shareId: shareResponse.shareId,
+        enabled: true,
+        createdDate: Date.now(),
+        createdBy: userUid || 'unknown',
+        permission,
+        expiryDate,
+        password,
+        accessCount: 0,
+        shortCode: shareResponse.shortCode,
+        shortUrl: shareResponse.shortUrl,
+      };
 
-    return shareId;
+      const updatedFiles = [...uploadedFiles];
+      updatedFiles[index] = {
+        ...file,
+        shareConfig,
+        modifiedDate: Date.now()
+      };
+
+      setUploadedFiles(updatedFiles);
+      await saveUserFiles(updatedFiles);
+      await addActivityLog(index, 'shared', `Shared with ${permission} permission`);
+
+      return shareResponse.shareId;
+    } catch (error) {
+      console.error('Failed to create share:', error);
+      // Fallback to local-only share if backend fails
+      const shareId = `share_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      const shareConfig: ShareConfig = {
+        shareId,
+        enabled: true,
+        createdDate: Date.now(),
+        createdBy: userUid || 'unknown',
+        permission,
+        expiryDate,
+        password,
+        accessCount: 0
+      };
+
+      const updatedFiles = [...uploadedFiles];
+      updatedFiles[index] = {
+        ...file,
+        shareConfig,
+        modifiedDate: Date.now()
+      };
+
+      setUploadedFiles(updatedFiles);
+      await saveUserFiles(updatedFiles);
+      
+      return shareId;
+    }
   };
 
   // Disable sharing

@@ -1,4 +1,6 @@
 import React from 'react';
+import TableIcon from '@rsuite/icons/Table';
+import CloseIcon from '@rsuite/icons/Close';
 import styles from '../styles/ColumnSettings.module.css';
 
 interface ColumnSettingsProps {
@@ -22,8 +24,8 @@ const ColumnSettings: React.FC<ColumnSettingsProps> = ({ visibleColumns, onToggl
     <div className={styles.overlay} onClick={onClose}>
       <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
         <div className={styles.header}>
-          <h3>📊 Column Settings</h3>
-          <button className={styles.closeBtn} onClick={onClose}>✕</button>
+          <h3><TableIcon /> Column Settings</h3>
+          <button className={styles.closeBtn} onClick={onClose}><CloseIcon /></button>
         </div>
 
         <div className={styles.content}>

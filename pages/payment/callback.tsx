@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { NextPage } from 'next';
 import { useRouter } from 'next/router';
 import { getAuth } from 'firebase/auth';
+import CheckRoundIcon from '@rsuite/icons/CheckRound';
+import CloseOutlineIcon from '@rsuite/icons/CloseOutline';
 import styles from '../../styles/PaymentCallback.module.css';
 
 const PaymentCallback: NextPage = () => {
@@ -89,7 +91,9 @@ const PaymentCallback: NextPage = () => {
         
         {status === 'success' && (
           <>
-            <div className={styles.successIcon}>✓</div>
+            <div className={styles.successIcon}>
+              <CheckRoundIcon />
+            </div>
             <h1>Payment Successful!</h1>
             <p>{message}</p>
             <p className={styles.redirect}>Redirecting to dashboard...</p>
@@ -98,7 +102,9 @@ const PaymentCallback: NextPage = () => {
         
         {status === 'error' && (
           <>
-            <div className={styles.errorIcon}>✗</div>
+            <div className={styles.errorIcon}>
+              <CloseOutlineIcon />
+            </div>
             <h1>Payment Error</h1>
             <p>{message}</p>
             <button 

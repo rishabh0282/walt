@@ -7,6 +7,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { FileVersion, getFileVersions, formatVersionDate } from '../lib/versionHistory';
 import { formatFileSize } from '../lib/utils';
+import { getBackendGatewayUrl } from '../lib/shareUtils';
+import DownloadIcon from '@rsuite/icons/FileDownload';
+import UndoIcon from '@rsuite/icons/Undo';
+import InfoRoundIcon from '@rsuite/icons/InfoRound';
 import styles from '../styles/VersionHistory.module.css';
 
 interface VersionHistoryProps {
@@ -84,8 +88,9 @@ const VersionHistory: React.FC<VersionHistoryProps> = ({
   };
 
   const handleDownloadVersion = (version: FileVersion) => {
-    // Open version in new tab or trigger download
-    window.open(version.gatewayUrl, '_blank');
+    // Use backend gateway URL for reliable downloads
+    const backendUrl = getBackendGatewayUrl(version.ipfsUri);
+    window.open(backendUrl, '_blank');
   };
 
   const sortedVersions = getFileVersions(versions, fileId);
@@ -147,7 +152,7 @@ const VersionHistory: React.FC<VersionHistoryProps> = ({
                           onClick={() => handleDownloadVersion(version)}
                           title="Download this version"
                         >
-                          ⬇️
+                          <DownloadIcon />
                         </button>
                         {index !== 0 && (
                           <button
@@ -156,7 +161,7 @@ const VersionHistory: React.FC<VersionHistoryProps> = ({
                             disabled={restoringVersionId === version.versionId}
                             title="Restore this version"
                           >
-                            {restoringVersionId === version.versionId ? 'Restoring...' : '↩️ Restore'}
+                            {restoringVersionId === version.versionId ? 'Restoring...' : <><UndoIcon /> Restore</>}
                           </button>
                         )}
                       </div>
@@ -166,7 +171,7 @@ const VersionHistory: React.FC<VersionHistoryProps> = ({
               </div>
 
               <div className={styles.infoBox}>
-                <strong>ℹ️ About Version History</strong>
+                <strong><InfoRoundIcon /> About Version History</strong>
                 <ul>
                   <li>Versions are automatically created when files are uploaded or replaced</li>
                   <li>You can restore any previous version to replace the current file</li>

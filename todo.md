@@ -28,7 +28,7 @@
 ✅ Pin cost calculator displayed in UI (auto-pin section, storage stats, large file warnings)
 ✅ Documentation in README with setup instructions
 
----
+--- 
 
 ## **📁 Phase 2 - Essential Google Drive Features** [✅ COMPLETED]
 

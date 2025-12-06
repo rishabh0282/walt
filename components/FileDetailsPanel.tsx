@@ -1,4 +1,13 @@
 import React, { useState } from 'react';
+import FileDownloadIcon from '@rsuite/icons/FileDownload';
+import ShareRoundIcon from '@rsuite/icons/ShareRound';
+import PinIcon from '@rsuite/icons/Pin';
+import PinedIcon from '@rsuite/icons/Pined';
+import SearchIcon from '@rsuite/icons/Search';
+import CloseIcon from '@rsuite/icons/Close';
+import CheckIcon from '@rsuite/icons/Check';
+import TrashIcon from '@rsuite/icons/Trash';
+import { getBackendGatewayUrl } from '../lib/shareUtils';
 import styles from '../styles/FileDetailsPanel.module.css';
 
 interface ActivityLogEntry {
@@ -95,27 +104,29 @@ const FileDetailsPanel: React.FC<FileDetailsPanelProps> = ({
     await onUpdateProperties(updated);
   };
 
+  const backendGatewayUrl = getBackendGatewayUrl(file.ipfsUri);
+  
   const metaRows = [
     { label: 'Type', value: file.type || 'unknown' },
     { label: 'Size', value: formatBytes(file.size) },
     { label: 'Modified', value: new Date(file.modifiedDate || file.timestamp).toLocaleString() },
     { label: 'Pinned', value: file.isPinned ? `Yes${file.pinService ? ` (${file.pinService})` : ''}` : 'No' },
     { label: 'IPFS URI', value: file.ipfsUri },
-    { label: 'Gateway URL', value: file.gatewayUrl },
+    { label: 'Share URL', value: backendGatewayUrl },
   ];
 
   return (
     <aside className={styles.panel}>
       <div className={styles.header}>
         <div className={styles.title} title={file.name}>{file.name}</div>
-        <button className={styles.closeBtn} onClick={onClose}>✕</button>
+        <button className={styles.closeBtn} onClick={onClose}><CloseIcon /></button>
       </div>
 
       <div className={styles.actions}>
-        <button className={styles.actionBtn} onClick={onDownload}>⬇️ Download</button>
-        <button className={styles.actionBtn} onClick={onShare}>🔗 Share</button>
-        <button className={styles.actionBtn} onClick={onTogglePin}>{file.isPinned ? '📍 Unpin' : '📌 Pin'}</button>
-        <a className={styles.actionBtn} href={file.gatewayUrl} target="_blank" rel="noreferrer">🔎 Open</a>
+        <button className={styles.actionBtn} onClick={onDownload}><FileDownloadIcon /> Download</button>
+        <button className={styles.actionBtn} onClick={onShare}><ShareRoundIcon /> Share</button>
+        <button className={styles.actionBtn} onClick={onTogglePin}>{file.isPinned ? <><PinedIcon /> Unpin</> : <><PinIcon /> Pin</>}</button>
+        <a className={styles.actionBtn} href={backendGatewayUrl} target="_blank" rel="noreferrer"><SearchIcon /> Open</a>
       </div>
 
       <div className={styles.section}>
@@ -186,7 +197,7 @@ const FileDetailsPanel: React.FC<FileDetailsPanelProps> = ({
                 onClick={handleAddProperty}
                 disabled={!propertyKey.trim() || !propertyValue.trim()}
               >
-                ✓
+                <CheckIcon />
               </button>
               <button
                 className={styles.cancelBtn}
@@ -196,7 +207,7 @@ const FileDetailsPanel: React.FC<FileDetailsPanelProps> = ({
                   setPropertyValue('');
                 }}
               >
-                ✕
+                <CloseIcon />
               </button>
             </div>
           </div>
@@ -288,8 +299,8 @@ const PropertyRow: React.FC<PropertyRowProps> = ({ propertyKey, propertyValue, o
             onBlur={handleSave}
             autoFocus
           />
-          <button className={styles.saveBtn} onClick={handleSave} title="Save">✓</button>
-          <button className={styles.cancelBtn} onClick={handleCancel} title="Cancel">✕</button>
+          <button className={styles.saveBtn} onClick={handleSave} title="Save"><CheckIcon /></button>
+          <button className={styles.cancelBtn} onClick={handleCancel} title="Cancel"><CloseIcon /></button>
         </div>
       ) : (
         <div className={styles.propertyValueRow}>
@@ -301,7 +312,7 @@ const PropertyRow: React.FC<PropertyRowProps> = ({ propertyKey, propertyValue, o
             onClick={onDelete}
             title="Delete property"
           >
-            🗑️
+            <TrashIcon />
           </button>
         </div>
       )}

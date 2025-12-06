@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
+import { Star } from 'lucide-react';
 import styles from './Home.module.css';
 
 interface Testimonial {
@@ -86,12 +87,12 @@ const Rating: React.FC<{ rating: number }> = ({ rating }) => {
         const isHalf = rating > i && rating < index + 1;
         
         return (
-          <span
-            key={i}
-            className={`${styles.star} ${isFull || isHalf ? styles.starActive : ''}`}
-          >
-            {isHalf ? '☆' : '★'}
-          </span>
+            <Star 
+              key={i} 
+              className={`${styles.star} ${isFull || isHalf ? styles.starActive : ''}`}
+              fill={isFull || isHalf ? 'currentColor' : 'none'}
+              size={20}
+            />
         );
       })}
     </div>

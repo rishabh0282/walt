@@ -4,6 +4,10 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import CheckRoundIcon from '@rsuite/icons/CheckRound';
+import CloseIcon from '@rsuite/icons/Close';
+import RemindOutlineIcon from '@rsuite/icons/RemindOutline';
+import TrashIcon from '@rsuite/icons/Trash';
 import { useAuth } from '../contexts/AuthContext';
 import { 
   Notification, 
@@ -201,7 +205,9 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
                 Mark all read
               </button>
             )}
-            <button className={styles.closeBtn} onClick={onClose}>✕</button>
+            <button className={styles.closeBtn} onClick={onClose} aria-label="Close notifications">
+              <CloseIcon />
+            </button>
           </div>
         </div>
 
@@ -212,7 +218,9 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
             <div className={styles.error}>{error}</div>
           ) : notifications.length === 0 ? (
             <div className={styles.empty}>
-              <div className={styles.emptyIcon}>🔔</div>
+              <div className={styles.emptyIcon}>
+                <RemindOutlineIcon />
+              </div>
               <p>No notifications</p>
               <p className={styles.emptySubtext}>You&apos;re all caught up!</p>
             </div>
@@ -247,30 +255,30 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
                           <div className={styles.notificationActions}>
                             {!notification.read && (
                               <button
-                                className={styles.actionBtn}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  markAsRead(notification.id);
-                                }}
-                                title="Mark as read"
-                              >
-                                ✓
-                              </button>
-                            )}
-                            <button
-                              className={styles.deleteBtn}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                deleteNotification(notification.id);
-                              }}
-                              title="Delete"
-                            >
-                              ×
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
+                            className={styles.actionBtn}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              markAsRead(notification.id);
+                            }}
+                            title="Mark as read"
+                          >
+                            <CheckRoundIcon />
+                          </button>
+                        )}
+                        <button
+                          className={styles.deleteBtn}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteNotification(notification.id);
+                          }}
+                          title="Delete"
+                        >
+                          <TrashIcon />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
                   </div>
                 </div>
               )}
@@ -304,14 +312,14 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
                           <div className={styles.notificationActions}>
                             {!notification.read && (
                               <button
-                                className={styles.actionBtn}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  markAsRead(notification.id);
-                                }}
-                                title="Mark as read"
-                              >
-                                ✓
+                            className={styles.actionBtn}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              markAsRead(notification.id);
+                            }}
+                            title="Mark as read"
+                          >
+                                <CheckRoundIcon />
                               </button>
                             )}
                             <button
@@ -322,7 +330,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
                               }}
                               title="Delete"
                             >
-                              ×
+                              <TrashIcon />
                             </button>
                           </div>
                         </div>

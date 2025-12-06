@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import TagIcon from '@rsuite/icons/Tag';
 import styles from '../styles/TagManager.module.css';
 
 interface TagManagerProps {
@@ -61,7 +62,7 @@ const TagManager: React.FC<TagManagerProps> = ({
     <div className={styles.overlay} onClick={onClose}>
       <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
         <div className={styles.header}>
-          <h3>🏷️ Manage Tags</h3>
+          <h3><TagIcon /> Manage Tags</h3>
           <button className={styles.closeBtn} onClick={onClose}>✕</button>
         </div>
 

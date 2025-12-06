@@ -11,6 +11,7 @@ import { useUserFileStorage } from '../hooks/useUserFileStorage';
 import TwoFactorSetup from '../components/TwoFactorSetup';
 import GatewaySettings from '../components/GatewaySettings';
 import Toast from '../components/Toast';
+import SunIcon from '@rsuite/icons/Sun';
 import styles from '../styles/Settings.module.css';
 
 const Settings: NextPage = () => {
@@ -149,7 +150,7 @@ const Settings: NextPage = () => {
                 className={`${styles.themeOption} ${theme === 'light' ? styles.active : ''}`}
                 onClick={() => handleThemeChange('light')}
               >
-                ☀️ Light
+                <SunIcon /> Light
               </button>
               <button
                 className={`${styles.themeOption} ${theme === 'dark' ? styles.active : ''}`}
@@ -271,12 +272,12 @@ const Settings: NextPage = () => {
           <div className={styles.settingItem}>
             <div className={styles.settingInfo}>
               <label className={styles.settingLabel}>Two-Factor Authentication</label>
-              <p className={styles.settingDescription}>Add an extra layer of security to your account</p>
+              <p className={styles.settingDescription}>Add an extra layer of security to your account (coming soon)</p>
             </div>
             <div className={styles.settingControl}>
               <button
-                className={styles.actionBtn}
-                onClick={() => setShowTwoFactorSetup(true)}
+                className={`${styles.actionBtn} ${styles.disabled}`}
+                disabled
               >
                 🔒 Manage 2FA
               </button>

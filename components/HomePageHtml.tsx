@@ -10,7 +10,10 @@ import HeroShield from './HeroShield';
 import Testimonials from './Testimonials';
 import Image from 'next/image';
 import { Cover } from './ui/cover';
-import { SocialIcon } from 'react-social-icons';
+import BriefcaseIcon from '@rsuite/icons/legacy/Briefcase';
+import GithubIcon from '@rsuite/icons/legacy/Github';
+import LinkedinIcon from '@rsuite/icons/legacy/Linkedin';
+import TwitterIcon from '@rsuite/icons/legacy/Twitter';
 
 type WorkCard = {
   title: string;
@@ -183,6 +186,12 @@ const HomePageHtml: React.FC = () => {
         { label: 'aayushman2702@gmail.com', href: 'mailto:aayushman2702@gmail.com' },
       ],
     },
+  ];
+
+  const footerSocialLinks = [
+    { href: 'https://x.com/aayushman2703', Icon: TwitterIcon, label: 'X (Twitter)' },
+    { href: 'https://www.linkedin.com/in/aayushman-singh-zz/', Icon: LinkedinIcon, label: 'LinkedIn' },
+    { href: 'https://github.com/aayushman-singh', Icon: GithubIcon, label: 'GitHub' },
   ];
 
   const classNames = (...classes: (string | undefined | false)[]) =>
@@ -639,7 +648,8 @@ const HomePageHtml: React.FC = () => {
                   rel="noopener noreferrer"
                   className={styles["creator-link"]}
                 >
-                  <span>🔗</span> GitHub
+                  <GithubIcon />
+                  GitHub
                 </a>
                 <a
                   href="https://aayushman.dev"
@@ -647,7 +657,8 @@ const HomePageHtml: React.FC = () => {
                   rel="noopener noreferrer"
                   className={styles["creator-link"]}
                 >
-                  <span>💼</span> Portfolio
+                  <BriefcaseIcon />
+                  Portfolio
                 </a>
               </div>
             </div>
@@ -665,27 +676,18 @@ const HomePageHtml: React.FC = () => {
               Built with care by Aayushman Singh.
             </p>
             <div className={styles["footer-icons"]}>
-              <SocialIcon
-                url="https://x.com/aayushman2703"
-                bgColor="transparent"
-                fgColor="#f3f8ff"
-                className={styles["footer-icon"]}
-                style={{ height: 40, width: 40 }}
-              />
-              <SocialIcon
-                url="https://www.linkedin.com/in/aayushman-singh-zz/"
-                bgColor="transparent"
-                fgColor="#f3f8ff"
-                className={styles["footer-icon"]}
-                style={{ height: 40, width: 40 }}
-              />
-              <SocialIcon
-                url="https://github.com/aayushman-singh"
-                bgColor="transparent"
-                fgColor="#f3f8ff"
-                className={styles["footer-icon"]}
-                style={{ height: 40, width: 40 }}
-              />
+              {footerSocialLinks.map(({ href, Icon, label }) => (
+                <a
+                  key={href}
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={styles["footer-icon"]}
+                  aria-label={label}
+                >
+                  <Icon />
+                </a>
+              ))}
             </div>
             <a
               href="https://buymeacoffee.com/aayushmansingh"

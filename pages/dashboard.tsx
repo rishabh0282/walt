@@ -34,8 +34,42 @@ import { calculatePinningCost, getPinningServiceConfig, getPinningConfigFromEnv,
 import { getOptimizedGatewayUrl } from '../lib/gatewayOptimizer';
 import { getFileCache } from '../lib/fileCache';
 import { BackendFileAPI } from '../lib/backendClient';
+import { getBackendGatewayUrl } from '../lib/shareUtils';
 import { checkAccess, getBillingStatus, BillingStatus } from '../lib/billingClient';
 import styles from '../styles/Dashboard.module.css';
+// RSuite Icons
+import FolderIcon from '@rsuite/icons/FolderFill';
+import StarIcon from '@rsuite/icons/Star';
+import StarOutlineIcon from '@rsuite/icons/Star'; // Using Star for outline (no StarOutline available)
+import PinIcon from '@rsuite/icons/Pin';
+import PinedIcon from '@rsuite/icons/Pined';
+import TrashIcon from '@rsuite/icons/Trash';
+import ImageIcon from '@rsuite/icons/Image';
+import VideoIcon from '@rsuite/icons/Video';
+import AudioIcon from '@rsuite/icons/Audio'; // Using Audio instead of Music
+import PageIcon from '@rsuite/icons/Page'; // Using Page for file icons
+import TableIcon from '@rsuite/icons/Table';
+import ArchiveIcon from '@rsuite/icons/Archive';
+import WarningRoundIcon from '@rsuite/icons/WarningRound';
+import StorageIcon from '@rsuite/icons/Storage';
+import GearIcon from '@rsuite/icons/Gear'; // For cleanup button
+// Moon and Sun not available - using emoji fallback in component
+import SettingIcon from '@rsuite/icons/Setting';
+import VisibleIcon from '@rsuite/icons/Visible';
+import FileDownloadIcon from '@rsuite/icons/FileDownload'; // Using FileDownload instead of Download
+import SearchIcon from '@rsuite/icons/Search';
+import ShareRoundIcon from '@rsuite/icons/ShareRound';
+import TagIcon from '@rsuite/icons/Tag';
+import EditIcon from '@rsuite/icons/Edit';
+import UndoIcon from '@rsuite/icons/Undo'; // Using Undo instead of RotateLeft
+import CheckIcon from '@rsuite/icons/Check';
+import CloseIcon from '@rsuite/icons/Close';
+import FunnelIcon from '@rsuite/icons/Funnel'; // For filter toggle
+import TimeIcon from '@rsuite/icons/Time'; // For Recent
+import MenuIcon from '@rsuite/icons/Menu'; // For mobile menu
+import PeoplesIcon from '@rsuite/icons/Peoples'; // For user icon
+import ArrowDownIcon from '@rsuite/icons/ArrowDown'; // For dropdown arrow
+import ListIcon from '@rsuite/icons/List'; // For list view button
 
 interface ShareConfig {
   shareId: string;
@@ -352,11 +386,21 @@ const Dashboard: NextPage = () => {
       return;
     }
 
+    // Get billing warning dismissed until inside callback
+    const getBillingWarningDismissedUntil = (): number | null => {
+      if (typeof window === 'undefined') return null;
+      const key = user ? `billing_warning_dismissed_until_${user.uid}` : null;
+      if (!key) return null;
+      const raw = localStorage.getItem(key);
+      const parsed = raw ? parseInt(raw, 10) : NaN;
+      return Number.isFinite(parsed) ? parsed : null;
+    };
+
     const dismissedUntil = getBillingWarningDismissedUntil();
     const now = Date.now();
     const shouldShowWarning = status.exceedsLimit && !billingDayToday && (!dismissedUntil || now >= dismissedUntil);
     setShowBillingWarning(shouldShowWarning);
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (user) {
@@ -777,7 +821,7 @@ const Dashboard: NextPage = () => {
       });
 
       if (duplicateWarnings.length > 0) {
-        showToast(`⚠️ Possible duplicates detected: ${duplicateWarnings.slice(0, 2).join(', ')}${duplicateWarnings.length > 2 ? '...' : ''}`, 'info');
+        showToast(`Possible duplicates detected: ${duplicateWarnings.slice(0, 2).join(', ')}${duplicateWarnings.length > 2 ? '...' : ''}`, 'info');
       }
 
       await addFiles(newFiles, folderId);
@@ -882,7 +926,7 @@ const Dashboard: NextPage = () => {
       });
 
       if (duplicateWarnings.length > 0) {
-        showToast(`⚠️ Possible duplicates detected: ${duplicateWarnings.slice(0, 2).join(', ')}${duplicateWarnings.length > 2 ? '...' : ''}`, 'info');
+        showToast(`Possible duplicates detected: ${duplicateWarnings.slice(0, 2).join(', ')}${duplicateWarnings.length > 2 ? '...' : ''}`, 'info');
       }
 
       await addFiles(newFiles, currentFolderId);
@@ -998,14 +1042,14 @@ const Dashboard: NextPage = () => {
   const billingCycleTitle = DEFAULT_BILLING_CYCLE_DAYS === 30 ? 'Monthly' : `${DEFAULT_BILLING_CYCLE_DAYS}-Day Cycle`;
 
   const getFileIcon = (type: string) => {
-    if (type.startsWith('image/')) return '🖼️';
-    if (type.startsWith('video/')) return '🎥';
-    if (type.startsWith('audio/')) return '🎵';
-    if (type.includes('pdf')) return '📕';
-    if (type.includes('word') || type.includes('document')) return '📄';
-    if (type.includes('sheet') || type.includes('excel')) return '📊';
-    if (type.includes('zip') || type.includes('rar')) return '🗜️';
-    return '📄';
+    if (type.startsWith('image/')) return <ImageIcon />;
+    if (type.startsWith('video/')) return <VideoIcon />;
+    if (type.startsWith('audio/')) return <AudioIcon />;
+    if (type.includes('pdf')) return <PageIcon />;
+    if (type.includes('word') || type.includes('document')) return <PageIcon />;
+    if (type.includes('sheet') || type.includes('excel')) return <TableIcon />;
+    if (type.includes('zip') || type.includes('rar')) return <ArchiveIcon />;
+    return <PageIcon />;
   };
 
   // Get files based on active view
@@ -1304,7 +1348,7 @@ const Dashboard: NextPage = () => {
       setConfirmationModal({
         isOpen: true,
         title: 'Permanently Delete',
-        message: `⚠️ Permanently delete "${file.name}"?\n\nThis action cannot be undone!`,
+        message: `Permanently delete "${file.name}"?\n\nThis action cannot be undone!`,
         confirmText: 'Delete Forever',
         cancelText: 'Cancel',
         onConfirm: async () => {
@@ -1497,7 +1541,7 @@ const Dashboard: NextPage = () => {
     }
 
     try {
-      showToast('📦 Preparing ZIP file...', 'info');
+      showToast('Preparing ZIP file...', 'info');
       const zip = new JSZip();
       
       // Get all files with their folder paths
@@ -1525,7 +1569,7 @@ const Dashboard: NextPage = () => {
           
           processed++;
           if (processed % 10 === 0 || processed === total) {
-            showToast(`📦 Exporting... ${processed}/${total} files`, 'info');
+            showToast(`Exporting... ${processed}/${total} files`, 'info');
           }
         } catch (error) {
           console.error(`Error fetching ${file.name}:`, error);
@@ -1534,7 +1578,7 @@ const Dashboard: NextPage = () => {
       }
 
       // Generate ZIP file
-      showToast('📦 Generating ZIP file...', 'info');
+      showToast('Generating ZIP file...', 'info');
       const zipBlob = await zip.generateAsync({ type: 'blob' });
       
       // Download the ZIP
@@ -1599,7 +1643,7 @@ const Dashboard: NextPage = () => {
           </button>
           <div className={styles.searchContainer}>
             <div className={styles.searchBar}>
-              <span className={styles.searchIcon}>🔍</span>
+              <span className={styles.searchIcon}><SearchIcon /></span>
               <input
                 type="text"
                 placeholder="Search in Drive"
@@ -1633,7 +1677,7 @@ const Dashboard: NextPage = () => {
                     className={styles.filterToggle}
                     title="Show filters"
                   >
-                    🔽
+                    <FunnelIcon />
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent 
@@ -1666,8 +1710,8 @@ const Dashboard: NextPage = () => {
                       className={styles.filterSelect}
                     >
                       <option value="all">All Files</option>
-                      <option value="pinned">📌 Pinned</option>
-                      <option value="unpinned">📍 Unpinned</option>
+                      <option value="pinned">Pinned</option>
+                      <option value="unpinned">Unpinned</option>
                     </select>
                   </div>
                   
@@ -1679,8 +1723,8 @@ const Dashboard: NextPage = () => {
                       className={styles.filterSelect}
                     >
                       <option value="all">All</option>
-                      <option value="starred">⭐ Starred</option>
-                      <option value="unstarred">☆ Unstarred</option>
+                      <option value="starred">Starred</option>
+                      <option value="unstarred">Unstarred</option>
                     </select>
                   </div>
 
@@ -1823,7 +1867,7 @@ const Dashboard: NextPage = () => {
                           setShowSuggestions(false);
                         }}
                       >
-                        <span className={styles.suggestionIcon}>⭐</span>
+                        <span className={styles.suggestionIcon}><StarIcon /></span>
                         <span className={styles.suggestionText}>{savedSearch.name}</span>
                         <button
                           className={styles.deleteSavedSearchBtn}
@@ -1833,7 +1877,7 @@ const Dashboard: NextPage = () => {
                           }}
                           title="Delete saved search"
                         >
-                          ✕
+                          <CloseIcon />
                         </button>
                       </DropdownMenuItem>
                     ))}
@@ -1873,7 +1917,7 @@ const Dashboard: NextPage = () => {
                           setShowSuggestions(false);
                         }}
                       >
-                        <span className={styles.suggestionIcon}>🔍</span>
+                        <span className={styles.suggestionIcon}><SearchIcon /></span>
                         <span>{suggestion}</span>
                       </DropdownMenuItem>
                     ))}
@@ -1888,7 +1932,7 @@ const Dashboard: NextPage = () => {
           <DropdownMenu open={showKeyboardShortcuts} onOpenChange={setShowKeyboardShortcuts}>
             <DropdownMenuTrigger asChild>
               <div className={styles.keyboardShortcutsCard}>
-                <span className={styles.keyboardShortcutsLabel}>⌨️ Keyboard Shortcuts</span>
+                <span className={styles.keyboardShortcutsLabel}>Keyboard Shortcuts</span>
               </div>
             </DropdownMenuTrigger>
             <DropdownMenuContent 
@@ -1946,7 +1990,7 @@ const Dashboard: NextPage = () => {
             title="Menu"
             aria-label="Toggle menu"
           >
-            {showMobileMenu ? '✕' : '☰'}
+            {showMobileMenu ? <CloseIcon /> : <MenuIcon />}
           </button>
           
           <button 
@@ -1954,7 +1998,7 @@ const Dashboard: NextPage = () => {
             onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
             title={`Switch to ${theme === 'light' ? 'dark' : 'light'} theme`}
           >
-            {theme === 'light' ? '🌙' : '☀️'}
+            {theme === 'light' ? <span>🌙</span> : <span>☀️</span>}
           </button>
 
           {shouldShowBillingCTA() && (
@@ -1974,20 +2018,20 @@ const Dashboard: NextPage = () => {
           <DropdownMenu>
             <DropdownMenuTrigger className={styles.userDropdownTrigger}>
               <span className={styles.userEmail}>{user.email}</span>
-              <span className={styles.userIcon}>👤</span>
-              <span className={styles.dropdownArrow}>▼</span>
+              <span className={styles.userIcon}><PeoplesIcon /></span>
+              <span className={styles.dropdownArrow}><ArrowDownIcon /></span>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className={styles.userDropdownContent}>
               <DropdownMenuItem onClick={() => router.push('/settings')}>
-                <span className={styles.dropdownIcon}>⚙️</span>
+                <span className={styles.dropdownIcon}><SettingIcon /></span>
                 Settings
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setShowTwoFactorSetup(true)}>
+              <DropdownMenuItem className={styles.menuDisabled} onClick={(e) => { e.stopPropagation(); }}>
                 <span className={styles.dropdownIcon}>🔒</span>
-                2FA
+                2FA (Coming Soon)
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleExportAll}>
-                <span className={styles.dropdownIcon}>📦</span>
+                <span className={styles.dropdownIcon}><StorageIcon /></span>
                 Export All
               </DropdownMenuItem>
               <DropdownMenuSeparator />
@@ -2011,7 +2055,7 @@ const Dashboard: NextPage = () => {
                 onClick={() => setShowMobileMenu(false)}
                 aria-label="Close menu"
               >
-                ✕
+                <CloseIcon />
               </button>
             </div>
             
@@ -2045,7 +2089,7 @@ const Dashboard: NextPage = () => {
                   setShowMobileMenu(false);
                 }}
               >
-                <span className={styles.navIcon}>📁</span>
+                <span className={styles.navIcon}><FolderIcon /></span>
                 <span>My Drive</span>
               </div>
               <div 
@@ -2055,7 +2099,7 @@ const Dashboard: NextPage = () => {
                   setShowMobileMenu(false);
                 }}
               >
-                <span className={styles.navIcon}>⏰</span>
+                <span className={styles.navIcon}><TimeIcon /></span>
                 <span>Recent</span>
               </div>
               <div 
@@ -2065,7 +2109,7 @@ const Dashboard: NextPage = () => {
                   setShowMobileMenu(false);
                 }}
               >
-                <span className={styles.navIcon}>⭐</span>
+                <span className={styles.navIcon}>{activeView === 'starred' ? <StarIcon /> : <StarOutlineIcon />}</span>
                 <span>Starred</span>
               </div>
               <div 
@@ -2075,7 +2119,7 @@ const Dashboard: NextPage = () => {
                   setShowMobileMenu(false);
                 }}
               >
-                <span className={styles.navIcon}>🗑️</span>
+                <span className={styles.navIcon}><TrashIcon /></span>
                 <span>Trash</span>
               </div>
             </nav>
@@ -2090,7 +2134,7 @@ const Dashboard: NextPage = () => {
                   className={styles.autoPinCheckbox}
                 />
                 <span className={styles.autoPinText}>
-                  📌 Auto-pin uploads
+                  <PinedIcon /> Auto-pin uploads
                 </span>
               </label>
               <p className={styles.autoPinHint}>
@@ -2113,7 +2157,7 @@ const Dashboard: NextPage = () => {
                       }}
                       title="Storage cleanup tools"
                     >
-                      🧹 Cleanup
+                      <GearIcon /> Cleanup
                     </button>
                     <button
                       className={styles.gatewayBtn}
@@ -2123,7 +2167,7 @@ const Dashboard: NextPage = () => {
                       }}
                       title="Gateway/CDN settings"
                     >
-                      ⚡ Gateways
+                      <SettingIcon /> Gateways
                     </button>
                   </div>
                   <h4 className={styles.storageTitle}>Storage Overview</h4>
@@ -2138,7 +2182,7 @@ const Dashboard: NextPage = () => {
                 </div>
                 <hr className={styles.statDivider} />
                 <div className={styles.statRow}>
-                  <span className={styles.statLabel}>📌 Pinned (Paid):</span>
+                  <span className={styles.statLabel}><PinedIcon /> Pinned (Paid):</span>
                   <span className={styles.statValue}>
                     {storageStats.pinnedCount} ({formatFileSize(storageStats.pinnedSize)})
                   </span>
@@ -2153,12 +2197,6 @@ const Dashboard: NextPage = () => {
                 )}
                 {billingStatus && (
                   <>
-                    <div className={styles.statRow}>
-                      <span className={styles.statLabel}>Billing Cycle:</span>
-                      <span className={styles.statValue}>
-                        {billingCycleTitle} {formatBillingPeriod(billingStatus.billingPeriod) ? `• ${formatBillingPeriod(billingStatus.billingPeriod)}` : ''}
-                      </span>
-                    </div>
                     <div className={styles.statRow}>
                       <span className={styles.statLabel}>Next Billing:</span>
                       <span className={styles.statValue}>{formatDate(billingStatus.nextBillingDate)}</span>
@@ -2176,7 +2214,7 @@ const Dashboard: NextPage = () => {
                   </span>
                 </div>
                 <div className={styles.statRow}>
-                  <span className={styles.statLabel}>📊 Total Size:</span>
+                  <span className={styles.statLabel}><TableIcon /> Total Size:</span>
                   <span className={styles.statValue}>
                     {formatFileSize(storageStats.totalSize)}
                   </span>
@@ -2217,28 +2255,28 @@ const Dashboard: NextPage = () => {
                 setCurrentFolderId(null);
               }}
             >
-              <span className={styles.navIcon}>📁</span>
+              <span className={styles.navIcon}><FolderIcon /></span>
               <span>My Drive</span>
             </div>
             <div 
               className={`${styles.navItem} ${activeView === 'recent' ? styles.active : ''}`}
               onClick={() => handleViewChange('recent')}
             >
-              <span className={styles.navIcon}>⏰</span>
+              <span className={styles.navIcon}><TimeIcon /></span>
               <span>Recent</span>
             </div>
             <div 
               className={`${styles.navItem} ${activeView === 'starred' ? styles.active : ''}`}
               onClick={() => handleViewChange('starred')}
             >
-              <span className={styles.navIcon}>⭐</span>
+              <span className={styles.navIcon}>{activeView === 'starred' ? <StarIcon /> : <StarOutlineIcon />}</span>
               <span>Starred</span>
             </div>
             <div 
               className={`${styles.navItem} ${activeView === 'trash' ? styles.active : ''}`}
               onClick={() => handleViewChange('trash')}
             >
-              <span className={styles.navIcon}>🗑️</span>
+              <span className={styles.navIcon}><TrashIcon /></span>
               <span>Trash</span>
             </div>
           </nav>
@@ -2253,7 +2291,7 @@ const Dashboard: NextPage = () => {
                 className={styles.autoPinCheckbox}
               />
               <span className={styles.autoPinText}>
-                📌 Auto-pin uploads
+                <PinedIcon /> Auto-pin uploads
               </span>
             </label>
             <p className={styles.autoPinHint}>
@@ -2264,7 +2302,7 @@ const Dashboard: NextPage = () => {
 
             {!autoPinEnabled && (
               <p className={styles.autoPinHint} style={{ marginTop: '8px', color: '#10b981' }}>
-                💡 Tip: Unpinned files are FREE but may be lost. Enable auto-pin for guaranteed persistence.
+                Tip: Unpinned files are FREE but may be lost. Enable auto-pin for guaranteed persistence.
               </p>
             )}
           </div>
@@ -2278,14 +2316,14 @@ const Dashboard: NextPage = () => {
                     onClick={() => setShowStorageCleanup(true)}
                     title="Storage cleanup tools"
                   >
-                    🧹 Cleanup
+                    <GearIcon /> Cleanup
                   </button>
                   <button
                     className={styles.gatewayBtn}
                     onClick={() => setShowGatewaySettings(true)}
                     title="Gateway/CDN settings"
                   >
-                    ⚡ Gateways
+                    <SettingIcon /> Gateways
                   </button>
                 </div>
                 <h4 className={styles.storageTitle}>Storage Overview</h4>
@@ -2300,7 +2338,7 @@ const Dashboard: NextPage = () => {
               </div>
               <hr className={styles.statDivider} />
               <div className={styles.statRow}>
-                <span className={styles.statLabel}>📌 Pinned (Paid):</span>
+                <span className={styles.statLabel}><PinedIcon /> Pinned (Paid):</span>
                 <span className={styles.statValue}>
                   {storageStats.pinnedCount} ({formatFileSize(storageStats.pinnedSize)})
                 </span>
@@ -2324,12 +2362,6 @@ const Dashboard: NextPage = () => {
               {billingStatus && (
                 <>
                   <div className={styles.statRow}>
-                    <span className={styles.statLabel}>Billing Cycle:</span>
-                    <span className={styles.statValue}>
-                      {billingCycleTitle} {formatBillingPeriod(billingStatus.billingPeriod) ? `• ${formatBillingPeriod(billingStatus.billingPeriod)}` : ''}
-                    </span>
-                  </div>
-                  <div className={styles.statRow}>
                     <span className={styles.statLabel}>Next Billing:</span>
                     <span className={styles.statValue}>{formatDate(billingStatus.nextBillingDate)}</span>
                   </div>
@@ -2340,7 +2372,7 @@ const Dashboard: NextPage = () => {
                 </>
               )}
               <div className={styles.statRow}>
-                <span className={styles.statLabel}>🆓 Unpinned (FREE):</span>
+                <span className={styles.statLabel}>Unpinned (FREE):</span>
                 <span className={styles.statValue + ' ' + (storageStats.unpinnedCount > 0 ? styles.warning : '')}>
                   {storageStats.unpinnedCount} ({formatFileSize(storageStats.unpinnedSize)})
                 </span>
@@ -2358,7 +2390,7 @@ const Dashboard: NextPage = () => {
         <main className={styles.fileArea}>
           {showBillingWarning && billingStatus && (
             <div className={styles.billingWarningBanner}>
-              <div className={styles.billingWarningIcon}>⚠️</div>
+              <div className={styles.billingWarningIcon}><WarningRoundIcon /></div>
               <div className={styles.billingWarningContent}>
                 <div className={styles.billingWarningTitle}>Free tier exceeded</div>
                 <p className={styles.billingWarningText}>
@@ -2384,7 +2416,7 @@ const Dashboard: NextPage = () => {
           )}
           {pinningWarning && (
             <div className={styles.pinningWarningBanner}>
-              <div className={styles.pinningWarningIcon}>⚠️</div>
+              <div className={styles.pinningWarningIcon}><WarningRoundIcon /></div>
               <div>
                 <div className={styles.pinningWarningTitle}>Pinning Service Attention Needed</div>
                 <p className={styles.pinningWarningText}>{pinningWarning}</p>
@@ -2494,7 +2526,7 @@ const Dashboard: NextPage = () => {
             return (
               <div className={styles.trashWarningBanner}>
                 <div className={styles.trashWarningContent}>
-                  <span className={styles.trashWarningIcon}>⚠️</span>
+                  <span className={styles.trashWarningIcon}><WarningRoundIcon /></span>
                   <div className={styles.trashWarningText}>
                     {expiredFiles.length > 0 && (
                       <strong>{expiredFiles.length} item{expiredFiles.length !== 1 ? 's' : ''} will be permanently deleted and unpinned automatically (older than 30 days)</strong>
@@ -2543,7 +2575,7 @@ const Dashboard: NextPage = () => {
                   onClick={handleCreateFolder}
                   title="Create new folder"
                 >
-                  📁+ New Folder
+                  <FolderIcon />+ New Folder
                 </button>
               )}
             </div>
@@ -2579,7 +2611,7 @@ const Dashboard: NextPage = () => {
                 onClick={() => setViewMode('list')}
                 title="List view"
               >
-                ☰
+                <ListIcon />
               </button>
               {viewMode === 'list' && (
                 <button
@@ -2587,7 +2619,7 @@ const Dashboard: NextPage = () => {
                   onClick={() => setShowColumnSettings(!showColumnSettings)}
                   title="Column settings"
                 >
-                  📊
+                  <TableIcon />
                 </button>
               )}
               {uploadedFiles.length > 0 && activeView !== 'trash' && (
@@ -2622,7 +2654,7 @@ const Dashboard: NextPage = () => {
           ) : filteredFiles.length === 0 ? (
             <div className={styles.emptyState}>
               <span className={styles.emptyIcon}>
-                {activeView === 'trash' ? '🗑️' : activeView === 'starred' ? '⭐' : '📂'}
+                {activeView === 'trash' ? <TrashIcon /> : activeView === 'starred' ? <StarIcon /> : <FolderIcon />}
               </span>
               <h3>
                 {activeView === 'trash' ? 'Trash is empty' : 
@@ -2804,7 +2836,7 @@ const Dashboard: NextPage = () => {
                     {file.isFolder ? (
                       <>
                         <div className={styles.folderIconLarge}>
-                          📁
+                          <FolderIcon />
                         </div>
                         {/* Overlay buttons for folders */}
                         <div className={styles.imageOverlay}>
@@ -2813,14 +2845,14 @@ const Dashboard: NextPage = () => {
                             onClick={(e) => handleToggleStar(file.id, e)}
                             title={file.starred ? "Unstar" : "Star"}
                           >
-                            {file.starred ? '⭐' : '☆'}
+                            {file.starred ? <StarIcon /> : <StarOutlineIcon />}
                           </button>
                           <button
                             className={styles.overlayBtn + ' ' + styles.overlayBtnTopRight}
                             onClick={(e) => handlePinToggle(file.id, file, e)}
-                            title={file.isPinned ? "📌 Pinned - Click to unpin (file may be lost)" : "📍 Unpinned - Click to pin (file may be lost)"}
+                            title={file.isPinned ? "Pinned - Click to unpin (file may be lost)" : "Unpinned - Click to pin (file may be lost)"}
                           >
-                            {file.isPinned ? '📌' : '📍'}
+                            {file.isPinned ? <PinedIcon /> : <PinIcon />}
                           </button>
                         </div>
                       </>
@@ -2842,14 +2874,14 @@ const Dashboard: NextPage = () => {
                             onClick={(e) => handleToggleStar(file.id, e)}
                             title={file.starred ? "Unstar" : "Star"}
                           >
-                            {file.starred ? '⭐' : '☆'}
+                            {file.starred ? <StarIcon /> : <StarOutlineIcon />}
                           </button>
                           <button
                             className={styles.overlayBtn + ' ' + styles.overlayBtnTopRight}
                             onClick={(e) => handlePinToggle(file.id, file, e)}
-                            title={file.isPinned ? "📌 Pinned - Click to unpin (file may be lost)" : "📍 Unpinned - Click to pin (file may be lost)"}
+                            title={file.isPinned ? "Pinned - Click to unpin (file may be lost)" : "Unpinned - Click to pin (file may be lost)"}
                           >
-                            {file.isPinned ? '📌' : '📍'}
+                            {file.isPinned ? <PinedIcon /> : <PinIcon />}
                           </button>
                         </div>
                       </>
@@ -2865,14 +2897,14 @@ const Dashboard: NextPage = () => {
                             onClick={(e) => handleToggleStar(file.id, e)}
                             title={file.starred ? "Unstar" : "Star"}
                           >
-                            {file.starred ? '⭐' : '☆'}
+                            {file.starred ? <StarIcon /> : <StarOutlineIcon />}
                           </button>
                           <button
                             className={styles.overlayBtn + ' ' + styles.overlayBtnTopRight}
                             onClick={(e) => handlePinToggle(file.id, file, e)}
-                            title={file.isPinned ? "📌 Pinned - Click to unpin (file may be lost)" : "📍 Unpinned - Click to pin (file may be lost)"}
+                            title={file.isPinned ? "Pinned - Click to unpin (file may be lost)" : "Unpinned - Click to pin (file may be lost)"}
                           >
-                            {file.isPinned ? '📌' : '📍'}
+                            {file.isPinned ? <PinedIcon /> : <PinIcon />}
                           </button>
                         </div>
                       </>
@@ -2884,7 +2916,7 @@ const Dashboard: NextPage = () => {
                     <div className={styles.fileNameRow}>
                     <h4 className={styles.fileName} title={file.name}>{file.name}</h4>
                       {file.starred && (
-                        <span className={styles.starredBadge} title="Starred">⭐</span>
+                        <span className={styles.starredBadge} title="Starred"><StarIcon /></span>
                       )}
                     </div>
                     <div className={styles.fileMeta}>
@@ -2942,47 +2974,44 @@ const Dashboard: NextPage = () => {
                             {!file.isFolder && (
                               <>
                                 <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handlePreview(file); }}>
-                                  👁️ Preview
+                                  <VisibleIcon /> Preview
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleShowDetails(file); }}>
                                   🧾 Details
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleDownload(file); }}>
-                                  ⬇️ Download
+                                  <FileDownloadIcon /> Download
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={(e) => { e.stopPropagation(); window.open(file.gatewayUrl, '_blank'); }}>
-                                  🔎 Open in new tab
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); copyToClipboard(file.gatewayUrl); }}>
-                                  🔗 Copy Link
+                                  <SearchIcon /> Open in new tab
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                               </>
                             )}
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleShare(file.id); }}>
-                              🔗 Share
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); copyToClipboard(getBackendGatewayUrl(file.ipfsUri)); }}>
+                              <ShareRoundIcon /> Share Link
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleDuplicate(file.id); }}>
+                            <DropdownMenuItem className={styles.menuDisabled} onClick={(e) => { e.stopPropagation(); }}>
                               📋 Duplicate
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleManageTags(file.id); }}>
-                              🏷️ Manage Tags
+                            <DropdownMenuItem className={styles.menuDisabled} onClick={(e) => { e.stopPropagation(); }}>
+                              <TagIcon /> Manage Tags
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleShowVersionHistory(file); }}>
+                            <DropdownMenuItem className={styles.menuDisabled} onClick={(e) => { e.stopPropagation(); }}>
                               📜 Version History
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleRename(file.id); }}>
-                              ✏️ Rename
+                              <EditIcon /> Rename
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleDelete(file.id); }} className={styles.menuDanger}>
-                              🗑️ Trash
+                              <TrashIcon /> Trash
                             </DropdownMenuItem>
                           </>
                         ) : (
                           <>
                             <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleRestore(file.id); }}>
-                              ↩️ Restore
+                              <UndoIcon /> Restore
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleDelete(file.id); }} className={styles.menuDanger}>
@@ -3007,7 +3036,7 @@ const Dashboard: NextPage = () => {
                 {visibleColumns.modified && <div className={styles.listColumn} style={{ flex: '1' }}>Modified</div>}
                 {visibleColumns.pinStatus && <div className={styles.listColumn} style={{ flex: '0.5' }}>Pin</div>}
                 {visibleColumns.tags && <div className={styles.listColumn} style={{ flex: '1.5' }}>Tags</div>}
-                {visibleColumns.starStatus && <div className={styles.listColumn} style={{ flex: '0.5' }}>⭐</div>}
+                {visibleColumns.starStatus && <div className={styles.listColumn} style={{ flex: '0.5' }}><StarIcon /></div>}
                 <div className={styles.listColumn} style={{ flex: '0.5' }}>Actions</div>
               </div>
               
@@ -3025,7 +3054,7 @@ const Dashboard: NextPage = () => {
                   {visibleColumns.name && (
                     <div className={styles.listColumn} style={{ flex: '2' }}>
                       <div className={styles.fileIconSmall}>
-                        {file.isFolder ? '📁' : getFileIcon(file.type)}
+                        {file.isFolder ? <FolderIcon /> : getFileIcon(file.type)}
                       </div>
                       <span className={styles.fileNameList} title={file.name}>{file.name}</span>
                     </div>
@@ -3055,7 +3084,7 @@ const Dashboard: NextPage = () => {
                   {/* Pin Status Column */}
                   {visibleColumns.pinStatus && (
                     <div className={styles.listColumn} style={{ flex: '0.5' }}>
-                      {!file.isFolder && (file.isPinned ? '📌' : '📍')}
+                      {!file.isFolder && (file.isPinned ? <PinedIcon /> : <PinIcon />)}
                     </div>
                   )}
                   
@@ -3076,7 +3105,7 @@ const Dashboard: NextPage = () => {
                   {/* Star Status Column */}
                   {visibleColumns.starStatus && (
                     <div className={styles.listColumn} style={{ flex: '0.5' }}>
-                      {file.starred ? '⭐' : '☆'}
+                      {file.starred ? <StarIcon /> : <StarOutlineIcon />}
                     </div>
                   )}
                   
@@ -3098,41 +3127,41 @@ const Dashboard: NextPage = () => {
                             {!file.isFolder && (
                               <>
                                 <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handlePreview(file); }}>
-                                  👁️ Preview
+                                  <VisibleIcon /> Preview
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleShowDetails(file); }}>
                                   🧾 Details
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleDownload(file); }}>
-                                  ⬇️ Download
+                                  <FileDownloadIcon /> Download
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                               </>
                             )}
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleShare(file.id); }}>
-                              🔗 Share
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); copyToClipboard(getBackendGatewayUrl(file.ipfsUri)); }}>
+                              <ShareRoundIcon /> Share Link
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleDuplicate(file.id); }}>
+                            <DropdownMenuItem className={styles.menuDisabled} onClick={(e) => { e.stopPropagation(); }}>
                               📋 Duplicate
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleManageTags(file.id); }}>
-                              🏷️ Manage Tags
+                            <DropdownMenuItem className={styles.menuDisabled} onClick={(e) => { e.stopPropagation(); }}>
+                              <TagIcon /> Manage Tags
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleShowVersionHistory(file); }}>
+                            <DropdownMenuItem className={styles.menuDisabled} onClick={(e) => { e.stopPropagation(); }}>
                               📜 Version History
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleRename(file.id); }}>
-                              ✏️ Rename
+                              <EditIcon /> Rename
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleDelete(file.id); }} className={styles.menuDanger}>
-                              🗑️ Trash
+                              <TrashIcon /> Trash
                             </DropdownMenuItem>
                           </>
                         ) : (
                           <>
                             <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleRestore(file.id); }}>
-                              ↩️ Restore
+                              <UndoIcon /> Restore
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleDelete(file.id); }} className={styles.menuDanger}>
@@ -3357,7 +3386,7 @@ const Dashboard: NextPage = () => {
         <div className={styles.uploadPanel}>
           <div className={styles.uploadHeader}>
             <h4>Uploading {uploadQueue.length} file{uploadQueue.length > 1 ? 's' : ''}</h4>
-            <button onClick={() => setUploadQueue([])} className={styles.closeUploadPanel}>✕</button>
+            <button onClick={() => setUploadQueue([])} className={styles.closeUploadPanel}><CloseIcon /></button>
           </div>
           <div className={styles.uploadList}>
             {uploadQueue.map((item, index) => (
@@ -3365,7 +3394,7 @@ const Dashboard: NextPage = () => {
                 <div className={styles.uploadItemInfo}>
                   <span className={styles.uploadItemName}>{item.name}</span>
                   <span className={styles.uploadItemProgress}>
-                    {item.status === 'complete' ? '✓' : item.status === 'error' ? '✗' : `${Math.round(item.progress)}%`}
+                    {item.status === 'complete' ? <CheckIcon /> : item.status === 'error' ? <CloseIcon /> : `${Math.round(item.progress)}%`}
                   </span>
                 </div>
                 <div className={styles.progressBar}>

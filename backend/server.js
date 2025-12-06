@@ -219,7 +219,52 @@ function initializeSchema() {
     );
     
     CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id ON subscriptions(user_id);
+    
+    CREATE TABLE IF NOT EXISTS short_links (
+      id TEXT PRIMARY KEY,
+      short_code TEXT UNIQUE NOT NULL,
+      file_id TEXT REFERENCES files(id) ON DELETE CASCADE,
+      folder_id TEXT REFERENCES folders(id) ON DELETE CASCADE,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      share_id TEXT REFERENCES shares(id) ON DELETE CASCADE,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      access_count INTEGER DEFAULT 0,
+      last_accessed_at TEXT
+    );
+    
+    CREATE INDEX IF NOT EXISTS idx_short_links_code ON short_links(short_code);
+    CREATE INDEX IF NOT EXISTS idx_short_links_file_id ON short_links(file_id);
+    CREATE INDEX IF NOT EXISTS idx_short_links_user_id ON short_links(user_id);
   `);
+}
+
+// Short code generation utility
+const BASE62 = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+function generateShortCode(length = 6) {
+  let code = '';
+  for (let i = 0; i < length; i++) {
+    code += BASE62[Math.floor(Math.random() * BASE62.length)];
+  }
+  return code;
+}
+
+function getUniqueShortCode(db, maxAttempts = 10) {
+  let attempts = 0;
+  
+  while (attempts < maxAttempts) {
+    const code = generateShortCode();
+    const existing = db.prepare('SELECT id FROM short_links WHERE short_code = ?').get(code);
+    
+    if (!existing) {
+      return code;
+    }
+    
+    attempts++;
+  }
+  
+  throw new Error('Failed to generate unique short code after multiple attempts');
 }
 
 initializeSchema();
@@ -754,10 +799,32 @@ app.post('/api/shares', verifyAuth, (req, res) => {
       permissionLevel || 'viewer', password || null, expiresAt || null, maxDownloads || null
     );
 
+    // Auto-generate short link for the share
+    let shortCode = null;
+    let shortUrl = null;
+    try {
+      const shortLinkId = uuidv4();
+      shortCode = getUniqueShortCode(db);
+      
+      db.prepare(`
+        INSERT INTO short_links (id, short_code, file_id, folder_id, user_id, share_id)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run(
+        shortLinkId, shortCode, fileId || null, folderId || null, user.id, shareId
+      );
+      
+      shortUrl = `${process.env.FRONTEND_URL || 'https://walt.aayushman.dev'}/s/${shortCode}`;
+    } catch (shortLinkError) {
+      console.warn('Failed to create short link:', shortLinkError);
+      // Continue without short link - not critical
+    }
+
     res.json({
       shareId,
       shareToken,
       shareUrl: `${process.env.FRONTEND_URL || 'https://walt.aayushman.dev'}/share/${shareToken}`,
+      shortCode,
+      shortUrl,
     });
   } catch (error) {
     console.error('Create share error:', error);
@@ -797,6 +864,96 @@ app.get('/api/shares/:token', async (req, res) => {
   } catch (error) {
     console.error('Get share error:', error);
     res.status(500).json({ error: 'Failed to get share', message: error.message });
+  }
+});
+
+// Short link redirect endpoint
+app.get('/api/s/:code', async (req, res) => {
+  try {
+    const { code } = req.params;
+    const shortLink = rowToObject(db.prepare('SELECT * FROM short_links WHERE short_code = ?').get(code));
+
+    if (!shortLink) {
+      return res.status(404).json({ error: 'Short link not found' });
+    }
+
+    // Update access count
+    db.prepare(`
+      UPDATE short_links 
+      SET access_count = access_count + 1,
+          last_accessed_at = datetime('now'),
+          updated_at = datetime('now')
+      WHERE id = ?
+    `).run(shortLink.id);
+
+    // Get the associated share
+    let share = null;
+    if (shortLink.share_id) {
+      share = rowToObject(db.prepare('SELECT * FROM shares WHERE id = ? AND is_active = 1').get(shortLink.share_id));
+    } else if (shortLink.file_id) {
+      // If no share exists, find or create one
+      share = rowToObject(db.prepare('SELECT * FROM shares WHERE file_id = ? AND is_active = 1 LIMIT 1').get(shortLink.file_id));
+    }
+
+    if (share) {
+      // Redirect to share page
+      const shareUrl = `${process.env.FRONTEND_URL || 'https://walt.aayushman.dev'}/share/${share.share_token}`;
+      return res.redirect(shareUrl);
+    }
+
+    // If no share, try direct file access
+    if (shortLink.file_id) {
+      const file = rowToObject(db.prepare('SELECT * FROM files WHERE id = ? AND is_deleted = 0').get(shortLink.file_id));
+      if (file) {
+        // Redirect to download or file view
+        const downloadUrl = `${process.env.FRONTEND_URL || 'https://walt.aayushman.dev'}/api/ipfs/download?fileId=${file.id}`;
+        return res.redirect(downloadUrl);
+      }
+    }
+
+    return res.status(404).json({ error: 'File or share not found' });
+  } catch (error) {
+    console.error('Short link redirect error:', error);
+    res.status(500).json({ error: 'Failed to process short link', message: error.message });
+  }
+});
+
+// Get short link info (metadata)
+app.get('/api/short-links/:code/info', async (req, res) => {
+  try {
+    const { code } = req.params;
+    const shortLink = rowToObject(db.prepare('SELECT * FROM short_links WHERE short_code = ?').get(code));
+
+    if (!shortLink) {
+      return res.status(404).json({ error: 'Short link not found' });
+    }
+
+    let file = null;
+    let folder = null;
+    let share = null;
+
+    if (shortLink.file_id) {
+      file = rowToObject(db.prepare('SELECT * FROM files WHERE id = ?').get(shortLink.file_id));
+    }
+    if (shortLink.folder_id) {
+      folder = rowToObject(db.prepare('SELECT * FROM folders WHERE id = ?').get(shortLink.folder_id));
+    }
+    if (shortLink.share_id) {
+      share = rowToObject(db.prepare('SELECT * FROM shares WHERE id = ?').get(shortLink.share_id));
+    }
+
+    res.json({
+      shortCode: shortLink.short_code,
+      file,
+      folder,
+      share,
+      accessCount: shortLink.access_count,
+      createdAt: shortLink.created_at,
+      lastAccessedAt: shortLink.last_accessed_at,
+    });
+  } catch (error) {
+    console.error('Get short link info error:', error);
+    res.status(500).json({ error: 'Failed to get short link info', message: error.message });
   }
 });
 

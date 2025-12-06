@@ -3,7 +3,22 @@ import { NextPage } from 'next';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Image from 'next/image';
+import ArchiveIcon from '@rsuite/icons/Archive';
+import AudioIcon from '@rsuite/icons/Audio';
+import DocPassIcon from '@rsuite/icons/DocPass';
+import FileDownloadIcon from '@rsuite/icons/FileDownload';
+import FolderIcon from '@rsuite/icons/Folder';
+import ImageIcon from '@rsuite/icons/Image';
+import InfoRoundIcon from '@rsuite/icons/InfoRound';
+import LockRoundIcon from '@rsuite/icons/LockRound';
+import PageIcon from '@rsuite/icons/Page';
+import ShareRoundIcon from '@rsuite/icons/ShareRound';
+import TableIcon from '@rsuite/icons/Table';
+import VideoIcon from '@rsuite/icons/Video';
+import VisibleIcon from '@rsuite/icons/Visible';
+import WarningRoundIcon from '@rsuite/icons/WarningRound';
 import Toast from '../../components/Toast';
+import { getBackendGatewayUrl } from '../../lib/shareUtils';
 import styles from '../../styles/SharePage.module.css';
 
 interface ShareConfig {
@@ -143,14 +158,14 @@ const SharePage: NextPage = () => {
   };
 
   const getFileIcon = (type: string) => {
-    if (type.startsWith('image/')) return '🖼️';
-    if (type.startsWith('video/')) return '🎥';
-    if (type.startsWith('audio/')) return '🎵';
-    if (type.includes('pdf')) return '📕';
-    if (type.includes('word') || type.includes('document')) return '📄';
-    if (type.includes('sheet') || type.includes('excel')) return '📊';
-    if (type.includes('zip') || type.includes('rar')) return '🗜️';
-    return '📄';
+    if (type.startsWith('image/')) return <ImageIcon />;
+    if (type.startsWith('video/')) return <VideoIcon />;
+    if (type.startsWith('audio/')) return <AudioIcon />;
+    if (type.includes('pdf')) return <DocPassIcon />;
+    if (type.includes('word') || type.includes('document')) return <PageIcon />;
+    if (type.includes('sheet') || type.includes('excel')) return <TableIcon />;
+    if (type.includes('zip') || type.includes('rar')) return <ArchiveIcon />;
+    return <PageIcon />;
   };
 
   const handleDownload = async () => {
@@ -160,7 +175,8 @@ const SharePage: NextPage = () => {
     }
 
     try {
-      const response = await fetch(file.gatewayUrl);
+      const backendUrl = getBackendGatewayUrl(file.ipfsUri);
+      const response = await fetch(backendUrl);
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -172,7 +188,7 @@ const SharePage: NextPage = () => {
       document.body.removeChild(a);
     } catch (error) {
       console.error('Download failed:', error);
-      showToast('❌ Download failed', 'error');
+      showToast('Download failed', 'error');
     }
   };
 
@@ -197,7 +213,9 @@ const SharePage: NextPage = () => {
           <title>Password Required | Vault Labs</title>
         </Head>
         <div className={styles.passwordBox}>
-          <div className={styles.passwordIcon}>🔒</div>
+          <div className={styles.passwordIcon}>
+            <LockRoundIcon />
+          </div>
           <h2>Password Required</h2>
           <p>This shared content is password protected.</p>
           <form onSubmit={handlePasswordSubmit}>
@@ -229,7 +247,9 @@ const SharePage: NextPage = () => {
           <title>Not Found | Vault Labs</title>
         </Head>
         <div className={styles.error}>
-          <div className={styles.errorIcon}>⚠️</div>
+          <div className={styles.errorIcon}>
+            <WarningRoundIcon />
+          </div>
           <h2>{error || 'Content not found'}</h2>
           <p>This share link may have expired or been removed.</p>
           <button onClick={() => router.push('/')} className={styles.homeBtn}>
@@ -248,10 +268,14 @@ const SharePage: NextPage = () => {
 
       <header className={styles.header}>
         <div className={styles.logo} onClick={() => router.push('/')}>
-          🔐 Vault Labs
+          <LockRoundIcon className={styles.inlineIcon} />
+          <span>Vault Labs</span>
         </div>
         <div className={styles.headerRight}>
-          <span className={styles.sharedBadge}>🔗 Shared</span>
+          <span className={styles.sharedBadge}>
+            <ShareRoundIcon className={styles.inlineIcon} />
+            Shared
+          </span>
         </div>
       </header>
 
@@ -259,9 +283,11 @@ const SharePage: NextPage = () => {
         <div className={styles.fileCard}>
           <div className={styles.filePreview}>
             {file.isFolder ? (
-              <div className={styles.folderIcon}>📁</div>
+              <div className={styles.folderIcon}>
+                <FolderIcon />
+              </div>
             ) : file.type.startsWith('image/') ? (
-              <Image src={file.gatewayUrl} alt={file.name} className={styles.image} width={800} height={600} unoptimized style={{ objectFit: 'contain' }} />
+              <Image src={getBackendGatewayUrl(file.ipfsUri)} alt={file.name} className={styles.image} width={800} height={600} unoptimized style={{ objectFit: 'contain' }} />
             ) : (
               <div className={styles.fileIcon}>
                 {getFileIcon(file.type)}
@@ -280,7 +306,17 @@ const SharePage: NextPage = () => {
 
             <div className={styles.permissions}>
               <span className={styles.permissionBadge}>
-                {file.shareConfig?.permission === 'viewer' ? '👁️ View Only' : '✏️ Can Download'}
+                {file.shareConfig?.permission === 'viewer' ? (
+                  <>
+                    <VisibleIcon className={styles.inlineIcon} />
+                    View Only
+                  </>
+                ) : (
+                  <>
+                    <FileDownloadIcon className={styles.inlineIcon} />
+                    Can Download
+                  </>
+                )}
               </span>
               {file.shareConfig?.expiryDate && (
                 <span className={styles.expiryInfo}>
@@ -294,31 +330,39 @@ const SharePage: NextPage = () => {
                 <>
                   <button 
                     className={styles.actionBtn + ' ' + styles.primary}
-                    onClick={() => window.open(file.gatewayUrl, '_blank')}
+                    onClick={() => window.open(getBackendGatewayUrl(file.ipfsUri), '_blank')}
                   >
-                    👁️ View File
+                    <VisibleIcon className={styles.inlineIcon} />
+                    View File
                   </button>
                   {file.shareConfig?.permission === 'editor' && (
                     <button 
                       className={styles.actionBtn}
                       onClick={handleDownload}
                     >
-                      ⬇️ Download
+                      <FileDownloadIcon className={styles.inlineIcon} />
+                      Download
                     </button>
                   )}
                 </>
               )}
               <button 
                 className={styles.actionBtn}
-                onClick={() => navigator.clipboard.writeText(file.gatewayUrl)}
+                onClick={() => {
+                  const backendUrl = getBackendGatewayUrl(file.ipfsUri);
+                  navigator.clipboard.writeText(backendUrl);
+                  showToast('Link copied!', 'success');
+                }}
               >
-                🔗 Copy Link
+                <ShareRoundIcon className={styles.inlineIcon} />
+                Copy Link
               </button>
             </div>
 
             {file.shareConfig?.permission === 'viewer' && (
               <div className={styles.notice}>
-                ℹ️ This is a view-only share. Downloads are not permitted.
+                <InfoRoundIcon className={styles.inlineIcon} />
+                <span>This is a view-only share. Downloads are not permitted.</span>
               </div>
             )}
           </div>

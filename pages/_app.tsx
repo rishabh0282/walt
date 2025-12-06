@@ -1,15 +1,8 @@
 import type { AppProps } from "next/app";
-import { ThirdwebProvider } from "@thirdweb-dev/react";
 import { AuthProvider } from "../contexts/AuthContext";
 import Head from "next/head";
 import Script from "next/script";
 import "../styles/globals.css";
-
-// Use Ethereum Mainnet as the active chain
-const activeChain = "ethereum";
-
-// Get client ID from environment variable
-const clientId = process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID || "test-api";
 
 function MyApp({ Component, pageProps }: AppProps) {
   return (
@@ -37,12 +30,7 @@ function MyApp({ Component, pageProps }: AppProps) {
       />
       
       <AuthProvider>
-        <ThirdwebProvider
-          activeChain={activeChain}
-          clientId={clientId}
-        >
-          <Component {...pageProps} />
-        </ThirdwebProvider>
+        <Component {...pageProps} />
       </AuthProvider>
     </>
   );

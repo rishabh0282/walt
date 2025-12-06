@@ -19,6 +19,9 @@
   color: #5f6368;
   cursor: pointer;
   transition: color 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .logo:hover {
@@ -38,6 +41,9 @@
   border-radius: 16px;
   font-size: 13px;
   font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .main {
@@ -74,6 +80,15 @@
 .fileIcon,
 .folderIcon {
   font-size: 128px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fileIcon svg,
+.folderIcon svg {
+  width: 128px;
+  height: 128px;
 }
 
 .fileInfo {
@@ -111,6 +126,9 @@
   border-radius: 20px;
   font-size: 13px;
   font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .expiryInfo {
@@ -139,6 +157,9 @@
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .actionBtn:hover {
@@ -164,6 +185,9 @@
   border-radius: 4px;
   font-size: 13px;
   color: #1967d2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .footer {
@@ -233,6 +257,14 @@
 .errorIcon {
   font-size: 72px;
   margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.errorIcon svg {
+  width: 72px;
+  height: 72px;
 }
 
 .error h2 {
@@ -278,6 +310,18 @@
 .passwordIcon {
   font-size: 72px;
   margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.passwordIcon svg {
+  width: 72px;
+  height: 72px;
+}
+
+.inlineIcon {
+  display: inline-flex;
 }
 
 .passwordBox h2 {

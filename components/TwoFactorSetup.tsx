@@ -5,6 +5,11 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
+import CloseIcon from '@rsuite/icons/Close';
+import CheckRoundIcon from '@rsuite/icons/CheckRound';
+import CopyIcon from '@rsuite/icons/Copy';
+import MobileIcon from '@rsuite/icons/Mobile';
+import WarningRoundIcon from '@rsuite/icons/WarningRound';
 import { useAuth } from '../contexts/AuthContext';
 import { formatBackupCode, isValidTokenFormat } from '../lib/twoFactorAuth';
 import styles from '../styles/TwoFactorSetup.module.css';
@@ -128,7 +133,9 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ isOpen, onClose, onEnab
       <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
         <div className={styles.header}>
           <h2>Two-Factor Authentication</h2>
-          <button className={styles.closeBtn} onClick={handleClose}>✕</button>
+          <button className={styles.closeBtn} onClick={handleClose} aria-label="Close setup">
+            <CloseIcon />
+          </button>
         </div>
 
         <div className={styles.content}>
@@ -192,7 +199,10 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ isOpen, onClose, onEnab
               </div>
 
               <div className={styles.infoBox}>
-                <strong>📱 Popular Authenticator Apps:</strong>
+                <strong className={styles.iconHeading}>
+                  <MobileIcon className={styles.inlineIcon} />
+                  Popular Authenticator Apps:
+                </strong>
                 <ul>
                   <li>Google Authenticator</li>
                   <li>Microsoft Authenticator</li>
@@ -205,13 +215,18 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ isOpen, onClose, onEnab
           ) : step === 'success' && setupData ? (
             <>
               <div className={styles.successMessage}>
-                <div className={styles.successIcon}>✅</div>
+                <div className={styles.successIcon}>
+                  <CheckRoundIcon />
+                </div>
                 <h3>Two-Factor Authentication Enabled!</h3>
                 <p>Your account is now protected with two-factor authentication.</p>
               </div>
 
               <div className={styles.section}>
-                <h3>⚠️ Save Your Backup Codes</h3>
+                <h3 className={styles.iconHeading}>
+                  <WarningRoundIcon className={styles.inlineIcon} />
+                  Save Your Backup Codes
+                </h3>
                 <p>Store these backup codes in a safe place. You can use them to access your account if you lose your authenticator device.</p>
                 
                 <div className={styles.backupCodesContainer}>
@@ -230,12 +245,16 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ isOpen, onClose, onEnab
                   }}
                   className={styles.copyBtn}
                 >
-                  📋 Copy All Codes
+                  <CopyIcon className={styles.buttonIcon} />
+                  Copy All Codes
                 </button>
               </div>
 
               <div className={styles.warningBox}>
-                <strong>⚠️ Important:</strong>
+                <strong className={styles.iconHeading}>
+                  <WarningRoundIcon className={styles.inlineIcon} />
+                  Important:
+                </strong>
                 <ul>
                   <li>Backup codes can only be used once</li>
                   <li>Store them securely - they cannot be retrieved later</li>

@@ -302,6 +302,12 @@
   background: #1557b0;
 }
 
+.actionBtn.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 .dark .actionBtn {
   background: #4a9eff;
 }

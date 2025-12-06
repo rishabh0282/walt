@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import CloseIcon from '@rsuite/icons/Close';
+import GoogleIcon from '@rsuite/icons/Google';
 import { useAuth } from '../contexts/AuthContext';
 import styles from '../styles/Auth.module.css';
 
@@ -48,7 +50,9 @@ const AuthModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
         <div className={styles.modalHeader}>
           <h2>{isSignUp ? 'Sign Up' : 'Sign In'}</h2>
-          <button className={styles.closeBtn} onClick={onClose}>×</button>
+          <button className={styles.closeBtn} onClick={onClose} aria-label="Close authentication modal">
+            <CloseIcon />
+          </button>
         </div>
 
         <div className={styles.modalBody}>
@@ -57,7 +61,9 @@ const AuthModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             onClick={handleGoogleSignIn}
             disabled={loading}
           >
-            <span className={styles.googleIcon}>G</span>
+            <span className={styles.googleIcon} aria-hidden>
+              <GoogleIcon />
+            </span>
             Continue with Google
           </button>
 

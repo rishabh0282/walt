@@ -3,6 +3,14 @@
  * Manages in-app notifications for shares, comments, and activity
  */
 
+import React, { type ReactNode } from 'react';
+import EditIcon from '@rsuite/icons/Edit';
+import MessageIcon from '@rsuite/icons/Message';
+import RemindOutlineIcon from '@rsuite/icons/RemindOutline';
+import ShareRoundIcon from '@rsuite/icons/ShareRound';
+import StorageIcon from '@rsuite/icons/Storage';
+import VisibleIcon from '@rsuite/icons/Visible';
+import WarningRoundIcon from '@rsuite/icons/WarningRound';
 export type NotificationType = 
   | 'share_received' 
   | 'share_access' 
@@ -79,25 +87,25 @@ export function formatNotificationTime(timestamp: number): string {
 /**
  * Get notification icon based on type
  */
-export function getNotificationIcon(type: NotificationType): string {
+export function getNotificationIcon(type: NotificationType): ReactNode {
   switch (type) {
     case 'share_received':
     case 'file_shared':
-      return '🔗';
+      return React.createElement(ShareRoundIcon);
     case 'share_access':
-      return '👁️';
+      return React.createElement(VisibleIcon);
     case 'comment_mentioned':
-      return '💬';
+      return React.createElement(MessageIcon);
     case 'file_updated':
-      return '📝';
+      return React.createElement(EditIcon);
     case 'pin_expiring':
-      return '⚠️';
+      return React.createElement(WarningRoundIcon);
     case 'storage_warning':
-      return '📦';
+      return React.createElement(StorageIcon);
     case 'system':
-      return '🔔';
+      return React.createElement(RemindOutlineIcon);
     default:
-      return '🔔';
+      return React.createElement(RemindOutlineIcon);
   }
 }
 

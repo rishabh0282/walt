@@ -281,6 +281,8 @@ export const BackendShareAPI = {
     shareId: string;
     shareToken: string;
     shareUrl: string;
+    shortCode?: string;
+    shortUrl?: string;
   }> {
     return backendRequest('/api/shares', {
       method: 'POST',

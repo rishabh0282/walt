@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import MessageIcon from '@rsuite/icons/Message';
 import { useAuth } from '../contexts/AuthContext';
 import NotificationCenter from './NotificationCenter';
 import styles from '../styles/NotificationBell.module.css';
@@ -78,7 +79,9 @@ const NotificationBell: React.FC = () => {
         onClick={handleClick}
         title="Notifications"
       >
-        <span className={styles.bellIcon}>🔔</span>
+        <span className={styles.bellIcon} aria-hidden>
+          <MessageIcon />
+        </span>
         {unreadCount > 0 && (
           <span className={styles.badge}>
             {unreadCount > 99 ? '99+' : unreadCount}

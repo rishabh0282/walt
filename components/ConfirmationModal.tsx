@@ -1,4 +1,7 @@
 import React from 'react';
+import DangerIcon from '@rsuite/icons/Danger';
+import InfoRoundIcon from '@rsuite/icons/InfoRound';
+import WarningRoundIcon from '@rsuite/icons/WarningRound';
 import styles from '../styles/ConfirmationModal.module.css';
 
 interface ConfirmationModalProps {
@@ -26,10 +29,10 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
 
   const getIcon = () => {
     switch (type) {
-      case 'danger': return '⚠️';
-      case 'info': return 'ℹ️';
+      case 'danger': return <DangerIcon />;
+      case 'info': return <InfoRoundIcon />;
       case 'warning': 
-      default: return '⚠️';
+      default: return <WarningRoundIcon />;
     }
   };
 

@@ -1,4 +1,8 @@
 import React, { useEffect } from 'react';
+import CheckRoundIcon from '@rsuite/icons/CheckRound';
+import CloseIcon from '@rsuite/icons/Close';
+import CloseOutlineIcon from '@rsuite/icons/CloseOutline';
+import InfoRoundIcon from '@rsuite/icons/InfoRound';
 import styles from '../styles/Toast.module.css';
 
 interface ToastProps {
@@ -24,10 +28,10 @@ const Toast: React.FC<ToastProps> = ({
 
   const getIcon = () => {
     switch (type) {
-      case 'success': return '✓';
-      case 'error': return '✕';
-      case 'info': return 'ℹ';
-      default: return '✓';
+      case 'success': return <CheckRoundIcon />;
+      case 'error': return <CloseOutlineIcon />;
+      case 'info': return <InfoRoundIcon />;
+      default: return <CheckRoundIcon />;
     }
   };
 
@@ -35,7 +39,9 @@ const Toast: React.FC<ToastProps> = ({
     <div className={`${styles.toast} ${styles[type]}`}>
       <span className={styles.icon}>{getIcon()}</span>
       <span className={styles.message}>{message}</span>
-      <button className={styles.close} onClick={onClose}>×</button>
+      <button className={styles.close} onClick={onClose} aria-label="Close notification">
+        <CloseIcon />
+      </button>
     </div>
   );
 };

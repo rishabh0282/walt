@@ -340,6 +340,21 @@
   border-color: #ffc107;
 }
 
+.iconHeading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.inlineIcon {
+  display: inline-flex;
+  vertical-align: middle;
+}
+
+.buttonIcon {
+  margin-right: 8px;
+}
+
 .warningBox strong {
   display: block;
   margin-bottom: 10px;
