@@ -1,16 +1,22 @@
 /**
  * IPFS Client for connecting to self-hosted IPFS node
- * Supports both HTTP API and Helia (browser-side)
+ * 
+ * This client interfaces with an IPFS node via HTTP API, allowing the app to be self-hosted
+ * without relying on centralized storage providers. Users can run their own IPFS node or
+ * connect to any compatible node, ensuring true data ownership and censorship resistance.
  */
 
 import { create as createIPFSClient, IPFSHTTPClient } from 'ipfs-http-client';
 import type { Buffer } from 'buffer';
 
-// Cache IPFS client instance
+// Singleton pattern prevents duplicate connections and reduces connection overhead
 let ipfsClient: IPFSHTTPClient | null = null;
 
 /**
  * Get or create IPFS HTTP client
+ * 
+ * Lazy initialization defers connection until first use, preventing errors during SSR
+ * and allowing the app to function without IPFS for certain features (e.g., viewing shared files)
  */
 export function getIPFSClient(): IPFSHTTPClient {
   if (!ipfsClient) {
@@ -19,7 +25,7 @@ export function getIPFSClient(): IPFSHTTPClient {
     try {
       const client = createIPFSClient({
         url: apiUrl,
-        timeout: 60000, // 60 seconds
+        timeout: 60000, // Long timeout accommodates slower IPFS operations on constrained hardware
       });
       ipfsClient = client;
     } catch (error) {
@@ -33,6 +39,9 @@ export function getIPFSClient(): IPFSHTTPClient {
 
 /**
  * Upload file to IPFS
+ * 
+ * Pinning during upload ensures the file persists on the local node and won't be garbage collected.
+ * This is critical for self-hosted setups where users are their own pinning service.
  */
 export async function uploadToIPFS(
   file: Buffer | Uint8Array | Blob,
@@ -45,9 +54,9 @@ export async function uploadToIPFS(
   
   try {
     const result = await client.add(file, {
-      pin: true,
+      pin: true, // Auto-pin prevents accidental deletion during garbage collection
       progress: options?.onProgress,
-      wrapWithDirectory: false,
+      wrapWithDirectory: false, // Simpler CID structure for direct file access
     });
     
     return {
@@ -259,6 +268,10 @@ export async function getPeerCount(): Promise<number> {
 
 /**
  * Generate IPFS gateway URL
+ * 
+ * Custom gateway configuration allows self-hosters to use their own infrastructure
+ * while providing a sensible default. Filename parameter ensures proper MIME type
+ * detection and download behavior in browsers.
  */
 export function getGatewayUrl(cid: string, filename?: string): string {
   const gatewayUrl = process.env.IPFS_GATEWAY_URL || 
@@ -276,6 +289,10 @@ export function getGatewayUrl(cid: string, filename?: string): string {
 
 /**
  * Get public gateway URLs (fallback)
+ * 
+ * Multiple fallback gateways ensure content remains accessible even if the primary
+ * gateway is down. IPFS's content-addressing guarantees the same CID returns identical
+ * content regardless of which gateway serves it.
  */
 export function getPublicGatewayUrls(cid: string): string[] {
   return [

@@ -1,5 +1,11 @@
-// Pinning Service Integration for IPFS
-// Supports multiple pinning providers (Pinata, Web3.Storage, etc.)
+/**
+ * Pinning Service Integration for IPFS
+ * 
+ * IPFS nodes garbage-collect unpinned content to save space. Pinning services keep
+ * content permanently available without requiring users to run nodes 24/7. This
+ * abstraction supports multiple providers (Pinata, self-hosted backend) so users
+ * can choose between convenience and self-sovereignty.
+ */
 
 export interface PinningConfig {
   service: 'pinata' | 'web3storage' | 'filebase' | 'local' | 'backend' | 'walt';
@@ -49,6 +55,9 @@ class PinningService {
 
   /**
    * Pin a file to IPFS using the configured service
+   * 
+   * For local/self-hosted setups, files are already pinned during upload.
+   * For third-party services, this makes an API call to ensure remote persistence.
    */
   async pinFile(file: File, metadata?: PinMetadata): Promise<PinResponse> {
     switch (this.config.service) {
@@ -75,6 +84,10 @@ class PinningService {
 
   /**
    * Pin an existing IPFS hash
+   * 
+   * Critical for the sharing feature: when Alice shares a file with Bob, Bob's app
+   * pins the CID to ensure it remains accessible even if Alice goes offline. This
+   * maintains IPFS's distributed nature while providing reliability.
    */
   async pinByHash(ipfsHash: string, metadata?: PinMetadata, authToken?: string): Promise<PinResponse> {
     const hash = ipfsHash.replace('ipfs://', '');
@@ -468,6 +481,12 @@ export const getPinningConfigFromEnv = (): PinningConfig => {
 // Calculate storage costs (example pricing)
 export const DEFAULT_BILLING_CYCLE_DAYS = 30;
 
+/**
+ * Calculate storage costs (example pricing)
+ * 
+ * Transparent cost estimation helps users make informed decisions about which
+ * files to pin long-term. Based on actual Pinata pricing as a reference point.
+ */
 export const calculatePinningCost = (fileSizeBytes: number, durationDays: number = DEFAULT_BILLING_CYCLE_DAYS): string => {
   const sizeGB = fileSizeBytes / (1024 * 1024 * 1024);
   

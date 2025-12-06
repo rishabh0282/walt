@@ -1,6 +1,10 @@
 /**
  * File Cache System
- * Caches file metadata and content for faster access
+ * 
+ * IPFS fetches are network-bound and can be slow, especially over public gateways.
+ * This LRU cache stores file metadata (and optionally content) in memory and
+ * localStorage to provide instant access to recently used files. Essential for
+ * smooth scrolling in file lists and quick navigation.
  */
 
 export interface CachedFileData {
@@ -141,6 +145,9 @@ class FileCache {
 
   /**
    * Evict least recently used items if cache is full
+   * 
+   * LRU eviction ensures frequently accessed files stay cached while rarely-used
+   * ones are removed. Evicting 20% at once reduces thrashing when cache is near capacity.
    */
   private evictIfNeeded(): void {
     if (this.memoryCache.size < this.config.maxSize) return;
@@ -216,6 +223,9 @@ class FileCache {
 
   /**
    * Save cache to localStorage
+   * 
+   * Excludes Blob content from localStorage due to size constraints. Only metadata
+   * is persisted, which still provides value (avoiding Firestore queries on page reload).
    */
   private saveToStorage(): void {
     if (typeof window === 'undefined') return;

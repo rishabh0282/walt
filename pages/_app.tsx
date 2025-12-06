@@ -11,9 +11,9 @@ function MyApp({ Component, pageProps }: AppProps) {
         <meta charSet="utf-8" />
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>Vault Labs - Decentralized Storage</title>
-        <link rel="shortcut icon" type="image/png" href="/vault-labs-icon.png" />
-        <link rel="icon" type="image/png" href="/vault-labs-icon.png" />
+        <title>Walt - Decentralized Storage</title>
+        <link rel="shortcut icon" type="image/png" href="/walt-icon.png" />
+        <link rel="icon" type="image/png" href="/walt-icon.png" />
         {/* Add other global head elements here */}
       </Head>
       

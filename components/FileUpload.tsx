@@ -1,3 +1,11 @@
+/**
+ * File Upload Component
+ * 
+ * Handles the upload flow: browser -> backend -> IPFS -> metadata storage. The backend
+ * acts as a proxy to add authentication and handle IPFS node communication. This allows
+ * browser uploads without exposing IPFS node credentials or dealing with CORS issues.
+ */
+
 import React, { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { useRouter } from 'next/router';
@@ -33,10 +41,11 @@ const FileUpload: React.FC = () => {
       
       setIsUploading(true);
       try {
-        // Get Firebase ID token
+        // Firebase ID token authenticates the user to our backend
         const token = await user.getIdToken();
 
-        // Upload files to backend
+        // Backend handles IPFS upload and returns CID
+        // This keeps IPFS node credentials secure and works around browser CORS
         const uploadPromises = acceptedFiles.map(file => 
           BackendFileAPI.upload(file, token)
         );
@@ -47,13 +56,13 @@ const FileUpload: React.FC = () => {
           id: result.id,
           name: result.filename,
           ipfsUri: `ipfs://${result.cid}`,
-          gatewayUrl: getOptimizedGatewayUrl(`ipfs://${result.cid}`),
+          gatewayUrl: getOptimizedGatewayUrl(`ipfs://${result.cid}`), // Use fastest gateway
           timestamp: Date.now(),
           type: result.mimeType || 'unknown',
           size: result.size
         }));
 
-        // Add files to IPFS-based storage
+        // Add to IPFS-backed file list (triggers save to IPFS + Firestore)
         await addFiles(newFiles);
 
         // Redirect to dashboard

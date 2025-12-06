@@ -54,10 +54,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const blob = new Blob([buffer]);
     formData.append('file', blob, file.originalFilename || 'file');
 
-    const uploadResponse = await fetch(`${BACKEND_URL}/api/ipfs/upload`, {
+    const uploadResponse = await fetch(`${BACKEND_URL}/api/ipfs/upload/guest`, {
       method: 'POST',
       body: formData,
-      // Note: Guest uploads don't require auth, but backend may need to handle this
     });
 
     if (!uploadResponse.ok) {

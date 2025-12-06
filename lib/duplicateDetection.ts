@@ -1,3 +1,11 @@
+/**
+ * Duplicate Detection
+ * 
+ * IPFS's content-addressing makes duplicate detection trivial at the content level:
+ * identical files always have the same CID. This module provides three confidence
+ * levels to help users identify redundant storage without false positives.
+ */
+
 import { UploadedFile } from '../hooks/useUserFileStorage';
 
 export interface DuplicateMatch {
@@ -9,6 +17,9 @@ export interface DuplicateMatch {
 
 /**
  * Detect duplicate files based on IPFS URI (content)
+ * 
+ * Content-addressed storage means same CID = identical bytes. This is 100% reliable
+ * duplicate detection, unlike traditional hash-based approaches that can have collisions.
  */
 export function detectContentDuplicates(files: UploadedFile[]): DuplicateMatch[] {
   const contentMap = new Map<string, UploadedFile[]>();

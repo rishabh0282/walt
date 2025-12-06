@@ -1,3 +1,11 @@
+/**
+ * Authentication Context
+ * 
+ * Centralizes Firebase auth state across the app. The loading state prevents flicker
+ * during initial auth check (important for protected routes). Context pattern avoids
+ * prop drilling through deeply nested components.
+ */
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { 
   User, 
@@ -38,6 +46,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Firebase auth state persists across page reloads via localStorage
+    // This listener handles both initial load and real-time auth changes
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
       setLoading(false);

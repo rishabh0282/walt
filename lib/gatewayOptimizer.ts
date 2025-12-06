@@ -1,6 +1,10 @@
 /**
  * Gateway Optimizer - CDN Integration
- * Optimizes IPFS gateway selection for faster file delivery
+ * 
+ * IPFS gateways vary wildly in performance and reliability. This optimizer tracks
+ * response times and success rates to automatically select the fastest available
+ * gateway. Critical for good UX since gateway latency is often the bottleneck in
+ * IPFS applications.
  */
 
 export interface GatewayStats {
@@ -103,6 +107,10 @@ class GatewayOptimizer {
 
   /**
    * Record a successful fetch from a gateway
+   * 
+   * Uses exponential moving average to weight recent performance more heavily.
+   * This helps adapt quickly when a gateway's performance changes while avoiding
+   * overreaction to single outliers.
    */
   recordSuccess(url: string, responseTime: number): void {
     const stats = this.gatewayStats.get(url);
@@ -169,6 +177,9 @@ class GatewayOptimizer {
 
   /**
    * Start periodic health checks
+   * 
+   * Regular health checks keep stats current without impacting user-facing operations.
+   * Only runs in browser (not during SSR) to avoid unnecessary server load.
    */
   private startHealthCheck(): void {
     if (typeof window === 'undefined') return;

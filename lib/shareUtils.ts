@@ -1,11 +1,18 @@
 /**
  * Share Utilities
- * Helper functions for generating reliable share links using backend gateway
+ * 
+ * Public IPFS gateways are slow and unreliable for sharing. This module routes shares
+ * through our backend gateway, which provides consistent performance and allows us to
+ * track access metrics. Falls back gracefully to public gateways if backend is down.
  */
 
 /**
  * Get backend gateway URL for a file
- * This uses your own backend gateway instead of unreliable public IPFS gateways
+ * 
+ * Using our own gateway ensures:
+ * - Consistent availability (not subject to public gateway rate limits)
+ * - Better performance (geographically close to users)
+ * - Access control (for password-protected shares)
  */
 export function getBackendGatewayUrl(ipfsUriOrCid: string): string {
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'https://api-walt.aayushman.dev';

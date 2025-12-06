@@ -1,4 +1,4 @@
-# Vault Labs - Feature Implementation Roadmap
+# Walt - Feature Implementation Roadmap
 
 ## **🔒 Phase 1 - IPFS Core (Pin it or Lose it)** [✅ COMPLETED]
 

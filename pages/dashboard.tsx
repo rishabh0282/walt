@@ -1,3 +1,14 @@
+/**
+ * Dashboard Page - Main File Management Interface
+ * 
+ * This is the heart of the app: a Google Drive-like interface backed by IPFS.
+ * Key architectural decisions:
+ * - State lives in useUserFileStorage hook (allows offline-first operation)
+ * - Modals are controlled at page level to coordinate global state
+ * - File operations are optimistic (UI updates immediately, save happens async)
+ * - Keyboard shortcuts mirror Google Drive for familiar UX
+ */
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { NextPage } from 'next';
 import { useRouter } from 'next/router';
@@ -236,7 +247,12 @@ const Dashboard: NextPage = () => {
     setShowBillingWarning(false);
   };
   
-  // Use the new IPFS-based storage hook
+  // Use the IPFS-backed storage hook
+  // All file operations go through this hook, which handles:
+  // - Saving metadata to IPFS (decentralized, censorship-resistant storage)
+  // - Syncing to Firestore (fast queries and search)
+  // - Caching (instant access to recently viewed files)
+  // - Conflict resolution (handles multiple devices editing simultaneously)
   const { 
     uploadedFiles, 
     loading: filesLoading, 
@@ -292,6 +308,7 @@ const Dashboard: NextPage = () => {
     // Custom Properties functions
     updateCustomProperties
   } = useUserFileStorage(user?.uid || null, async () => {
+    // Provide auth token getter for authenticated backend operations
     if (user) {
       return await user.getIdToken();
     }
@@ -504,6 +521,8 @@ const Dashboard: NextPage = () => {
   };
 
   // Auto-cleanup trash on mount and when entering trash view
+  // Keeps storage costs down by automatically removing old trashed files
+  // 30-day retention matches industry standard (Google Drive, Dropbox, etc.)
   useEffect(() => {
     if (activeView === 'trash' && user && uploadedFiles.length > 0) {
       // Cleanup files older than 30 days automatically
@@ -511,7 +530,13 @@ const Dashboard: NextPage = () => {
     }
   }, [activeView, user, uploadedFiles.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Keyboard shortcuts
+  /**
+   * Keyboard shortcuts
+   * 
+   * Power users expect keyboard shortcuts in file managers. We mirror Google Drive's
+   * shortcuts where possible for familiarity. Must handle modal states carefully to
+   * avoid shortcut conflicts when typing in inputs.
+   */
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ignore shortcuts when typing in inputs, textareas, or when modals are open

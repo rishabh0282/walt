@@ -196,7 +196,7 @@ const SharePage: NextPage = () => {
     return (
       <div className={styles.container}>
         <Head>
-          <title>Loading... | Vault Labs</title>
+          <title>Loading... | Walt</title>
         </Head>
         <div className={styles.loading}>
           <div className={styles.spinner}></div>
@@ -210,7 +210,7 @@ const SharePage: NextPage = () => {
     return (
       <div className={styles.container}>
         <Head>
-          <title>Password Required | Vault Labs</title>
+          <title>Password Required | Walt</title>
         </Head>
         <div className={styles.passwordBox}>
           <div className={styles.passwordIcon}>
@@ -244,7 +244,7 @@ const SharePage: NextPage = () => {
     return (
       <div className={styles.container}>
         <Head>
-          <title>Not Found | Vault Labs</title>
+          <title>Not Found | Walt</title>
         </Head>
         <div className={styles.error}>
           <div className={styles.errorIcon}>
@@ -253,7 +253,7 @@ const SharePage: NextPage = () => {
           <h2>{error || 'Content not found'}</h2>
           <p>This share link may have expired or been removed.</p>
           <button onClick={() => router.push('/')} className={styles.homeBtn}>
-            Go to Vault Labs
+            Go to Walt
           </button>
         </div>
       </div>
@@ -263,13 +263,13 @@ const SharePage: NextPage = () => {
   return (
     <div className={styles.container}>
       <Head>
-        <title>{file.name} | Vault Labs</title>
+        <title>{file.name} | Walt</title>
       </Head>
 
       <header className={styles.header}>
         <div className={styles.logo} onClick={() => router.push('/')}>
           <LockRoundIcon className={styles.inlineIcon} />
-          <span>Vault Labs</span>
+          <span>Walt</span>
         </div>
         <div className={styles.headerRight}>
           <span className={styles.sharedBadge}>
@@ -369,9 +369,9 @@ const SharePage: NextPage = () => {
         </div>
 
         <div className={styles.footer}>
-          <p>Shared via <strong>Vault Labs</strong> - Decentralized Storage</p>
+          <p>Shared via <strong>Walt</strong> - Decentralized Storage</p>
           <button onClick={() => router.push('/')} className={styles.linkBtn}>
-            Try Vault Labs →
+            Try Walt →
           </button>
         </div>
       </main>

@@ -1,6 +1,12 @@
 /**
  * Backend API Client
- * Handles all communication with api-walt.aayushman.dev backend
+ * 
+ * The backend serves three critical roles:
+ * 1. IPFS proxy - handles uploads/downloads without exposing node credentials to browsers
+ * 2. Authentication layer - validates Firebase tokens and enforces access control
+ * 3. Database - indexes file metadata for fast search (alternative to pure IPFS lookups)
+ * 
+ * The app can work with just IPFS + Firebase, but the backend dramatically improves UX.
  */
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'https://api-walt.aayushman.dev';
@@ -63,6 +69,9 @@ export async function backendRequest<T = any>(
 export const BackendFileAPI = {
   /**
    * Upload file to backend (which stores in IPFS + DB)
+   * 
+   * FormData upload allows progress tracking and large file streaming. Backend handles
+   * IPFS chunking and pinning, returning the CID for client-side metadata storage.
    */
   async upload(file: File, token: string, options?: {
     parentFolderId?: string;

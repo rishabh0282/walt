@@ -26,7 +26,7 @@ export interface TwoFactorSecret {
  * Generate a new 2FA secret for a user
  */
 export function generateTwoFactorSecret(userId: string, userEmail: string): TwoFactorSecret {
-  const serviceName = 'Vault Labs';
+  const serviceName = 'Walt';
   const accountName = userEmail;
 
   // Generate secret

@@ -1,3 +1,11 @@
+/**
+ * Centralized error handling and retry logic
+ * 
+ * Distributed systems (IPFS + Firebase + backend) have multiple failure modes.
+ * This handler provides consistent UX by translating technical errors into
+ * user-friendly messages and automatically retrying transient failures.
+ */
+
 // Error types
 export enum ErrorType {
   NETWORK = 'NETWORK',
@@ -140,6 +148,10 @@ export class ErrorHandler {
 
   /**
    * Retry a function with exponential backoff
+   * 
+   * Critical for IPFS operations where gateway failures and network issues are common.
+   * Exponential backoff prevents overwhelming struggling nodes while still providing
+   * resilience against transient failures.
    */
   static async retry<T>(
     fn: () => Promise<T>,

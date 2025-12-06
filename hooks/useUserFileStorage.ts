@@ -1,3 +1,12 @@
+/**
+ * User File Storage Hook
+ * 
+ * Core data management layer that bridges IPFS (content) and Firestore (metadata).
+ * File lists are stored as IPFS objects (ensuring data portability), with Firestore
+ * acting as a fast index. This hybrid approach provides censorship resistance while
+ * maintaining good UX through caching and indexing.
+ */
+
 import { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc, collection, writeBatch } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -146,7 +155,13 @@ export const useUserFileStorage = (userUid: string | null, getAuthToken?: () => 
     'https://gateway.pinata.cloud/ipfs/',
   ];
 
-  // Fetch from IPFS with retry logic and optimized gateway selection
+  /**
+   * Fetch from IPFS with retry logic and optimized gateway selection
+   * 
+   * Tries multiple gateways in order of performance (tracked by gatewayOptimizer).
+   * Critical for resilience since public IPFS gateways are notoriously unreliable.
+   * 8-second timeout prevents hanging on slow gateways.
+   */
   const fetchFromIPFS = async (ipfsUri: string, maxRetries = 2): Promise<string | null> => {
     const ipfsHash = ipfsUri.replace('ipfs://', '');
     
@@ -206,7 +221,13 @@ export const useUserFileStorage = (userUid: string | null, getAuthToken?: () => 
     return null;
   };
 
-  // Load user's file list from IPFS
+  /**
+   * Load user's file list from IPFS
+   * 
+   * Firestore stores only the IPFS CID of the file list, not the list itself. This keeps
+   * the actual data decentralized while using Firestore as a fast pointer. File list is
+   * fetched from IPFS on every load to ensure we're always viewing the latest state.
+   */
   const loadUserFiles = async () => {
     if (!userUid) return;
 
@@ -289,7 +310,13 @@ export const useUserFileStorage = (userUid: string | null, getAuthToken?: () => 
       }
   };
 
-  // Sync individual file metadata to Firestore
+  /**
+   * Sync individual file metadata to Firestore
+   * 
+   * Firestore acts as a searchable index for file metadata. This is optional (app works
+   * without it via IPFS alone), but dramatically improves search/filter performance.
+   * Batching prevents hitting Firestore's 500-operation limit.
+   */
   const syncFilesToFirestore = async (files: UploadedFile[]) => {
     if (!userUid) return;
 
@@ -360,7 +387,13 @@ export const useUserFileStorage = (userUid: string | null, getAuthToken?: () => 
     }
   };
 
-  // Save user's file list to IPFS
+  /**
+   * Save user's file list to IPFS
+   * 
+   * Creates a new IPFS object with the updated file list, then stores the new CID in
+   * Firestore. This creates an immutable audit trail (old CIDs remain accessible) while
+   * ensuring data can survive Firebase outages (IPFS is the source of truth).
+   */
   const saveUserFiles = async (files: UploadedFile[]) => {
     if (!userUid) return;
 
@@ -1016,7 +1049,13 @@ export const useUserFileStorage = (userUid: string | null, getAuthToken?: () => 
     saveUserFiles(updatedFiles).catch(console.error);
   };
 
-  // Enable sharing for a file/folder
+  /**
+   * Enable sharing for a file/folder
+   * 
+   * Sharing in a decentralized system is complex: we need a centralized index for short
+   * URLs and access control, but the content itself must remain decentralized. Backend
+   * creates the share record and short link, falling back to local-only sharing if offline.
+   */
   const enableSharing = async (
     index: number, 
     permission: 'viewer' | 'editor' = 'viewer',

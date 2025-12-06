@@ -14,30 +14,25 @@ import dotenv from 'dotenv';
 import * as paymentService from './paymentService.js';
 import * as billingUtils from './billingUtils.js';
 
-// Get the directory of the current file (backend directory)
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Load environment variables from .env file in the backend directory
-// This ensures it works whether you run from root (node backend/server.js) or from backend (node server.js)
+// Works from both project root and backend directory
 dotenv.config({ path: join(__dirname, '.env') });
 
-// If Firebase env vars are empty strings (from shell), treat them as unset
-// and reload from .env file with override enabled
+// Handle empty string env vars from shell - prioritize .env file values
 const firebaseVarsEmpty = 
   process.env.FIREBASE_PROJECT_ID === '' || 
   process.env.FIREBASE_CLIENT_EMAIL === '' || 
   process.env.FIREBASE_PRIVATE_KEY === '';
 
 if (firebaseVarsEmpty) {
-  // Reload with override to get values from .env file
   dotenv.config({ path: join(__dirname, '.env'), override: true });
 }
 
 const app = express();
 const upload = multer({ dest: '/tmp' });
 
-// Initialize Firebase Admin
 let firestore = null;
 let firebaseAuth = null;
 if (getApps().length === 0) {
@@ -49,12 +44,10 @@ if (getApps().length === 0) {
         private_key: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
       };
 
-  // Debug: Check what we have
   const hasProjectId = !!serviceAccount.project_id;
   const hasClientEmail = !!serviceAccount.client_email;
   const hasPrivateKey = !!serviceAccount.private_key;
 
-  // Only initialize if we have required credentials
   if (hasProjectId && hasClientEmail && hasPrivateKey) {
     try {
       initializeApp({
@@ -75,18 +68,14 @@ if (getApps().length === 0) {
     console.warn('⚠ Authentication will not work without Firebase credentials');
   }
 } else {
-  // Firebase already initialized
   firestore = getFirestore();
   firebaseAuth = getAuth();
 }
 
-// Initialize SQLite database
 const dbPath = process.env.DATABASE_URL?.replace('sqlite://', '') || './data/ipfs-drive.db';
 const db = new Database(dbPath);
 db.pragma('foreign_keys = ON');
-db.pragma('journal_mode = WAL');
-
-// Initialize database schema
+db.pragma('journal_mode = WAL'); // Better concurrency for writes
 function initializeSchema() {
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
@@ -269,40 +258,22 @@ function getUniqueShortCode(db, maxAttempts = 10) {
 
 initializeSchema();
 
-// Initialize IPFS client
 const ipfsUrl = process.env.IPFS_API_URL || 'http://127.0.0.1:5001';
 const ipfs = create({ url: ipfsUrl });
 
-// Middleware
 let allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',').map(o => o.trim()).filter(Boolean) || ['https://walt.aayushman.dev'];
-// Always include localhost:3000 for local development (only if not already present)
 if (!allowedOrigins.includes('http://localhost:3000')) {
   allowedOrigins.push('http://localhost:3000');
 }
-// Remove duplicates
 allowedOrigins = [...new Set(allowedOrigins)];
 
-// CORS is handled by nginx, so we disable it here to avoid duplicate headers
-// If you need to access backend directly (bypassing nginx), uncomment this:
-// app.use(cors({
-//   origin: (origin, callback) => {
-//     if (!origin) {
-//       return callback(null, true);
-//     }
-//     const isAllowed = allowedOrigins.includes(origin);
-//     if (isAllowed) {
-//       callback(null, origin);
-//     } else {
-//       callback(new Error('Origin not allowed by CORS'));
-//     }
-//   },
-//   credentials: true,
-// }));
+// CORS handled by nginx to avoid duplicate headers
+// Uncomment if accessing backend directly:
+// app.use(cors({ origin: allowedOrigins, credentials: true }));
 
-// Keep raw body for Cashfree webhook signature verification
+// Raw body needed for webhook signature verification
 app.use('/api/payment/webhook', express.raw({ type: 'application/json' }));
 
-// JSON parser for all other routes
 const jsonParser = express.json();
 app.use((req, res, next) => {
   if (req.originalUrl === '/api/payment/webhook') {
@@ -310,8 +281,6 @@ app.use((req, res, next) => {
   }
   return jsonParser(req, res, next);
 });
-
-// Auth middleware
 async function verifyAuth(req, res, next) {
   try {
     const authHeader = req.headers.authorization;
@@ -335,8 +304,6 @@ async function verifyAuth(req, res, next) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 }
-
-// Helper: Get or create user
 function getOrCreateUser(firebaseUid, email, displayName) {
   let user = db.prepare('SELECT * FROM users WHERE firebase_uid = ?').get(firebaseUid);
   
@@ -358,11 +325,10 @@ function getOrCreateUser(firebaseUid, email, displayName) {
   return user;
 }
 
-// Helper: Convert SQLite row to object
 function rowToObject(row) {
   if (!row) return null;
   const obj = { ...row };
-  // Convert integer booleans to booleans
+  // SQLite stores booleans as integers
   Object.keys(obj).forEach(key => {
     if ((key.includes('is_') || key === 'is_active' || key === 'is_deleted' || key === 'is_starred' || key === 'is_pinned') && typeof obj[key] === 'number') {
       obj[key] = obj[key] === 1;
@@ -375,15 +341,10 @@ function rowToObject(row) {
   });
   return obj;
 }
-
-// Routes
-
-// Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// IPFS Status
 app.get('/api/ipfs/status', verifyAuth, async (req, res) => {
   try {
     const id = await ipfs.id();
@@ -402,7 +363,40 @@ app.get('/api/ipfs/status', verifyAuth, async (req, res) => {
   }
 });
 
-// File Upload
+// No auth required - used for homepage demo uploads
+app.post('/api/ipfs/upload/guest', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file provided' });
+    }
+
+    const MAX_GUEST_SIZE = 200 * 1024 * 1024; // 200 MB
+    if (req.file.size > MAX_GUEST_SIZE) {
+      return res.status(413).json({
+        error: 'File too large for guest upload',
+        maxSize: MAX_GUEST_SIZE,
+      });
+    }
+
+    // Not pinned to conserve resources
+    const fileBuffer = await readFile(req.file.path);
+    const result = await ipfs.add(fileBuffer, { pin: false });
+    const cid = result.cid.toString();
+    const size = Number(result.size);
+
+    console.log(`Guest upload: ${req.file.originalname} (${size} bytes) -> ${cid}`);
+
+    res.json({
+      cid,
+      size,
+      filename: req.file.originalname,
+      mimeType: req.file.mimetype,
+    });
+  } catch (error) {
+    console.error('Guest upload error:', error);
+    res.status(500).json({ error: 'Upload failed', message: error.message });
+  }
+});
 app.post('/api/ipfs/upload', verifyAuth, upload.single('file'), async (req, res) => {
   try {
     const user = getOrCreateUser(req.user.uid, req.user.email, req.user.name);
@@ -411,7 +405,6 @@ app.post('/api/ipfs/upload', verifyAuth, upload.single('file'), async (req, res)
       return res.status(400).json({ error: 'No file provided' });
     }
 
-    // Check storage quota
     const storageStats = db.prepare('SELECT storage_used, storage_limit FROM users WHERE id = ?').get(user.id);
     if (storageStats.storage_used + req.file.size > storageStats.storage_limit) {
       return res.status(413).json({
@@ -421,7 +414,7 @@ app.post('/api/ipfs/upload', verifyAuth, upload.single('file'), async (req, res)
       });
     }
 
-    // Determine pin preference (explicit request overrides stored preference)
+    // Check user preference from Firestore, fallback to auto-pin
     let storedAutoPinPreference = true;
     if (firestore) {
       try {
@@ -435,6 +428,7 @@ app.post('/api/ipfs/upload', verifyAuth, upload.single('file'), async (req, res)
       }
     }
 
+    // Request body overrides stored preference
     let shouldPinOnUpload;
     if (typeof req.body.isPinned !== 'undefined' || typeof req.body.autoPin !== 'undefined') {
       shouldPinOnUpload = req.body.isPinned === 'true' || req.body.autoPin === 'true';
@@ -442,13 +436,11 @@ app.post('/api/ipfs/upload', verifyAuth, upload.single('file'), async (req, res)
       shouldPinOnUpload = storedAutoPinPreference;
     }
 
-    // Upload to IPFS
     const fileBuffer = await readFile(req.file.path);
     const result = await ipfs.add(fileBuffer, { pin: shouldPinOnUpload });
     const cid = result.cid.toString();
     const size = Number(result.size);
 
-    // Save to database
     const fileId = uuidv4();
     const folderId = req.body.folderId || null;
     const isPinned = shouldPinOnUpload;
@@ -464,11 +456,9 @@ app.post('/api/ipfs/upload', verifyAuth, upload.single('file'), async (req, res)
       isPinned ? 'local' : null, isPinned ? 'pinned' : 'unpinned'
     );
 
-    // Update storage
     db.prepare("UPDATE users SET storage_used = storage_used + ?, updated_at = datetime('now') WHERE id = ?")
       .run(size, user.id);
 
-    // Log activity
     db.prepare(`
       INSERT INTO activity_logs (id, user_id, file_id, action, ip_address, user_agent, metadata)
       VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -496,20 +486,17 @@ app.post('/api/ipfs/upload', verifyAuth, upload.single('file'), async (req, res)
   }
 });
 
-// List Files
 app.get('/api/ipfs/list', verifyAuth, (req, res) => {
   try {
     const user = getOrCreateUser(req.user.uid, req.user.email, req.user.name);
     const folderId = req.query.folderId || null;
 
-    // Get files
     const filesQuery = folderId
       ? 'SELECT * FROM files WHERE user_id = ? AND parent_folder_id = ? AND is_deleted = 0 ORDER BY created_at DESC'
       : 'SELECT * FROM files WHERE user_id = ? AND parent_folder_id IS NULL AND is_deleted = 0 ORDER BY created_at DESC';
     
     const files = db.prepare(filesQuery).all(user.id, folderId).map(rowToObject);
 
-    // Get folders
     const foldersQuery = folderId
       ? 'SELECT * FROM folders WHERE user_id = ? AND parent_folder_id = ? AND is_deleted = 0 ORDER BY name ASC'
       : 'SELECT * FROM folders WHERE user_id = ? AND parent_folder_id IS NULL AND is_deleted = 0 ORDER BY name ASC';
@@ -523,7 +510,6 @@ app.get('/api/ipfs/list', verifyAuth, (req, res) => {
   }
 });
 
-// Download File
 app.get('/api/ipfs/download', verifyAuth, async (req, res) => {
   try {
     const user = getOrCreateUser(req.user.uid, req.user.email, req.user.name);
@@ -570,7 +556,6 @@ app.get('/api/ipfs/download', verifyAuth, async (req, res) => {
   }
 });
 
-// Folders
 app.post('/api/folders', verifyAuth, (req, res) => {
   try {
     const user = getOrCreateUser(req.user.uid, req.user.email, req.user.name);
@@ -663,7 +648,6 @@ app.delete('/api/folders/:id', verifyAuth, (req, res) => {
   }
 });
 
-// User Profile
 app.get('/api/user/profile', verifyAuth, (req, res) => {
   try {
     const user = getOrCreateUser(req.user.uid, req.user.email, req.user.name);
@@ -694,7 +678,6 @@ app.get('/api/user/storage', verifyAuth, (req, res) => {
   }
 });
 
-// Activity Logs
 app.get('/api/activity', verifyAuth, (req, res) => {
   try {
     const user = getOrCreateUser(req.user.uid, req.user.email, req.user.name);
@@ -712,7 +695,6 @@ app.get('/api/activity', verifyAuth, (req, res) => {
   }
 });
 
-// File Operations
 app.get('/api/files/:id', verifyAuth, (req, res) => {
   try {
     const user = getOrCreateUser(req.user.uid, req.user.email, req.user.name);
@@ -782,7 +764,6 @@ app.delete('/api/files/:id', verifyAuth, (req, res) => {
   }
 });
 
-// Shares (basic implementation)
 app.post('/api/shares', verifyAuth, (req, res) => {
   try {
     const user = getOrCreateUser(req.user.uid, req.user.email, req.user.name);
@@ -799,7 +780,7 @@ app.post('/api/shares', verifyAuth, (req, res) => {
       permissionLevel || 'viewer', password || null, expiresAt || null, maxDownloads || null
     );
 
-    // Auto-generate short link for the share
+    // Generate short link automatically
     let shortCode = null;
     let shortUrl = null;
     try {
@@ -867,7 +848,6 @@ app.get('/api/shares/:token', async (req, res) => {
   }
 });
 
-// Short link redirect endpoint
 app.get('/api/s/:code', async (req, res) => {
   try {
     const { code } = req.params;
@@ -877,7 +857,6 @@ app.get('/api/s/:code', async (req, res) => {
       return res.status(404).json({ error: 'Short link not found' });
     }
 
-    // Update access count
     db.prepare(`
       UPDATE short_links 
       SET access_count = access_count + 1,
@@ -918,7 +897,6 @@ app.get('/api/s/:code', async (req, res) => {
   }
 });
 
-// Get short link info (metadata)
 app.get('/api/short-links/:code/info', async (req, res) => {
   try {
     const { code } = req.params;
@@ -957,7 +935,6 @@ app.get('/api/short-links/:code/info', async (req, res) => {
   }
 });
 
-// Upload JSON/Data to IPFS (for file lists, etc.)
 app.post('/api/ipfs/add', verifyAuth, async (req, res) => {
   try {
     const user = getOrCreateUser(req.user.uid, req.user.email, req.user.name);
@@ -967,7 +944,6 @@ app.post('/api/ipfs/add', verifyAuth, async (req, res) => {
       return res.status(400).json({ error: 'Missing data parameter' });
     }
 
-    // Convert data to buffer (handle both string and base64)
     let buffer;
     if (typeof data === 'string') {
       // If it's a string, encode it as UTF-8
@@ -994,7 +970,6 @@ app.post('/api/ipfs/add', verifyAuth, async (req, res) => {
   }
 });
 
-// Pin/Unpin Operations
 app.post('/api/ipfs/pin', verifyAuth, async (req, res) => {
   try {
     const user = getOrCreateUser(req.user.uid, req.user.email, req.user.name);
@@ -1216,7 +1191,6 @@ app.get('/api/billing/status', verifyAuth, (req, res) => {
   }
 });
 
-// Create payment order
 app.post('/api/payment/create-order', verifyAuth, async (req, res) => {
   try {
     const user = getOrCreateUser(req.user.uid, req.user.email, req.user.name);
@@ -1312,7 +1286,6 @@ app.post('/api/payment/create-order', verifyAuth, async (req, res) => {
   }
 });
 
-// Get order status
 app.get('/api/payment/order/:orderId', verifyAuth, async (req, res) => {
   try {
     const user = getOrCreateUser(req.user.uid, req.user.email, req.user.name);
@@ -1386,7 +1359,6 @@ app.get('/api/payment/order/:orderId', verifyAuth, async (req, res) => {
   }
 });
 
-// Webhook endpoint for Cashfree
 app.post('/api/payment/webhook', async (req, res) => {
   try {
     const signature = req.headers['x-webhook-signature'];
@@ -1396,8 +1368,6 @@ app.post('/api/payment/webhook', async (req, res) => {
     if (!signature || !timestamp) {
       return res.status(400).json({ error: 'Missing webhook signature or timestamp' });
     }
-    
-    // Verify webhook signature
     const verification = paymentService.verifyWebhookSignature(signature, rawBody, timestamp);
     if (!verification.success) {
       return res.status(401).json({ error: 'Invalid webhook signature', message: verification.error });
@@ -1574,10 +1544,9 @@ app.get('/api/billing/check-access', verifyAuth, (req, res) => {
   }
 });
 
-// Test endpoint for billing simulation (for testing only - remove in production or add proper auth)
 app.post('/api/billing/test-billing', verifyAuth, async (req, res) => {
   try {
-    // Only allow in development/sandbox mode
+    // Only in dev/sandbox to avoid accidental charges
     if (process.env.CASHFREE_ENVIRONMENT === 'PRODUCTION' && process.env.NODE_ENV === 'production') {
       return res.status(403).json({ error: 'Test endpoint not available in production' });
     }
@@ -1588,7 +1557,6 @@ app.post('/api/billing/test-billing', verifyAuth, async (req, res) => {
       return res.status(400).json({ error: 'userId is required' });
     }
 
-    // Get user
     const user = rowToObject(db.prepare('SELECT * FROM users WHERE id = ?').get(userId));
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
