@@ -254,6 +254,63 @@
   border-color: rgba(244, 67, 54, 0.5);
 }
 
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .panel {
+    width: 100%;
+    max-width: 100%;
+  }
 
+  .metaGrid {
+    grid-template-columns: 80px 1fr;
+    gap: 6px 10px;
+    font-size: 13px;
+  }
 
+  .activityItem {
+    grid-template-columns: 120px 1fr;
+    gap: 6px 10px;
+    font-size: 12px;
+  }
 
+  .actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .panel {
+    width: 100%;
+  }
+
+  .header {
+    padding: 12px 14px;
+  }
+
+  .title {
+    font-size: 14px;
+  }
+
+  .actions {
+    padding: 10px 14px;
+  }
+
+  .section {
+    padding: 10px 14px;
+  }
+
+  .metaGrid {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .metaLabel {
+    font-size: 11px;
+    text-transform: uppercase;
+  }
+
+  .activityItem {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+}

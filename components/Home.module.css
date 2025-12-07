@@ -1036,7 +1036,139 @@
     flex-direction: column;
   }
 
+  .menu-bar {
+    padding: 12px 20px;
+  }
+
+  .menu-items {
+    display: none;
+  }
+
+  .header-text {
+    margin-top: 60px;
+    padding: 0 20px;
+  }
+
+  .header-text h2 {
+    font-size: 40px;
+  }
+
+  .header-text p {
+    font-size: 22px;
+  }
+
+  .heroShieldWrapper {
+    width: 280px;
+    height: 420px;
+  }
+
+  .heroShieldLock {
+    width: 80px;
+    height: 80px;
+  }
+
+  .welcome-hero {
+    padding-top: 80px;
+  }
 }
+
+@media (max-width: 480px) {
+  .menu-bar {
+    padding: 10px 16px;
+  }
+
+  .logo {
+    font-size: 22px;
+  }
+
+  .menu-right {
+    gap: 8px;
+    padding-left: 16px;
+  }
+
+  .authBtn,
+  .mainBtn {
+    font-size: 14px;
+    padding: 8px 16px;
+  }
+
+  .header-text {
+    margin-top: 40px;
+    padding: 0 16px;
+  }
+
+  .header-text h2 {
+    font-size: 32px;
+  }
+
+  .header-text p {
+    font-size: 18px;
+  }
+
+  .heroShieldWrapper {
+    width: 220px;
+    height: 340px;
+  }
+
+  .main-link {
+    flex-direction: column;
+    width: calc(100% - 32px);
+    padding: 0 16px;
+  }
+
+  .main-link .mainBtn {
+    width: 100%;
+  }
+
+  .flex-item {
+    width: 100%;
+    padding: 30px 16px;
+  }
+
+  .flexboxIcon {
+    width: 64px;
+    height: 64px;
+    font-size: 24px;
+  }
+
+  .work-card h3 {
+    font-size: 22px;
+  }
+
+  .work-card p {
+    font-size: 16px;
+  }
+
+  .guestUploadContainer {
+    padding: 20px;
+    border-radius: 24px;
+  }
+
+  .guestUploadHeader h3 {
+    font-size: 22px;
+  }
+
+  .guestUploadDropzone {
+    padding: 24px 16px;
+  }
+
+  .guestFileName {
+    font-size: 16px;
+  }
+
+  .footer {
+    padding: 60px 24px 32px;
+  }
+
+  .footer-title {
+    font-size: 32px;
+  }
+
+  .footer-tagline {
+    font-size: 16px;
+  }
+}
+
 
 .uploadZone {
   display: flex;

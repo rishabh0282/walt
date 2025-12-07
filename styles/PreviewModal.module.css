@@ -83,3 +83,43 @@
   border-radius: 6px;
 }
 
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .modal {
+    width: 95vw;
+    height: 90vh;
+  }
+
+  .header {
+    padding: 10px 12px;
+  }
+
+  .title {
+    font-size: 14px;
+    max-width: 75%;
+  }
+
+  .closeBtn {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .modal {
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+  }
+
+  .header {
+    padding: 8px 10px;
+  }
+
+  .title {
+    font-size: 13px;
+  }
+
+  .audio {
+    width: 90%;
+  }
+}

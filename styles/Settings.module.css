@@ -332,3 +332,93 @@
   background: #c5221f;
 }
 
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .header {
+    padding: 14px 18px;
+  }
+
+  .content {
+    padding: 24px 18px;
+  }
+
+  .title {
+    font-size: 24px;
+  }
+
+  .section {
+    padding: 20px 18px;
+    margin-bottom: 20px;
+  }
+
+  .sectionTitle {
+    font-size: 18px;
+  }
+
+  .settingItem {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .settingControl {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .themeOption,
+  .viewOption {
+    margin-right: 8px;
+    margin-bottom: 8px;
+  }
+
+  .actionBtn,
+  .dangerBtn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .header {
+    padding: 12px 16px;
+  }
+
+  .headerContent {
+    gap: 12px;
+  }
+
+  .backBtn {
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+
+  .title {
+    font-size: 20px;
+  }
+
+  .content {
+    padding: 20px 16px;
+  }
+
+  .section {
+    padding: 18px 16px;
+  }
+
+  .sectionTitle {
+    font-size: 16px;
+  }
+
+  .settingLabel {
+    font-size: 15px;
+  }
+
+  .settingDescription {
+    font-size: 13px;
+  }
+
+  .themeOption,
+  .viewOption {
+    padding: 8px 16px;
+    font-size: 13px;
+  }
+}

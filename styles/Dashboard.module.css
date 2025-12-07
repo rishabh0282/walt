@@ -662,6 +662,12 @@
   margin-left: 288px;
 }
 
+@media (max-width: 768px) {
+  .mainContent {
+    margin-left: 0;
+  }
+}
+
 /* Sidebar */
 .sidebar {
   width: 256px;
@@ -2635,14 +2641,22 @@
     padding: 8px 12px;
     height: auto;
     min-height: 56px;
-    flex-wrap: wrap;
-    overflow: hidden;
+    flex-wrap: nowrap;
+    overflow: visible;
+    gap: 8px;
   }
 
   .headerLeft {
-    flex: 1 1 100%;
-    gap: 12px;
-    margin-bottom: 8px;
+    flex: 1 1 auto;
+    gap: 8px;
+    margin-bottom: 0;
+    order: 2;
+    min-width: 0;
+  }
+
+  .mobileMenuBtn {
+    order: 1;
+    margin-right: 0;
   }
 
   .logoImg {
@@ -2651,12 +2665,15 @@
 
   .searchContainer {
     max-width: 100%;
-    flex: 1;
+    flex: 1 1 auto;
     min-width: 0;
+    max-width: 100%;
   }
 
   .searchBar {
     width: 100%;
+    height: 40px;
+    padding: 0 10px;
   }
 
   .searchInput {
@@ -2664,21 +2681,48 @@
     min-width: 0;
   }
 
+  .searchIcon {
+    margin-right: 6px;
+    font-size: 18px;
+  }
+
+  .filterToggle {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    min-height: 32px;
+    font-size: 16px;
+    margin-left: 6px;
+  }
+
   .headerRight {
-    flex: 1 1 100%;
+    flex: 0 0 auto;
     justify-content: flex-end;
-    gap: 8px;
-    margin-top: 8px;
+    gap: 6px;
+    margin-top: 0;
+    margin-left: 0;
+    order: 3;
+  }
+
+  .logoBtn {
+    display: none;
   }
 
   .themeToggle {
-    padding: 8px;
-    font-size: 18px;
+    padding: 6px 8px;
+    font-size: 16px;
     margin-right: 0;
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .mainContent {
     flex-direction: column;
+    margin-left: 0;
   }
 
   .sidebar {
@@ -2832,11 +2876,20 @@
 
   .mobileMenuBtn {
     display: flex !important;
+    flex-shrink: 0;
+    order: 1;
   }
 
   .userDropdownTrigger {
+    padding: 6px 8px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  .billingDueButton {
     padding: 6px 10px;
-    font-size: 12px;
+    font-size: 11px;
+    white-space: nowrap;
   }
 
   .filterPanel {
@@ -2960,31 +3013,65 @@
 
   .header {
     padding: 6px 8px;
+    overflow: visible;
+    gap: 6px;
   }
 
   .headerLeft {
-    gap: 8px;
+    gap: 6px;
   }
 
-  .logoImg {
-    height: 28px;
-  }
-
-  .searchInput {
-    font-size: 16px;
-    padding: 8px 12px;
+  .searchBar {
+    height: 36px;
+    padding: 0 8px;
   }
 
   .searchIcon {
+    margin-right: 6px;
     font-size: 16px;
   }
 
   .filterToggle {
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
+    min-height: 30px;
+    font-size: 14px;
+    margin-left: 4px;
+  }
+
+  .logoImg {
+    height: 26px;
+  }
+
+  .searchInput {
+    font-size: 16px;
+    padding: 0;
+  }
+
+  .mobileMenuBtn {
     width: 32px;
     height: 32px;
     min-width: 32px;
     min-height: 32px;
     font-size: 16px;
+  }
+
+  .themeToggle {
+    padding: 6px;
+    font-size: 14px;
+    width: 32px;
+    height: 32px;
+  }
+
+  .userDropdownTrigger {
+    padding: 6px 8px;
+    font-size: 10px;
+  }
+
+  .billingDueButton {
+    padding: 6px 8px;
+    font-size: 10px;
   }
 
   .fileGrid {
@@ -3071,12 +3158,15 @@
   border-radius: 50%;
   width: 40px;
   height: 40px;
+  min-width: 40px;
+  min-height: 40px;
   cursor: pointer;
   font-size: 20px;
   transition: all 0.2s;
   align-items: center;
   justify-content: center;
   padding: 0;
+  flex-shrink: 0;
 }
 
 .mobileMenuBtn:hover {

@@ -309,3 +309,61 @@
   color: #4a9eff;
 }
 
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .modal {
+    width: 95%;
+    max-height: 85vh;
+  }
+
+  .header {
+    padding: 14px 16px;
+  }
+
+  .content {
+    padding: 16px;
+  }
+
+  .inputWrapper {
+    flex-direction: column;
+  }
+
+  .addBtn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .modal {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+  }
+
+  .header {
+    padding: 12px 14px;
+  }
+
+  .header h3 {
+    font-size: 16px;
+  }
+
+  .content {
+    padding: 14px;
+    gap: 16px;
+  }
+
+  .tagInput {
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+
+  .tag {
+    font-size: 12px;
+    padding: 5px 10px;
+  }
+
+  .tagChip {
+    font-size: 11px;
+    padding: 5px 10px;
+  }
+}

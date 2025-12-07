@@ -26,9 +26,24 @@ function initializeFirebaseAdmin() {
         credential: cert(JSON.parse(serviceAccount))
       });
     } else {
-      // Fallback: Try to use default credentials (for Firebase hosting/cloud functions)
+      // Fallback: Try to use individual environment variables or default credentials
       try {
-        adminApp = initializeApp({});
+        const projectId = process.env.FIREBASE_PROJECT_ID;
+        const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+        const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+        
+        if (projectId && clientEmail && privateKey) {
+          adminApp = initializeApp({
+            credential: cert({
+              projectId,
+              clientEmail,
+              privateKey,
+            })
+          });
+        } else {
+          // Last resort: Try default credentials (for Firebase hosting/cloud functions)
+          adminApp = initializeApp({});
+        }
       } catch (e) {
         console.warn('FIREBASE_SERVICE_ACCOUNT not set and default credentials unavailable. API routes may not work properly.');
         return null;

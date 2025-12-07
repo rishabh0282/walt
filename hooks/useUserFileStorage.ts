@@ -19,7 +19,7 @@ import {
 } from '../lib/pinningService';
 import { ErrorHandler, ErrorType, AppError } from '../lib/errorHandler';
 import { getFileCache } from '../lib/fileCache';
-import { getGatewayOptimizer } from '../lib/gatewayOptimizer';
+import { getGatewayOptimizer, getOptimizedGatewayUrl } from '../lib/gatewayOptimizer';
 import { checkNewFileForDuplicates, getAllDuplicates, DuplicateMatch } from '../lib/duplicateDetection';
 import { createFileVersion, FileVersion } from '../lib/versionHistory';
 import { BackendFileAPI } from '../lib/backendClient';
@@ -272,10 +272,80 @@ export const useUserFileStorage = (userUid: string | null, getAuthToken?: () => 
       }
 
       // Ensure all files have IDs (migration for old data)
-      const filesWithIds = (userFileList.files || []).map(file => ({
+      let filesWithIds = (userFileList.files || []).map(file => ({
         ...file,
         id: file.id || `file_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
       }));
+      
+      // Hybrid approach: Merge with backend database to catch any files that
+      // were uploaded successfully but failed to save to IPFS file list
+      try {
+        if (getAuthToken) {
+          const authToken = await getAuthToken();
+          if (authToken) {
+            const backendData = await BackendFileAPI.list(authToken);
+            const backendFiles = backendData.files || [];
+            const backendFolders = backendData.folders || [];
+            
+            // Merge backend files with IPFS file list
+            const ipfsFileIds = new Set(filesWithIds.map(f => f.id));
+            const missingFiles: UploadedFile[] = [];
+            
+            // Add files from backend that aren't in IPFS list
+            for (const backendFile of backendFiles) {
+              if (!ipfsFileIds.has(backendFile.id)) {
+                missingFiles.push({
+                  id: backendFile.id,
+                  name: backendFile.filename || backendFile.original_filename,
+                  ipfsUri: `ipfs://${backendFile.cid}`,
+                  gatewayUrl: getOptimizedGatewayUrl(`ipfs://${backendFile.cid}`),
+                  timestamp: new Date(backendFile.created_at).getTime(),
+                  type: backendFile.mime_type || 'unknown',
+                  size: backendFile.size,
+                  isPinned: backendFile.is_pinned === 1,
+                  pinService: backendFile.pin_service || undefined,
+                  pinDate: backendFile.is_pinned ? new Date(backendFile.created_at).getTime() : undefined,
+                  parentFolderId: backendFile.parent_folder_id || null,
+                  modifiedDate: new Date(backendFile.updated_at || backendFile.created_at).getTime(),
+                  isFolder: false
+                });
+              }
+            }
+            
+            // Add folders from backend that aren't in IPFS list
+            for (const backendFolder of backendFolders) {
+              if (!ipfsFileIds.has(backendFolder.id)) {
+                missingFiles.push({
+                  id: backendFolder.id,
+                  name: backendFolder.name,
+                  ipfsUri: '',
+                  gatewayUrl: '',
+                  timestamp: new Date(backendFolder.created_at).getTime(),
+                  type: 'folder',
+                  size: 0,
+                  isPinned: false,
+                  parentFolderId: backendFolder.parent_folder_id || null,
+                  modifiedDate: new Date(backendFolder.updated_at || backendFolder.created_at).getTime(),
+                  isFolder: true
+                });
+              }
+            }
+            
+            if (missingFiles.length > 0) {
+              console.log(`Syncing ${missingFiles.length} files from backend database that were missing from IPFS file list`);
+              filesWithIds = [...filesWithIds, ...missingFiles];
+              
+              // Save the merged list back to IPFS (async, don't wait)
+              saveUserFiles(filesWithIds).catch(err => {
+                console.error('Failed to save merged file list:', err);
+              });
+            }
+          }
+        }
+      } catch (backendError) {
+        console.warn('Failed to sync with backend database:', backendError);
+        // Continue with IPFS data only - this is not a critical error
+      }
       
       setUploadedFiles(filesWithIds);
 
@@ -592,8 +662,16 @@ export const useUserFileStorage = (userUid: string | null, getAuthToken?: () => 
       }
     }
     
+    // Update UI immediately so user sees the file
     setUploadedFiles(finalFiles);
-    await saveUserFiles(finalFiles);
+    
+    // Save file list to IPFS in background - don't block or throw errors
+    // The file is already safely stored in the backend database
+    saveUserFiles(finalFiles).catch(err => {
+      console.error('Failed to save file list metadata to IPFS:', err);
+      // Don't throw - the upload itself was successful
+      // The file list will be updated on the next successful operation
+    });
   };
 
   // Save versions to Firestore
@@ -622,13 +700,21 @@ export const useUserFileStorage = (userUid: string | null, getAuthToken?: () => 
   const removeFile = async (index: number) => {
     const updatedFiles = uploadedFiles.filter((_, i) => i !== index);
     setUploadedFiles(updatedFiles);
-    await saveUserFiles(updatedFiles);
+    
+    // Save in background - don't block on metadata save
+    saveUserFiles(updatedFiles).catch(err => {
+      console.error('Failed to save file list metadata:', err);
+    });
   };
 
   // Clear all files
   const clearAllFiles = async () => {
     setUploadedFiles([]);
-    await saveUserFiles([]);
+    
+    // Save in background - don't block on metadata save
+    saveUserFiles([]).catch(err => {
+      console.error('Failed to save file list metadata:', err);
+    });
   };
 
   // Pin a file
@@ -665,7 +751,14 @@ export const useUserFileStorage = (userUid: string | null, getAuthToken?: () => 
           pinSize: result.pinSize
         };
         setUploadedFiles(updatedFiles);
-        await saveUserFiles(updatedFiles);
+        
+        // Save file list to IPFS in background - don't block or throw errors
+        // The pin operation itself was successful
+        saveUserFiles(updatedFiles).catch(err => {
+          console.error('Failed to save file list metadata to IPFS:', err);
+          // Don't throw - the pinning itself was successful
+        });
+        
         return true;
       }
 
@@ -706,7 +799,14 @@ export const useUserFileStorage = (userUid: string | null, getAuthToken?: () => 
           pinSize: undefined
         };
         setUploadedFiles(updatedFiles);
-        await saveUserFiles(updatedFiles);
+        
+        // Save file list to IPFS in background - don't block or throw errors
+        // The unpin operation itself was successful
+        saveUserFiles(updatedFiles).catch(err => {
+          console.error('Failed to save file list metadata to IPFS:', err);
+          // Don't throw - the unpinning itself was successful
+        });
+        
         return true;
       }
 
@@ -795,7 +895,12 @@ export const useUserFileStorage = (userUid: string | null, getAuthToken?: () => 
       modifiedDate: Date.now()
     };
     setUploadedFiles(updatedFiles);
-    await saveUserFiles(updatedFiles);
+    
+    // Save in background - don't block on metadata save
+    saveUserFiles(updatedFiles).catch(err => {
+      console.error('Failed to save file list metadata:', err);
+    });
+    
     return true;
   };
 
@@ -808,7 +913,12 @@ export const useUserFileStorage = (userUid: string | null, getAuthToken?: () => 
       modifiedDate: Date.now()
     };
     setUploadedFiles(updatedFiles);
-    await saveUserFiles(updatedFiles);
+    
+    // Save in background - don't block on metadata save
+    saveUserFiles(updatedFiles).catch(err => {
+      console.error('Failed to save file list metadata:', err);
+    });
+    
     return true;
   };
 
@@ -836,7 +946,12 @@ export const useUserFileStorage = (userUid: string | null, getAuthToken?: () => 
       modifiedDate: Date.now()
     };
     setUploadedFiles(updatedFiles);
-    await saveUserFiles(updatedFiles);
+    
+    // Save in background - don't block on metadata save
+    saveUserFiles(updatedFiles).catch(err => {
+      console.error('Failed to save file list metadata:', err);
+    });
+    
     return true;
   };
 
@@ -850,7 +965,12 @@ export const useUserFileStorage = (userUid: string | null, getAuthToken?: () => 
       modifiedDate: Date.now()
     };
     setUploadedFiles(updatedFiles);
-    await saveUserFiles(updatedFiles);
+    
+    // Save in background - don't block on metadata save
+    saveUserFiles(updatedFiles).catch(err => {
+      console.error('Failed to save file list metadata:', err);
+    });
+    
     return true;
   };
 
@@ -874,7 +994,12 @@ export const useUserFileStorage = (userUid: string | null, getAuthToken?: () => 
 
     const updatedFiles = uploadedFiles.filter((_, i) => i !== index);
     setUploadedFiles(updatedFiles);
-    await saveUserFiles(updatedFiles);
+    
+    // Save in background - don't block on metadata save
+    saveUserFiles(updatedFiles).catch(err => {
+      console.error('Failed to save file list metadata:', err);
+    });
+    
     return true;
   };
 
