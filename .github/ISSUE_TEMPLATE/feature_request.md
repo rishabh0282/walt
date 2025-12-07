@@ -6,26 +6,30 @@ labels: enhancement
 assignees: ''
 ---
 
-## Is your feature request related to a problem?
-A clear and concise description of what the problem is. Ex. I'm always frustrated when [...]
+## 🚀 Feature Description
 
-## Describe the solution you'd like
-A clear and concise description of what you want to happen.
+A clear and concise description of the feature you'd like to see.
 
-## Describe alternatives you've considered
-A clear and concise description of any alternative solutions or features you've considered.
+## 💡 Motivation
 
-## Use Case
-Explain how this feature would be used and who would benefit from it.
+Why is this feature needed? What problem does it solve?
 
-## Mockups/Examples
-If applicable, add mockups, screenshots, or examples from other apps.
+## 📝 Proposed Solution
 
-## Additional Context
-Add any other context or screenshots about the feature request here.
+How would you like this feature to work? Describe the desired behavior.
 
-## Are you willing to help implement this?
-- [ ] Yes, I can work on this
-- [ ] Yes, with guidance
-- [ ] No, but I'd like to see it added
+## 🔄 Alternatives Considered
 
+Have you considered any alternative solutions or features?
+
+## 📸 Mockups/Examples
+
+If applicable, add mockups, screenshots, or examples of similar features in other apps.
+
+## 🔗 Related Issues
+
+Link to any related issues or discussions.
+
+## ✅ Additional Context
+
+Any other context, use cases, or information about the feature request.

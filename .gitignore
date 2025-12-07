@@ -85,6 +85,9 @@ todo.md
 *.tmp
 *.temp
 
+# PowerShell scripts (local development only)
+*.ps1
+
 # lock files (keep package-lock.json, but ignore pnpm/yarn if using npm)
 pnpm-lock.yaml
 yarn.lock

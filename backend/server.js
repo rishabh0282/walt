@@ -6,7 +6,7 @@ import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import Database from 'better-sqlite3';
 import { create } from 'ipfs-http-client';
-import { readFile } from 'fs/promises';
+import { readFile, unlink } from 'fs/promises';
 import { randomUUID as uuidv4 } from 'crypto';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -370,6 +370,8 @@ app.get('/api/ipfs/status', verifyAuth, async (req, res) => {
 
 // No auth required - used for homepage demo uploads
 app.post('/api/ipfs/upload/guest', upload.single('file'), async (req, res) => {
+  const tempFilePath = req.file?.path;
+  
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file provided' });
@@ -383,31 +385,60 @@ app.post('/api/ipfs/upload/guest', upload.single('file'), async (req, res) => {
       });
     }
 
+    // Validate and sanitize filename
+    const originalFilename = req.file.originalname || 'unnamed';
+    const sanitizedFilename = originalFilename
+      .replace(/[<>:"/\\|?*\x00-\x1f]/g, '_')
+      .replace(/^\.+/, '')
+      .trim();
+
     // Not pinned to conserve resources
     const fileBuffer = await readFile(req.file.path);
     const result = await ipfs.add(fileBuffer, { pin: false });
     const cid = result.cid.toString();
     const size = Number(result.size);
 
-    console.log(`Guest upload: ${req.file.originalname} (${size} bytes) -> ${cid}`);
+    console.log(`Guest upload: ${sanitizedFilename} (${size} bytes) -> ${cid}`);
 
     res.json({
       cid,
       size,
-      filename: req.file.originalname,
+      filename: sanitizedFilename,
       mimeType: req.file.mimetype,
     });
   } catch (error) {
     console.error('Guest upload error:', error);
     res.status(500).json({ error: 'Upload failed', message: error.message });
+  } finally {
+    // Clean up temporary file
+    if (tempFilePath) {
+      try {
+        await unlink(tempFilePath);
+      } catch (cleanupError) {
+        console.warn('Failed to cleanup temp file:', cleanupError);
+      }
+    }
   }
 });
 app.post('/api/ipfs/upload', verifyAuth, upload.single('file'), async (req, res) => {
+  const tempFilePath = req.file?.path;
+  
   try {
     const user = getOrCreateUser(req.user.uid, req.user.email, req.user.name);
     
     if (!req.file) {
       return res.status(400).json({ error: 'No file provided' });
+    }
+
+    // Validate and sanitize filename
+    const originalFilename = req.file.originalname || 'unnamed';
+    const sanitizedFilename = originalFilename
+      .replace(/[<>:"/\\|?*\x00-\x1f]/g, '_') // Remove invalid characters
+      .replace(/^\.+/, '') // Remove leading dots
+      .trim();
+    
+    if (!sanitizedFilename || sanitizedFilename.length > 255) {
+      return res.status(400).json({ error: 'Invalid filename' });
     }
 
     const storageStats = db.prepare('SELECT storage_used, storage_limit FROM users WHERE id = ?').get(user.id);
@@ -474,7 +505,7 @@ app.post('/api/ipfs/upload', verifyAuth, upload.single('file'), async (req, res)
         parent_folder_id, is_pinned, pin_service, pin_status
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
-      fileId, user.id, cid, req.file.originalname, req.file.originalname,
+      fileId, user.id, cid, sanitizedFilename, sanitizedFilename,
       size, req.file.mimetype, folderId, isPinned ? 1 : 0,
       isPinned ? 'local' : null, isPinned ? 'pinned' : 'unpinned'
     );
@@ -488,7 +519,7 @@ app.post('/api/ipfs/upload', verifyAuth, upload.single('file'), async (req, res)
     `).run(
       uuidv4(), user.id, fileId, 'upload',
       req.ip, req.get('user-agent'),
-      JSON.stringify({ cid, filename: req.file.originalname, size })
+      JSON.stringify({ cid, filename: sanitizedFilename, size })
     );
 
     res.json({
@@ -496,7 +527,7 @@ app.post('/api/ipfs/upload', verifyAuth, upload.single('file'), async (req, res)
       file: {
         id: fileId,
         cid,
-        filename: req.file.originalname,
+        filename: sanitizedFilename,
         size,
         mimeType: req.file.mimetype,
         isPinned,
@@ -506,6 +537,15 @@ app.post('/api/ipfs/upload', verifyAuth, upload.single('file'), async (req, res)
   } catch (error) {
     console.error('Upload error:', error);
     res.status(500).json({ error: 'Upload failed', message: error.message });
+  } finally {
+    // Clean up temporary file
+    if (tempFilePath) {
+      try {
+        await unlink(tempFilePath);
+      } catch (cleanupError) {
+        console.warn('Failed to cleanup temp file:', cleanupError);
+      }
+    }
   }
 });
 
@@ -620,11 +660,35 @@ app.post('/api/folders', verifyAuth, (req, res) => {
       return res.status(400).json({ error: 'Folder name is required' });
     }
 
+    // Validate and sanitize folder name
+    const sanitizedName = name
+      .replace(/[<>:"/\\|?*\x00-\x1f]/g, '_') // Remove invalid characters
+      .replace(/^\.+/, '') // Remove leading dots
+      .trim();
+    
+    if (!sanitizedName || sanitizedName.length === 0) {
+      return res.status(400).json({ error: 'Folder name cannot be empty' });
+    }
+    
+    if (sanitizedName.length > 255) {
+      return res.status(400).json({ error: 'Folder name is too long (max 255 characters)' });
+    }
+
+    // Validate parentFolderId if provided
+    let validatedParentId = null;
+    if (parentFolderId) {
+      const parentFolder = db.prepare('SELECT * FROM folders WHERE id = ? AND user_id = ? AND is_deleted = 0').get(parentFolderId, user.id);
+      if (!parentFolder) {
+        return res.status(400).json({ error: 'Parent folder does not exist or does not belong to you' });
+      }
+      validatedParentId = parentFolderId;
+    }
+
     const folderId = uuidv4();
     db.prepare(`
       INSERT INTO folders (id, user_id, name, parent_folder_id)
       VALUES (?, ?, ?, ?)
-    `).run(folderId, user.id, name, parentFolderId || null);
+    `).run(folderId, user.id, sanitizedName, validatedParentId);
 
     const folder = rowToObject(db.prepare('SELECT * FROM folders WHERE id = ?').get(folderId));
     res.json(folder);

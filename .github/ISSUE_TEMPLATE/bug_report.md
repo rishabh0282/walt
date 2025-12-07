@@ -1,41 +1,49 @@
 ---
 name: Bug Report
-about: Report a bug to help us improve
+about: Create a report to help us improve
 title: '[BUG] '
 labels: bug
 assignees: ''
 ---
 
-## Describe the Bug
+## 🐛 Bug Description
+
 A clear and concise description of what the bug is.
 
-## To Reproduce
-Steps to reproduce the behavior:
+## 🔄 Steps to Reproduce
+
 1. Go to '...'
-2. Click on '...'
-3. Scroll down to '...'
+2. Click on '....'
+3. Scroll down to '....'
 4. See error
 
-## Expected Behavior
+## ✅ Expected Behavior
+
 A clear and concise description of what you expected to happen.
 
-## Screenshots
+## ❌ Actual Behavior
+
+A clear and concise description of what actually happened.
+
+## 📸 Screenshots
+
 If applicable, add screenshots to help explain your problem.
 
-## Environment
-- **OS**: [e.g. Windows 10, macOS 13, Ubuntu 22.04]
-- **Browser**: [e.g. Chrome 120, Firefox 119, Safari 17]
-- **Version**: [e.g. latest, commit hash]
-- **Self-hosted or walt.aayushman.dev**: [specify]
+## 🌐 Environment
 
-## Error Messages
-```
-Paste any error messages here (console logs, error modals, etc.)
-```
+- **OS:** [e.g. Windows 10, macOS 13, Ubuntu 22.04]
+- **Browser:** [e.g. Chrome 120, Firefox 121, Safari 17]
+- **Node Version:** [e.g. 18.17.0]
+- **Backend Running:** [Yes/No]
+- **IPFS Node Running:** [Yes/No]
 
-## Additional Context
-Add any other context about the problem here.
+## 📋 Additional Context
 
-## Possible Solution
-If you have ideas on how to fix this, share them here!
+- Error messages from console (if any)
+- Network tab errors (if any)
+- Backend logs (if applicable)
+- Any other relevant information
 
+## 🔍 Possible Solution
+
+If you have ideas on how to fix this, please share them here.
