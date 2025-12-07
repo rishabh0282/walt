@@ -13,6 +13,8 @@ interface ConfirmationModalProps {
   onConfirm: () => void;
   onCancel: () => void;
   type?: 'warning' | 'danger' | 'info';
+  showSuppressOption?: boolean;
+  onSuppressChange?: (suppress: boolean) => void;
 }
 
 const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
@@ -23,9 +25,28 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   cancelText = 'Cancel',
   onConfirm,
   onCancel,
-  type = 'warning'
+  type = 'warning',
+  showSuppressOption = false,
+  onSuppressChange
 }) => {
+  const [suppressChecked, setSuppressChecked] = React.useState(false);
+  
+  // Reset checkbox when modal opens
+  React.useEffect(() => {
+    if (isOpen) {
+      setSuppressChecked(false);
+    }
+  }, [isOpen]);
+  
   if (!isOpen) return null;
+  
+  const handleSuppressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const checked = e.target.checked;
+    setSuppressChecked(checked);
+    if (onSuppressChange) {
+      onSuppressChange(checked);
+    }
+  };
 
   const getIcon = () => {
     switch (type) {
@@ -46,6 +67,16 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
         
         <div className={styles.content}>
           <p className={styles.message}>{message}</p>
+          {showSuppressOption && (
+            <label className={styles.suppressOption}>
+              <input
+                type="checkbox"
+                checked={suppressChecked}
+                onChange={handleSuppressChange}
+              />
+              <span>Don't show this warning again</span>
+            </label>
+          )}
         </div>
         
         <div className={styles.actions}>

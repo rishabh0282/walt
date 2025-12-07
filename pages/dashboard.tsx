@@ -198,6 +198,8 @@ const Dashboard: NextPage = () => {
     cancelText?: string;
     onConfirm: () => void;
     type?: 'warning' | 'danger' | 'info';
+    showSuppressOption?: boolean;
+    onSuppressChange?: (suppress: boolean) => void;
   }>({
     isOpen: false,
     title: '',
@@ -219,6 +221,12 @@ const Dashboard: NextPage = () => {
   const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showBillingWarning, setShowBillingWarning] = useState(false);
+  const [suppressUnpinWarnings, setSuppressUnpinWarnings] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('suppressUnpinWarnings') === 'true';
+    }
+    return false;
+  });
   const router = useRouter();
   const { user, loading, logout } = useAuth();
 
@@ -1173,23 +1181,42 @@ const Dashboard: NextPage = () => {
     
     const index = uploadedFiles.findIndex(f => f.id === fileId);
     if (file.isPinned) {
+      // Check if warnings are suppressed
+      if (suppressUnpinWarnings) {
+        // Skip modal and directly unpin
+        const success = await unpinFile(index);
+        if (success) {
+          showToast('Unpinned successfully', 'success');
+        } else {
+          showToast('Failed to unpin file', 'error');
+        }
+      } else {
+        // Show confirmation modal with suppress option
         setConfirmationModal({
           isOpen: true,
           title: 'Unpin File',
           message: `🆓 Unpin "${file.name}"?\n\nUnpinned files are FREE but may be garbage collected from IPFS and become unavailable. Pinned files cost money but are guaranteed to persist.`,
           confirmText: 'Unpin (Free)',
           cancelText: 'Keep Pinned',
-        onConfirm: async () => {
-          const success = await unpinFile(index);
-          if (success) {
-            showToast('Unpinned successfully', 'success');
-          } else {
-            showToast('Failed to unpin file', 'error');
+          onConfirm: async () => {
+            const success = await unpinFile(index);
+            if (success) {
+              showToast('Unpinned successfully', 'success');
+            } else {
+              showToast('Failed to unpin file', 'error');
+            }
+            setConfirmationModal({ ...confirmationModal, isOpen: false });
+          },
+          type: 'warning',
+          showSuppressOption: true,
+          onSuppressChange: (suppress: boolean) => {
+            setSuppressUnpinWarnings(suppress);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('suppressUnpinWarnings', suppress.toString());
+            }
           }
-          setConfirmationModal({ ...confirmationModal, isOpen: false });
-        },
-        type: 'warning'
-      });
+        });
+      }
     } else {
       const success = await pinFile(index);
       if (success) {
@@ -2892,45 +2919,11 @@ const Dashboard: NextPage = () => {
                           unoptimized
                           style={{ objectFit: 'cover' }}
                         />
-                        {/* Overlay buttons for images */}
-                        <div className={styles.imageOverlay}>
-                          <button
-                            className={styles.overlayBtn + ' ' + styles.overlayBtnTopLeft}
-                            onClick={(e) => handleToggleStar(file.id, e)}
-                            title={file.starred ? "Unstar" : "Star"}
-                          >
-                            {file.starred ? <StarIcon /> : <StarOutlineIcon />}
-                          </button>
-                          <button
-                            className={styles.overlayBtn + ' ' + styles.overlayBtnTopRight}
-                            onClick={(e) => handlePinToggle(file.id, file, e)}
-                            title={file.isPinned ? "Pinned - Click to unpin (file may be lost)" : "Unpinned - Click to pin (file may be lost)"}
-                          >
-                            {file.isPinned ? <PinedIcon /> : <PinIcon />}
-                          </button>
-                        </div>
                       </>
                     ) : (
                       <>
                         <div className={styles.fileIconLarge}>
                           {getFileIcon(file.type)}
-                        </div>
-                        {/* Overlay buttons for documents and other files */}
-                        <div className={styles.imageOverlay}>
-                          <button
-                            className={styles.overlayBtn + ' ' + styles.overlayBtnTopLeft}
-                            onClick={(e) => handleToggleStar(file.id, e)}
-                            title={file.starred ? "Unstar" : "Star"}
-                          >
-                            {file.starred ? <StarIcon /> : <StarOutlineIcon />}
-                          </button>
-                          <button
-                            className={styles.overlayBtn + ' ' + styles.overlayBtnTopRight}
-                            onClick={(e) => handlePinToggle(file.id, file, e)}
-                            title={file.isPinned ? "Pinned - Click to unpin (file may be lost)" : "Unpinned - Click to pin (file may be lost)"}
-                          >
-                            {file.isPinned ? <PinedIcon /> : <PinIcon />}
-                          </button>
                         </div>
                       </>
                     )}
@@ -2979,7 +2972,34 @@ const Dashboard: NextPage = () => {
 
                   {/* File Actions */}
                   <div className={styles.fileActions}>
+                    {/* Star button */}
+                    <button
+                      className={styles.actionBtn}
+                      data-active={file.starred}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToggleStar(file.id, e);
+                      }}
+                      title={file.starred ? "Unstar" : "Star"}
+                    >
+                      {file.starred ? <StarIcon /> : <StarOutlineIcon />}
+                    </button>
+                    
+                    {/* Pin button */}
+                    <button
+                      className={styles.actionBtn}
+                      data-pinned={file.isPinned}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handlePinToggle(file.id, file, e);
+                      }}
+                      title={file.isPinned ? "Pinned - Click to unpin (file may be lost)" : "Unpinned - Click to pin (file may be lost)"}
+                    >
+                      {file.isPinned ? <PinedIcon /> : <PinIcon />}
+                    </button>
+                    
                     {/* 3-dot menu button */}
+                    <div className={styles.menuContainer}>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <button 
@@ -3046,6 +3066,7 @@ const Dashboard: NextPage = () => {
                         )}
                       </DropdownMenuContent>
                     </DropdownMenu>
+                    </div>
                   </div>
                 </div>
                 );
@@ -3345,6 +3366,8 @@ const Dashboard: NextPage = () => {
         onConfirm={confirmationModal.onConfirm}
         onCancel={() => setConfirmationModal({ ...confirmationModal, isOpen: false })}
         type={confirmationModal.type}
+        showSuppressOption={confirmationModal.showSuppressOption}
+        onSuppressChange={confirmationModal.onSuppressChange}
       />
 
       {/* Input Modal */}
