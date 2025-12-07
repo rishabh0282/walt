@@ -22,7 +22,7 @@ import { getFileCache } from '../lib/fileCache';
 import { getGatewayOptimizer, getOptimizedGatewayUrl } from '../lib/gatewayOptimizer';
 import { checkNewFileForDuplicates, getAllDuplicates, DuplicateMatch } from '../lib/duplicateDetection';
 import { createFileVersion, FileVersion } from '../lib/versionHistory';
-import { BackendFileAPI } from '../lib/backendClient';
+import { BackendFileAPI, BackendFolderAPI } from '../lib/backendClient';
 
 interface ShareConfig {
   shareId: string;
@@ -141,18 +141,31 @@ export const useUserFileStorage = (userUid: string | null, getAuthToken?: () => 
   const gatewayOptimizer = getGatewayOptimizer();
 
   // IPFS gateways to try (in order of preference) - fallback list
-  // Prioritize user's own IPFS node first
+  // IMPORTANT: Don't use localhost:8080 directly in browser (CORS will block it)
+  // Use API proxy or backend gateway instead, which handle CORS properly
   const customGateway = process.env.NEXT_PUBLIC_IPFS_GATEWAY || process.env.IPFS_GATEWAY;
-  const userGateway = customGateway 
-    ? (customGateway.endsWith('/') ? customGateway : `${customGateway}/`).replace(/\/ipfs\/?$/, '/ipfs/')
-    : null;
+  const isLocalGateway = customGateway && (customGateway.includes('localhost') || customGateway.includes('127.0.0.1'));
   
+  // Backend gateway (proxied through Next.js API to avoid CORS)
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'https://api-walt.aayushman.dev';
+  const backendGateway = `${backendUrl}/ipfs/`;
+  
+  // Next.js API proxy (for localhost CORS issues) - ALWAYS use this in browser for local gateways
+  const apiProxyGateway = typeof window !== 'undefined' ? '/api/ipfs/proxy?cid=' : null;
+  
+  // Build gateway list: API proxy first (uses local gateway server-side), then public gateways
+  // Note: Backend /ipfs/ endpoint is only available in production (via nginx), not in local dev
+  const isProduction = backendUrl && !backendUrl.includes('localhost') && !backendUrl.includes('127.0.0.1');
   const IPFS_GATEWAYS = [
-    ...(userGateway ? [userGateway] : []),
+    ...(apiProxyGateway ? [apiProxyGateway] : []), // API proxy first (handles local gateway server-side, no CORS)
+    // Only include backend gateway in production (nginx handles it)
+    ...(isProduction ? [backendGateway] : []),
+    // Only include direct local gateway if we're NOT in browser (server-side only)
+    ...(isLocalGateway && typeof window === 'undefined' ? [customGateway.replace(/\/ipfs\/?$/, '/ipfs/')] : []),
+    // Public gateways (exclude infura.io and pinata.cloud - they have CORS issues)
     'https://ipfs.io/ipfs/',
     'https://dweb.link/ipfs/',
     'https://cloudflare-ipfs.com/ipfs/',
-    'https://gateway.pinata.cloud/ipfs/',
   ];
 
   /**
@@ -165,15 +178,54 @@ export const useUserFileStorage = (userUid: string | null, getAuthToken?: () => 
   const fetchFromIPFS = async (ipfsUri: string, maxRetries = 2): Promise<string | null> => {
     const ipfsHash = ipfsUri.replace('ipfs://', '');
     
-    // Get ranked gateways (fastest first)
+    // Filter out problematic gateways (infura.io has CORS issues)
+    // Prioritize API proxy first (uses local gateway server-side, no CORS)
+    const backendUrlForFilter = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'https://api-walt.aayushman.dev';
+    const isLocalBackend = backendUrlForFilter.includes('localhost') || backendUrlForFilter.includes('127.0.0.1');
+    
+    const localGateways = IPFS_GATEWAYS.filter(g => 
+      g.includes('/api/ipfs/proxy') // API proxy (always first, uses local gateway server-side)
+      // Note: Backend /ipfs/ gateway is only in production, not local dev
+    );
+    
+    // Get ranked public gateways (excluding local ones and problematic ones like infura.io)
     const rankedGateways = gatewayOptimizer.getRankedGateways();
-    const gatewaysToTry = rankedGateways.length > 0 
-      ? rankedGateways.map(g => g.url)
-      : IPFS_GATEWAYS; // Fallback to default list
+    const publicGateways = rankedGateways
+      .map(g => g.url)
+      .filter(url => 
+        !url.includes('localhost') && 
+        !url.includes('127.0.0.1') && 
+        !url.includes('/api/ipfs/proxy') &&
+        !url.includes(backendUrlForFilter) &&
+        !url.includes('infura.io') // Exclude infura.io (CORS issues)
+      );
+    
+    // Combine: API proxy first (always), then backend, then ranked public, then fallback (excluding infura.io)
+    const gatewaysToTry = [
+      ...localGateways, // API proxy and local backend first
+      ...publicGateways, // Ranked public gateways (excluding infura.io)
+      ...IPFS_GATEWAYS.filter(g => 
+        !localGateways.includes(g) && 
+        !publicGateways.includes(g) &&
+        !g.includes('infura.io') // Exclude infura.io from fallback too
+      )
+    ];
+    
+    // Debug: log gateway order in development
+    if (process.env.NODE_ENV === 'development' && gatewaysToTry.length > 0) {
+      console.log('[IPFS] Gateway order:', gatewaysToTry.slice(0, 3).map(g => {
+        if (g.includes('/api/ipfs/proxy')) return '/api/ipfs/proxy (→ local)';
+        if (g.includes('localhost')) return g.replace(/\/ipfs\/?$/, '');
+        return g.replace(/\/ipfs\/?$/, '').substring(0, 30);
+      }).join(' → '));
+    }
     
     for (let gatewayIndex = 0; gatewayIndex < gatewaysToTry.length; gatewayIndex++) {
       const gateway = gatewaysToTry[gatewayIndex];
-      const gatewayUrl = `${gateway}${ipfsHash}`;
+      // Handle API proxy gateway (uses query param) vs regular gateway (uses path)
+      const gatewayUrl = gateway.includes('?cid=') 
+        ? `${gateway}${ipfsHash}` 
+        : `${gateway}${ipfsHash}`;
       
       for (let attempt = 0; attempt < maxRetries; attempt++) {
         try {
@@ -192,7 +244,10 @@ export const useUserFileStorage = (userUid: string | null, getAuthToken?: () => 
             return data;
           }
           
-          console.warn(`Gateway returned status ${response.status}`);
+          // Log gateway failures in development for debugging
+          if (process.env.NODE_ENV === 'development') {
+            console.warn(`[IPFS] Gateway returned status ${response.status}: ${gateway.replace(/\/ipfs\/?$/, '').substring(0, 40)}`);
+          }
           gatewayOptimizer.recordFailure(gateway);
           
           // Don't retry if it's a 4xx error (won't be fixed by retry)
@@ -201,11 +256,22 @@ export const useUserFileStorage = (userUid: string | null, getAuthToken?: () => 
           }
         } catch (error: any) {
           const errorMsg = error.message || String(error);
-          console.warn(`Failed: ${errorMsg}`);
+          const isAbortError = errorMsg.includes('aborted') || error.name === 'AbortError';
+          const isNetworkError = errorMsg.includes('NAME_NOT_RESOLVED') || 
+                                 errorMsg.includes('Failed to fetch') || 
+                                 errorMsg.includes('CORS') ||
+                                 errorMsg.includes('blocked') ||
+                                 errorMsg.includes('404');
+          
+          // Only log non-abort errors in development (abort errors are expected for timeouts)
+          if (process.env.NODE_ENV === 'development' && !isAbortError && !isNetworkError) {
+            console.warn(`[IPFS] Gateway failed: ${gateway.replace(/\/ipfs\/?$/, '').substring(0, 40)} - ${errorMsg}`);
+          }
+          
           gatewayOptimizer.recordFailure(gateway);
           
-          // Skip retries for DNS/network errors (won't be fixed by retrying)
-          if (errorMsg.includes('NAME_NOT_RESOLVED') || errorMsg.includes('Failed to fetch')) {
+          // Skip retries for DNS/network/CORS/abort errors (won't be fixed by retrying)
+          if (isAbortError || isNetworkError) {
             break;
           }
           
@@ -279,72 +345,78 @@ export const useUserFileStorage = (userUid: string | null, getAuthToken?: () => 
       
       // Hybrid approach: Merge with backend database to catch any files that
       // were uploaded successfully but failed to save to IPFS file list
+      // Note: Backend list is optional - if it fails, we still use IPFS data
       try {
         if (getAuthToken) {
           const authToken = await getAuthToken();
           if (authToken) {
-            const backendData = await BackendFileAPI.list(authToken);
-            const backendFiles = backendData.files || [];
-            const backendFolders = backendData.folders || [];
-            
-            // Merge backend files with IPFS file list
-            const ipfsFileIds = new Set(filesWithIds.map(f => f.id));
-            const missingFiles: UploadedFile[] = [];
-            
-            // Add files from backend that aren't in IPFS list
-            for (const backendFile of backendFiles) {
-              if (!ipfsFileIds.has(backendFile.id)) {
-                missingFiles.push({
-                  id: backendFile.id,
-                  name: backendFile.filename || backendFile.original_filename,
-                  ipfsUri: `ipfs://${backendFile.cid}`,
-                  gatewayUrl: getOptimizedGatewayUrl(`ipfs://${backendFile.cid}`),
-                  timestamp: new Date(backendFile.created_at).getTime(),
-                  type: backendFile.mime_type || 'unknown',
-                  size: backendFile.size,
-                  isPinned: backendFile.is_pinned === 1,
-                  pinService: backendFile.pin_service || undefined,
-                  pinDate: backendFile.is_pinned ? new Date(backendFile.created_at).getTime() : undefined,
-                  parentFolderId: backendFile.parent_folder_id || null,
-                  modifiedDate: new Date(backendFile.updated_at || backendFile.created_at).getTime(),
-                  isFolder: false
-                });
-              }
-            }
-            
-            // Add folders from backend that aren't in IPFS list
-            for (const backendFolder of backendFolders) {
-              if (!ipfsFileIds.has(backendFolder.id)) {
-                missingFiles.push({
-                  id: backendFolder.id,
-                  name: backendFolder.name,
-                  ipfsUri: '',
-                  gatewayUrl: '',
-                  timestamp: new Date(backendFolder.created_at).getTime(),
-                  type: 'folder',
-                  size: 0,
-                  isPinned: false,
-                  parentFolderId: backendFolder.parent_folder_id || null,
-                  modifiedDate: new Date(backendFolder.updated_at || backendFolder.created_at).getTime(),
-                  isFolder: true
-                });
-              }
-            }
-            
-            if (missingFiles.length > 0) {
-              console.log(`Syncing ${missingFiles.length} files from backend database that were missing from IPFS file list`);
-              filesWithIds = [...filesWithIds, ...missingFiles];
+            try {
+              const backendData = await BackendFileAPI.list(authToken);
+              const backendFiles = backendData.files || [];
+              const backendFolders = backendData.folders || [];
               
-              // Save the merged list back to IPFS (async, don't wait)
-              saveUserFiles(filesWithIds).catch(err => {
-                console.error('Failed to save merged file list:', err);
-              });
+              // Merge backend files with IPFS file list
+              const ipfsFileIds = new Set(filesWithIds.map(f => f.id));
+              const missingFiles: UploadedFile[] = [];
+              
+              // Add files from backend that aren't in IPFS list
+              for (const backendFile of backendFiles) {
+                if (!ipfsFileIds.has(backendFile.id)) {
+                  missingFiles.push({
+                    id: backendFile.id,
+                    name: backendFile.filename || backendFile.original_filename,
+                    ipfsUri: `ipfs://${backendFile.cid}`,
+                    gatewayUrl: getOptimizedGatewayUrl(`ipfs://${backendFile.cid}`),
+                    timestamp: new Date(backendFile.created_at).getTime(),
+                    type: backendFile.mime_type || 'unknown',
+                    size: backendFile.size,
+                    isPinned: backendFile.is_pinned === 1,
+                    pinService: backendFile.pin_service || undefined,
+                    pinDate: backendFile.is_pinned ? new Date(backendFile.created_at).getTime() : undefined,
+                    parentFolderId: backendFile.parent_folder_id || null,
+                    modifiedDate: new Date(backendFile.updated_at || backendFile.created_at).getTime(),
+                    isFolder: false
+                  });
+                }
+              }
+              
+              // Add folders from backend that aren't in IPFS list
+              for (const backendFolder of backendFolders) {
+                if (!ipfsFileIds.has(backendFolder.id)) {
+                  missingFiles.push({
+                    id: backendFolder.id,
+                    name: backendFolder.name,
+                    ipfsUri: '',
+                    gatewayUrl: '',
+                    timestamp: new Date(backendFolder.created_at).getTime(),
+                    type: 'folder',
+                    size: 0,
+                    isPinned: false,
+                    parentFolderId: backendFolder.parent_folder_id || null,
+                    modifiedDate: new Date(backendFolder.updated_at || backendFolder.created_at).getTime(),
+                    isFolder: true
+                  });
+                }
+              }
+              
+              if (missingFiles.length > 0) {
+                console.log(`Syncing ${missingFiles.length} files from backend database that were missing from IPFS file list`);
+                filesWithIds = [...filesWithIds, ...missingFiles];
+                
+                // Save the merged list back to IPFS (async, don't wait)
+                saveUserFiles(filesWithIds).catch(err => {
+                  console.error('Failed to save merged file list:', err);
+                });
+              }
+            } catch (backendListError) {
+              // Backend list failed - log but continue with IPFS data only
+              console.warn('Failed to sync with backend database (non-critical):', backendListError);
             }
           }
         }
       } catch (backendError) {
-        console.warn('Failed to sync with backend database:', backendError);
-        // Continue with IPFS data only - this is not a critical error
+        // Auth token fetch or other backend-related error - non-critical
+        console.warn('Backend sync skipped (non-critical):', backendError);
       }
       
       setUploadedFiles(filesWithIds);
@@ -861,8 +933,24 @@ export const useUserFileStorage = (userUid: string | null, getAuthToken?: () => 
   // Create a new folder
   const createFolder = async (folderName: string, parentId: string | null = null): Promise<boolean> => {
     try {
+      // First, create folder in backend database
+      let backendFolder;
+      if (getAuthToken && userUid) {
+        try {
+          const authToken = await getAuthToken();
+          if (authToken) {
+            backendFolder = await BackendFolderAPI.create(folderName, parentId, authToken);
+          }
+        } catch (backendError) {
+          console.warn('Failed to create folder in backend (will create locally):', backendError);
+          // Continue with local creation if backend fails
+        }
+      }
+
+      // Create folder object with backend ID or generate local ID
+      const folderId = backendFolder?.id || `folder_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const newFolder: UploadedFile = {
-        id: `folder_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        id: folderId,
         name: folderName,
         ipfsUri: '',
         gatewayUrl: '',
@@ -876,7 +964,14 @@ export const useUserFileStorage = (userUid: string | null, getAuthToken?: () => 
 
       const updatedFiles = [newFolder, ...uploadedFiles];
       setUploadedFiles(updatedFiles);
-      await saveUserFiles(updatedFiles);
+      
+      // Save to IPFS/Firestore asynchronously - don't block folder creation
+      // If save fails, folder still appears in UI and will sync on next save
+      saveUserFiles(updatedFiles).catch(err => {
+        console.warn('Failed to save folder to IPFS/Firestore (non-critical):', err);
+        // Don't throw - folder is already created in UI
+      });
+      
       return true;
     } catch (error) {
       console.error('Create folder error:', error);

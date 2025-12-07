@@ -42,7 +42,19 @@ function initializeFirebaseAdmin() {
           });
         } else {
           // Last resort: Try default credentials (for Firebase hosting/cloud functions)
-          adminApp = initializeApp({});
+          // Only try this in production environments where default credentials might be available
+          if (process.env.NODE_ENV === 'production') {
+            try {
+              adminApp = initializeApp({});
+            } catch (defaultCredError) {
+              console.warn('FIREBASE_SERVICE_ACCOUNT not set and default credentials unavailable. API routes may not work properly.');
+              return null;
+            }
+          } else {
+            // In development, don't try default credentials - they won't work
+            console.warn('Firebase Admin not configured. Set FIREBASE_SERVICE_ACCOUNT or FIREBASE_PROJECT_ID/FIREBASE_CLIENT_EMAIL/FIREBASE_PRIVATE_KEY in .env.local');
+            return null;
+          }
         }
       } catch (e) {
         console.warn('FIREBASE_SERVICE_ACCOUNT not set and default credentials unavailable. API routes may not work properly.');
@@ -83,8 +95,16 @@ export async function verifyAuthToken(req: NextApiRequest): Promise<{ uid: strin
       uid: decodedToken.uid,
       email: decodedToken.email || ''
     };
-  } catch (error) {
-    console.error('Token verification failed:', error);
+  } catch (error: any) {
+    // Only log detailed errors in development, suppress in production to reduce noise
+    if (process.env.NODE_ENV === 'development') {
+      // Check if it's a configuration error (missing credentials)
+      if (error?.message?.includes('Project Id') || error?.message?.includes('Unable to detect')) {
+        // This is expected if Firebase Admin isn't configured - don't spam logs
+        return null;
+      }
+      console.error('Token verification failed:', error);
+    }
     return null;
   }
 }

@@ -27,9 +27,10 @@ const DEFAULT_GATEWAYS = [
   { url: 'https://ipfs.io/ipfs/', name: 'IPFS Public Gateway' },
   { url: 'https://dweb.link/ipfs/', name: 'Protocol Labs Gateway' },
   { url: 'https://cloudflare-ipfs.com/ipfs/', name: 'Cloudflare IPFS' },
-  { url: 'https://gateway.pinata.cloud/ipfs/', name: 'Pinata Gateway' },
-  { url: 'https://ipfs.filebase.io/ipfs/', name: 'Filebase Gateway' },
-  { url: 'https://ipfs.infura.io/ipfs/', name: 'Infura Gateway' },
+  // Excluded gateways with CORS issues or rate limiting:
+  // - pinata.cloud (CORS issues)
+  // - ipfs.filebase.io (404s)
+  // - ipfs.infura.io (CORS issues, redirects)
 ];
 
 class GatewayOptimizer {
@@ -146,6 +147,13 @@ class GatewayOptimizer {
    * Health check a gateway
    */
   async checkGatewayHealth(url: string): Promise<number | null> {
+    // Skip health checks for gateways with known issues (CORS, DNS, etc.)
+    if (url.includes('infura.io') || 
+        url.includes('pinata.cloud') ||
+        url.includes('cloudflare-ipfs.com')) {
+      return null; // Skip these gateways - they have known issues
+    }
+
     const testHash = 'QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG'; // IPFS welcome page
     const testUrl = `${url}${testHash}`;
 
@@ -157,9 +165,16 @@ class GatewayOptimizer {
       const response = await fetch(testUrl, { 
         signal: controller.signal,
         method: 'HEAD', // HEAD request is faster
-      });
+      }).catch(() => null); // Silently catch CORS/network errors
       
       clearTimeout(timeoutId);
+      
+      // If fetch failed (CORS, network error, etc.), silently fail
+      if (!response) {
+        this.recordFailure(url);
+        return null;
+      }
+
       const responseTime = Date.now() - startTime;
 
       if (response.ok) {
@@ -170,6 +185,8 @@ class GatewayOptimizer {
         return null;
       }
     } catch (error) {
+      // Silently handle errors - don't log CORS/network errors
+      // They're expected for unreliable gateways
       this.recordFailure(url);
       return null;
     }

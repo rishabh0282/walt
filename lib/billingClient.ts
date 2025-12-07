@@ -2,6 +2,11 @@ import { getAuth } from 'firebase/auth';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'https://api-walt.aayushman.dev';
 
+// Log backend URL in development for debugging
+if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+  console.log('[Billing Client] Using backend URL:', BACKEND_URL);
+}
+
 export interface BillingStatus {
   pinnedSizeBytes: number;
   pinnedSizeGB: number;
@@ -49,7 +54,18 @@ export async function getBillingStatus(): Promise<BillingStatus | null> {
     });
 
     if (!response.ok) {
-      throw new Error('Failed to get billing status');
+      const errorData = await response.json().catch(() => ({ error: 'Failed to get billing status' }));
+      const errorMessage = errorData.error || errorData.message || 'Failed to get billing status';
+      
+      // Provide more helpful error messages
+      if (response.status === 0 || response.status === 500) {
+        console.error(`Cannot connect to backend at ${BACKEND_URL}/api/billing/status`);
+      }
+      if (response.status === 401) {
+        console.error('Authentication failed for billing status check');
+      }
+      
+      throw new Error(errorMessage);
     }
 
     return await response.json();
@@ -76,7 +92,18 @@ export async function checkAccess(): Promise<AccessCheck | null> {
     });
 
     if (!response.ok) {
-      throw new Error('Failed to check access');
+      const errorData = await response.json().catch(() => ({ error: 'Failed to check access' }));
+      const errorMessage = errorData.error || errorData.message || 'Failed to check access';
+      
+      // Provide more helpful error messages
+      if (response.status === 0 || response.status === 500) {
+        console.error(`Cannot connect to backend at ${BACKEND_URL}/api/billing/check-access`);
+      }
+      if (response.status === 401) {
+        console.error('Authentication failed for access check');
+      }
+      
+      throw new Error(errorMessage);
     }
 
     return await response.json();
@@ -112,11 +139,12 @@ export async function createPaymentOrder(phone: string): Promise<{
       body: JSON.stringify({ phone })
     });
 
-    const data = await response.json();
-
     if (!response.ok) {
-      return { success: false, error: data.error || 'Failed to create order' };
+      const errorData = await response.json().catch(() => ({ error: 'Failed to create order' }));
+      return { success: false, error: errorData.error || errorData.message || 'Failed to create order' };
     }
+
+    const data = await response.json();
 
     return {
       success: true,

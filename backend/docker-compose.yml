@@ -1,0 +1,15 @@
+version: '3'
+services:
+  ipfs:
+    image: ipfs/kubo:latest
+    container_name: ipfs-node
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5001:5001"  # API (localhost only)
+      - "127.0.0.1:8080:8080"  # Gateway (localhost only)
+      - "4001:4001"            # Swarm
+    volumes:
+      - ./ipfs-data:/data/ipfs
+    environment:
+      - IPFS_PROFILE=server
+

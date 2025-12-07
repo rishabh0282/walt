@@ -4,6 +4,7 @@
 /node_modules
 /.pnp
 .pnp.js
+/backend/node_modules
 
 # testing
 /coverage
@@ -14,16 +15,19 @@
 
 # production
 /build
+/dist
 
 # misc
 .DS_Store
 *.pem
+Thumbs.db
 
 # debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+*.log
 
 # vercel
 .vercel
@@ -31,14 +35,56 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 
+# firebase
 .firebase
 .firebaserc
 firebase.json
 storage.rules
 google-services.json
-/dist
 backend/walt-b9f64-firebase-adminsdk-fbsvc-bb845e35c5.json
-/setup
-/backend/node_modules
+
+# environment variables
 .env
+.env.local
+.env*.local
 backend/.env
+backend/.env.local
+
+# database files
+*.db
+*.db-shm
+*.db-wal
+data/*.db
+data/*.db-shm
+data/*.db-wal
+
+# IPFS node data (should not be committed - contains user data)
+backend/ipfs-data/
+backend/ipfs-data/**/*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# temporary files
+/setup
+PRE_PUSH_CHECKLIST.md
+todo.md
+*.tmp
+*.temp
+
+# lock files (keep package-lock.json, but ignore pnpm/yarn if using npm)
+pnpm-lock.yaml
+yarn.lock

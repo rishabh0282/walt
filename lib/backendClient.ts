@@ -11,6 +11,11 @@
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'https://api-walt.aayushman.dev';
 
+// Log backend URL in development for debugging
+if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+  console.log('[Backend Client] Using backend URL:', BACKEND_URL);
+}
+
 interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
   body?: any;
@@ -51,13 +56,20 @@ export async function backendRequest<T = any>(
     const response = await fetch(url, requestOptions);
     
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Request failed' }));
-      throw new Error(errorData.error || `HTTP ${response.status}`);
+      const errorData = await response.json().catch(() => ({ 
+        error: `Request failed with status ${response.status}`,
+        message: response.statusText || 'Unknown error'
+      }));
+      const errorMessage = errorData.error || errorData.message || `HTTP ${response.status}`;
+      throw new Error(errorMessage);
     }
 
     return await response.json();
-  } catch (error) {
-    console.error('Backend API Error:', error);
+  } catch (error: any) {
+    // Don't log network errors as errors - they might be expected (backend down, etc.)
+    if (error.message && !error.message.includes('Failed to fetch') && !error.message.includes('NetworkError')) {
+      console.error('Backend API Error:', error);
+    }
     throw error;
   }
 }
@@ -104,7 +116,23 @@ export const BackendFileAPI = {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ error: 'Upload failed' }));
-      throw new Error(errorData.error || 'Upload failed');
+      const errorMessage = errorData.error || errorData.message || 'Upload failed';
+      
+      // Provide more helpful error messages
+      if (response.status === 0 || response.status === 500) {
+        throw new Error(`Cannot connect to backend at ${url}. Make sure backend is running on ${BACKEND_URL}`);
+      }
+      if (response.status === 401) {
+        throw new Error('Authentication failed. Please sign in again.');
+      }
+      if (response.status === 400 && (errorMessage.includes('Invalid folder') || errorMessage.includes('folder'))) {
+        throw new Error('The selected folder no longer exists. Please navigate to a different folder and try again.');
+      }
+      if (response.status === 413) {
+        throw new Error('File too large or storage quota exceeded.');
+      }
+      
+      throw new Error(errorMessage);
     }
 
     const data = await response.json();
@@ -194,9 +222,16 @@ export const BackendFileAPI = {
 
 export const BackendFolderAPI = {
   /**
-   * Create folder
+   * Create a new folder in backend database
    */
-  async create(name: string, token: string, parentFolderId?: string): Promise<any> {
+  async create(name: string, parentFolderId: string | null, token: string): Promise<{
+    id: string;
+    name: string;
+    parent_folder_id: string | null;
+    user_id: string;
+    created_at: string;
+    updated_at: string;
+  }> {
     return backendRequest('/api/folders', {
       method: 'POST',
       body: { name, parentFolderId },

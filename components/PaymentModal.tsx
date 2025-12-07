@@ -205,6 +205,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
       const user = auth.currentUser;
       if (!user) {
         setError('Please log in to continue');
+        setLoading(false);
         return;
       }
 
@@ -218,11 +219,12 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
         body: JSON.stringify({ phone, billingAddress })
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to create payment order');
+        const errorData = await response.json().catch(() => ({ error: 'Failed to create payment order' }));
+        throw new Error(errorData.error || 'Failed to create payment order');
       }
+
+      const data = await response.json();
 
       if (data.orderId) setOrderId(data.orderId);
       if (data.paymentSessionId) setPaymentSessionId(data.paymentSessionId);
@@ -267,7 +269,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
 
         if (!response.ok) return;
 
-        const order = await response.json();
+        const order = await response.json().catch(() => null);
+        if (!order) return;
         
         if (order.order_status === 'PAID') {
           // Payment successful
@@ -292,6 +295,31 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
 
   if (!isOpen) return null;
 
+  // Don't show payment form if there's no chargeable amount
+  if (monthlyCostUSD <= 0 || chargeAmountINR <= 0) {
+    return (
+      <div className={styles.overlay} onClick={onClose}>
+        <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+          <div className={styles.header}>
+            <h2>No Payment Required</h2>
+            <button className={styles.closeButton} onClick={onClose}>×</button>
+          </div>
+          <div className={styles.content}>
+            <div className={styles.success}>
+              <p>✅ You are within the free tier limit ({freeTierGB || 5} GB).</p>
+              <p>No payment is required at this time.</p>
+            </div>
+            <div className={styles.actions}>
+              <button className={styles.primaryButton} onClick={onClose}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={styles.overlay} onClick={onClose}>
       <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
@@ -309,7 +337,11 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
               </>
             ) : (
               <>
-            <p><WarningRoundIcon /> Your estimated pin cost (${monthlyCostUSD.toFixed(2)}/month) exceeds the free tier limit of ${freeTierLimitUSD.toFixed(2)}/month.</p>
+            {monthlyCostUSD > 0 ? (
+              <p><WarningRoundIcon /> Your estimated pin cost (${monthlyCostUSD.toFixed(2)}/month) exceeds the free tier limit of ${freeTierLimitUSD.toFixed(2)}/month.</p>
+            ) : (
+              <p><WarningRoundIcon /> You are within the free tier limit. No payment required.</p>
+            )}
             <p>To continue using our services, please add payment information.</p>
               </>
             )}

@@ -84,12 +84,12 @@ export default async function handler(
       body: formData as any,
     });
 
-    const data = await response.json();
-
     if (!response.ok) {
-      return res.status(response.status).json(data);
+      const errorData = await response.json().catch(() => ({ error: 'Upload failed' }));
+      return res.status(response.status).json(errorData);
     }
 
+    const data = await response.json();
     return res.status(200).json(data);
   } catch (error) {
     console.error('Upload proxy error:', error);

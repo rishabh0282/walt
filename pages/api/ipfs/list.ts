@@ -39,12 +39,12 @@ export default async function handler(
       },
     });
 
-    const data = await response.json();
-
     if (!response.ok) {
-      return res.status(response.status).json(data);
+      const errorData = await response.json().catch(() => ({ error: 'Failed to list files' }));
+      return res.status(response.status).json(errorData);
     }
 
+    const data = await response.json();
     return res.status(200).json(data);
   } catch (error) {
     console.error('List proxy error:', error);

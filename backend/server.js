@@ -267,9 +267,14 @@ if (!allowedOrigins.includes('http://localhost:3000')) {
 }
 allowedOrigins = [...new Set(allowedOrigins)];
 
-// CORS handled by nginx to avoid duplicate headers
-// Uncomment if accessing backend directly:
-// app.use(cors({ origin: allowedOrigins, credentials: true }));
+// CORS configuration
+// Enable CORS for local development (nginx handles it in production)
+// Check if we're in development or if nginx is not handling CORS
+const enableCors = process.env.NODE_ENV !== 'production' || !process.env.NGINX_CORS_ENABLED;
+if (enableCors) {
+  app.use(cors({ origin: allowedOrigins, credentials: true }));
+  console.log('✓ CORS enabled for origins:', allowedOrigins.join(', '));
+}
 
 // Raw body needed for webhook signature verification
 app.use('/api/payment/webhook', express.raw({ type: 'application/json' }));
@@ -406,6 +411,9 @@ app.post('/api/ipfs/upload', verifyAuth, upload.single('file'), async (req, res)
     }
 
     const storageStats = db.prepare('SELECT storage_used, storage_limit FROM users WHERE id = ?').get(user.id);
+    if (!storageStats) {
+      return res.status(500).json({ error: 'User storage information not found' });
+    }
     if (storageStats.storage_used + req.file.size > storageStats.storage_limit) {
       return res.status(413).json({
         error: 'Storage quota exceeded',
@@ -442,7 +450,22 @@ app.post('/api/ipfs/upload', verifyAuth, upload.single('file'), async (req, res)
     const size = Number(result.size);
 
     const fileId = uuidv4();
-    const folderId = req.body.folderId || null;
+    // Normalize folderId: convert empty string, 'null', 'undefined', 'root' to null
+    let folderId = req.body.folderId;
+    if (!folderId || folderId === 'null' || folderId === 'undefined' || folderId === '' || folderId === 'root') {
+      folderId = null;
+    }
+    
+    // If folderId is provided, verify it exists and belongs to the user
+    // If it doesn't exist, silently fall back to root (null) instead of failing
+    if (folderId) {
+      const folder = db.prepare('SELECT * FROM folders WHERE id = ? AND user_id = ? AND is_deleted = 0').get(folderId, user.id);
+      if (!folder) {
+        console.warn(`Upload: Invalid folderId "${folderId}" for user ${user.id}, falling back to root folder`);
+        folderId = null; // Fall back to root instead of failing
+      }
+    }
+    
     const isPinned = shouldPinOnUpload;
     
     db.prepare(`
@@ -489,19 +512,51 @@ app.post('/api/ipfs/upload', verifyAuth, upload.single('file'), async (req, res)
 app.get('/api/ipfs/list', verifyAuth, (req, res) => {
   try {
     const user = getOrCreateUser(req.user.uid, req.user.email, req.user.name);
+    if (!user || !user.id) {
+      console.error('Failed to get or create user:', { uid: req.user.uid, email: req.user.email });
+      return res.status(500).json({ error: 'Failed to get user', message: 'User creation failed' });
+    }
+    
     const folderId = req.query.folderId || null;
+    // Normalize folderId - ensure it's null or a valid string
+    const normalizedFolderId = folderId && folderId !== 'null' && folderId !== 'undefined' ? folderId : null;
 
-    const filesQuery = folderId
-      ? 'SELECT * FROM files WHERE user_id = ? AND parent_folder_id = ? AND is_deleted = 0 ORDER BY created_at DESC'
-      : 'SELECT * FROM files WHERE user_id = ? AND parent_folder_id IS NULL AND is_deleted = 0 ORDER BY created_at DESC';
+    let files = [];
+    let folders = [];
     
-    const files = db.prepare(filesQuery).all(user.id, folderId).map(rowToObject);
+    try {
+      if (normalizedFolderId) {
+        // Query with folderId parameter
+        const filesQuery = 'SELECT * FROM files WHERE user_id = ? AND parent_folder_id = ? AND is_deleted = 0 ORDER BY created_at DESC';
+        const filesResult = db.prepare(filesQuery).all(user.id, normalizedFolderId);
+        files = filesResult.map(rowToObject).filter(Boolean);
+      } else {
+        // Query with IS NULL (no parameter needed for NULL check)
+        const filesQuery = 'SELECT * FROM files WHERE user_id = ? AND parent_folder_id IS NULL AND is_deleted = 0 ORDER BY created_at DESC';
+        const filesResult = db.prepare(filesQuery).all(user.id);
+        files = filesResult.map(rowToObject).filter(Boolean);
+      }
+    } catch (filesError) {
+      console.error('Error querying files:', filesError);
+      // Continue with empty files array
+    }
 
-    const foldersQuery = folderId
-      ? 'SELECT * FROM folders WHERE user_id = ? AND parent_folder_id = ? AND is_deleted = 0 ORDER BY name ASC'
-      : 'SELECT * FROM folders WHERE user_id = ? AND parent_folder_id IS NULL AND is_deleted = 0 ORDER BY name ASC';
-    
-    const folders = db.prepare(foldersQuery).all(user.id, folderId).map(rowToObject);
+    try {
+      if (normalizedFolderId) {
+        // Query with folderId parameter
+        const foldersQuery = 'SELECT * FROM folders WHERE user_id = ? AND parent_folder_id = ? AND is_deleted = 0 ORDER BY name ASC';
+        const foldersResult = db.prepare(foldersQuery).all(user.id, normalizedFolderId);
+        folders = foldersResult.map(rowToObject).filter(Boolean);
+      } else {
+        // Query with IS NULL (no parameter needed for NULL check)
+        const foldersQuery = 'SELECT * FROM folders WHERE user_id = ? AND parent_folder_id IS NULL AND is_deleted = 0 ORDER BY name ASC';
+        const foldersResult = db.prepare(foldersQuery).all(user.id);
+        folders = foldersResult.map(rowToObject).filter(Boolean);
+      }
+    } catch (foldersError) {
+      console.error('Error querying folders:', foldersError);
+      // Continue with empty folders array
+    }
 
     res.json({ files, folders });
   } catch (error) {
@@ -1447,7 +1502,8 @@ app.get('/api/billing/check-access', verifyAuth, (req, res) => {
     const monthlyCostUSD = billingUtils.calculateMonthlyPinCost(pinnedSizeBytes);
     const chargeAmountINR = billingUtils.calculateChargeAmount(pinnedSizeBytes);
     
-    if (!exceedsLimit) {
+    // If user is within free tier OR has no chargeable amount, always allow access
+    if (!exceedsLimit || monthlyCostUSD <= 0 || chargeAmountINR <= 0) {
       return res.json({ 
         allowed: true,
         reason: null

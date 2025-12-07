@@ -394,37 +394,51 @@ const Dashboard: NextPage = () => {
 
   // Load billing status
   const loadBillingStatus = useCallback(async () => {
-    const status = await getBillingStatus();
-    if (!status) {
+    try {
+      const status = await getBillingStatus();
+      if (!status) {
+        setShowBillingWarning(false);
+        return;
+      }
+
+      setBillingStatus(status);
+
+      const billingDayToday = isTodayBillingDay(status.billingDay);
+      
+      // Only force payment if:
+      // 1. User actually exceeds the free tier limit AND has a chargeable amount (> $0)
+      // 2. AND it's billing day or services are blocked
+      // 3. AND payment info not received
+      const hasChargeableAmount = status.exceedsLimit && status.monthlyCostUSD > 0 && status.chargeAmountINR > 0;
+      const shouldForcePayment = hasChargeableAmount && 
+                                 !status.paymentInfoReceived && 
+                                 (billingDayToday || status.servicesBlocked);
+
+      if (shouldForcePayment) {
+        setShowPaymentModal(true);
+        setShowBillingWarning(false);
+        return;
+      }
+
+      // Get billing warning dismissed until inside callback
+      const getBillingWarningDismissedUntil = (): number | null => {
+        if (typeof window === 'undefined') return null;
+        const key = user ? `billing_warning_dismissed_until_${user.uid}` : null;
+        if (!key) return null;
+        const raw = localStorage.getItem(key);
+        const parsed = raw ? parseInt(raw, 10) : NaN;
+        return Number.isFinite(parsed) ? parsed : null;
+      };
+
+      const dismissedUntil = getBillingWarningDismissedUntil();
+      const now = Date.now();
+      const shouldShowWarning = status.exceedsLimit && !billingDayToday && (!dismissedUntil || now >= dismissedUntil);
+      setShowBillingWarning(shouldShowWarning);
+    } catch (error) {
+      // Silently handle billing status errors - not critical for app functionality
+      console.warn('Failed to load billing status:', error);
       setShowBillingWarning(false);
-      return;
     }
-
-    setBillingStatus(status);
-
-    const billingDayToday = isTodayBillingDay(status.billingDay);
-    const shouldForcePayment = !status.paymentInfoReceived && (billingDayToday || status.servicesBlocked);
-
-    if (shouldForcePayment) {
-      setShowPaymentModal(true);
-      setShowBillingWarning(false);
-      return;
-    }
-
-    // Get billing warning dismissed until inside callback
-    const getBillingWarningDismissedUntil = (): number | null => {
-      if (typeof window === 'undefined') return null;
-      const key = user ? `billing_warning_dismissed_until_${user.uid}` : null;
-      if (!key) return null;
-      const raw = localStorage.getItem(key);
-      const parsed = raw ? parseInt(raw, 10) : NaN;
-      return Number.isFinite(parsed) ? parsed : null;
-    };
-
-    const dismissedUntil = getBillingWarningDismissedUntil();
-    const now = Date.now();
-    const shouldShowWarning = status.exceedsLimit && !billingDayToday && (!dismissedUntil || now >= dismissedUntil);
-    setShowBillingWarning(shouldShowWarning);
   }, [user]);
 
   useEffect(() => {
@@ -494,7 +508,7 @@ const Dashboard: NextPage = () => {
       defaultValue: '',
       onConfirm: (name) => {
         if (!name.trim()) {
-          setInputModal({ ...inputModal, isOpen: false });
+          setInputModal(prev => ({ ...prev, isOpen: false }));
           return;
         }
         const newSavedSearch = {
@@ -505,7 +519,7 @@ const Dashboard: NextPage = () => {
         const updated = [...savedSearches.filter(s => s.name !== name.trim()), newSavedSearch];
         setSavedSearches(updated);
         localStorage.setItem(`saved_searches_${user.uid}`, JSON.stringify(updated));
-        setInputModal({ ...inputModal, isOpen: false });
+        setInputModal(prev => ({ ...prev, isOpen: false }));
         showToast('✅ Search saved successfully', 'success');
       }
     });
@@ -555,9 +569,9 @@ const Dashboard: NextPage = () => {
           if (shareModalFile) {
             setShareModalFile(null);
           } else if (inputModal.isOpen) {
-            setInputModal({ ...inputModal, isOpen: false });
+            setInputModal(prev => ({ ...prev, isOpen: false }));
           } else if (confirmationModal.isOpen) {
-            setConfirmationModal({ ...confirmationModal, isOpen: false });
+            setConfirmationModal(prev => ({ ...prev, isOpen: false }));
           }
         }
         return;
@@ -782,6 +796,19 @@ const Dashboard: NextPage = () => {
       return;
     }
 
+    // Validate folderId if provided (must be a valid folder)
+    let validFolderId: string | undefined = undefined;
+    if (folderId && folderId !== 'root') {
+      const folderExists = uploadedFiles.some(f => f.id === folderId && f.isFolder && !f.trashed);
+      if (folderExists) {
+        validFolderId = folderId;
+      } else {
+        // Invalid folder ID, upload to root instead
+        showToast('⚠️ The selected folder no longer exists. Uploading to root folder.', 'warning');
+        validFolderId = undefined;
+      }
+    }
+
     setIsUploading(true);
     
     // Initialize upload queue
@@ -808,7 +835,7 @@ const Dashboard: NextPage = () => {
       // Upload files to backend
       const uploadPromises = acceptedFiles.map(file => 
         BackendFileAPI.upload(file, token, {
-          parentFolderId: folderId,
+          parentFolderId: validFolderId,
           isPinned: autoPinEnabled
         })
       );
@@ -910,10 +937,23 @@ const Dashboard: NextPage = () => {
         ));
       }, 300);
       
+      // Validate currentFolderId if set (must be a valid folder)
+      let validFolderId: string | undefined = undefined;
+      if (currentFolderId) {
+        const folderExists = uploadedFiles.some(f => f.id === currentFolderId && f.isFolder && !f.trashed);
+        if (folderExists) {
+          validFolderId = currentFolderId;
+        } else {
+          // Invalid folder ID, reset to root and show warning
+          setCurrentFolderId(null);
+          showToast('⚠️ The selected folder no longer exists. Uploading to root folder.', 'warning');
+        }
+      }
+      
       // Upload files to backend
       const uploadPromises = acceptedFiles.map(file => 
         BackendFileAPI.upload(file, token, {
-          parentFolderId: currentFolderId || undefined,
+          parentFolderId: validFolderId,
           isPinned: autoPinEnabled
         })
       );
@@ -972,7 +1012,21 @@ const Dashboard: NextPage = () => {
         ...item,
         status: 'error' as const
       })));
-      showToast('Upload failed. Please try again.', 'error');
+      
+      // Show more specific error message
+      let errorMessage = 'Upload failed. Please try again.';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+        // Provide helpful hints for common errors
+        if (error.message.includes('Cannot connect to backend')) {
+          errorMessage = 'Cannot connect to backend. Make sure backend is running on port 3001.';
+        } else if (error.message.includes('Authentication failed')) {
+          errorMessage = 'Authentication failed. Please sign in again.';
+        } else if (error.message.includes('storage quota')) {
+          errorMessage = 'Storage quota exceeded. Please free up space or upgrade.';
+        }
+      }
+      showToast(errorMessage, 'error');
       setTimeout(() => setUploadQueue([]), 3000);
     } finally {
       setIsUploading(false);
@@ -1246,7 +1300,7 @@ const Dashboard: NextPage = () => {
           const appError = ErrorHandler.createAppError(new Error('Failed to create folder'));
           showToast(appError.userMessage, 'error');
         }
-        setInputModal({ ...inputModal, isOpen: false });
+        setInputModal(prev => ({ ...prev, isOpen: false }));
       }
     });
   };
@@ -1360,7 +1414,7 @@ const Dashboard: NextPage = () => {
       defaultValue: uploadedFiles[index].name,
       onConfirm: async (newName) => {
         if (newName === uploadedFiles[index].name) {
-          setInputModal({ ...inputModal, isOpen: false });
+          setInputModal(prev => ({ ...prev, isOpen: false }));
           return;
         }
         
@@ -1371,7 +1425,7 @@ const Dashboard: NextPage = () => {
           const appError = ErrorHandler.createAppError(new Error('Failed to rename'));
           showToast(appError.userMessage, 'error');
         }
-        setInputModal({ ...inputModal, isOpen: false });
+        setInputModal(prev => ({ ...prev, isOpen: false }));
       }
     });
   };
@@ -3364,7 +3418,7 @@ const Dashboard: NextPage = () => {
         confirmText={confirmationModal.confirmText}
         cancelText={confirmationModal.cancelText}
         onConfirm={confirmationModal.onConfirm}
-        onCancel={() => setConfirmationModal({ ...confirmationModal, isOpen: false })}
+        onCancel={() => setConfirmationModal(prev => ({ ...prev, isOpen: false }))}
         type={confirmationModal.type}
         showSuppressOption={confirmationModal.showSuppressOption}
         onSuppressChange={confirmationModal.onSuppressChange}
@@ -3378,7 +3432,7 @@ const Dashboard: NextPage = () => {
         placeholder={inputModal.placeholder}
         defaultValue={inputModal.defaultValue}
         onConfirm={inputModal.onConfirm}
-        onCancel={() => setInputModal({ ...inputModal, isOpen: false })}
+        onCancel={() => setInputModal(prev => ({ ...prev, isOpen: false }))}
       />
 
       {/* Payment Modal */}
