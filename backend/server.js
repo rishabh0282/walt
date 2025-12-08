@@ -495,13 +495,17 @@ app.get('/api/ipfs/list', verifyAuth, (req, res) => {
       ? 'SELECT * FROM files WHERE user_id = ? AND parent_folder_id = ? AND is_deleted = 0 ORDER BY created_at DESC'
       : 'SELECT * FROM files WHERE user_id = ? AND parent_folder_id IS NULL AND is_deleted = 0 ORDER BY created_at DESC';
     
-    const files = db.prepare(filesQuery).all(user.id, folderId).map(rowToObject);
+    const files = folderId
+      ? db.prepare(filesQuery).all(user.id, folderId).map(rowToObject)
+      : db.prepare(filesQuery).all(user.id).map(rowToObject);
 
     const foldersQuery = folderId
       ? 'SELECT * FROM folders WHERE user_id = ? AND parent_folder_id = ? AND is_deleted = 0 ORDER BY name ASC'
       : 'SELECT * FROM folders WHERE user_id = ? AND parent_folder_id IS NULL AND is_deleted = 0 ORDER BY name ASC';
     
-    const folders = db.prepare(foldersQuery).all(user.id, folderId).map(rowToObject);
+    const folders = folderId
+      ? db.prepare(foldersQuery).all(user.id, folderId).map(rowToObject)
+      : db.prepare(foldersQuery).all(user.id).map(rowToObject);
 
     res.json({ files, folders });
   } catch (error) {
