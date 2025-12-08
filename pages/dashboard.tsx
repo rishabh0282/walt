@@ -403,7 +403,8 @@ const Dashboard: NextPage = () => {
     setBillingStatus(status);
 
     const billingDayToday = isTodayBillingDay(status.billingDay);
-    const shouldForcePayment = !status.paymentInfoReceived && (billingDayToday || status.servicesBlocked);
+    // Only force payment if user exceeds limit AND doesn't have payment info AND (it's billing day OR services are blocked)
+    const shouldForcePayment = status.exceedsLimit && !status.paymentInfoReceived && (billingDayToday || status.servicesBlocked);
 
     if (shouldForcePayment) {
       setShowPaymentModal(true);
