@@ -267,9 +267,13 @@ if (!allowedOrigins.includes('http://localhost:3000')) {
 }
 allowedOrigins = [...new Set(allowedOrigins)];
 
-// CORS handled by nginx to avoid duplicate headers
-// Uncomment if accessing backend directly:
-// app.use(cors({ origin: allowedOrigins, credentials: true }));
+// CORS configuration
+// Enable CORS for local development (nginx handles it in production)
+const enableCors = process.env.NODE_ENV !== 'production' || !process.env.NGINX_CORS_ENABLED;
+if (enableCors) {
+  app.use(cors({ origin: allowedOrigins, credentials: true }));
+  console.log('✓ CORS enabled for origins:', allowedOrigins.join(', '));
+}
 
 // Raw body needed for webhook signature verification
 app.use('/api/payment/webhook', express.raw({ type: 'application/json' }));
@@ -592,7 +596,9 @@ app.get('/api/folders', verifyAuth, (req, res) => {
       ? 'SELECT * FROM folders WHERE user_id = ? AND parent_folder_id = ? AND is_deleted = 0 ORDER BY name ASC'
       : 'SELECT * FROM folders WHERE user_id = ? AND parent_folder_id IS NULL AND is_deleted = 0 ORDER BY name ASC';
 
-    const folders = db.prepare(query).all(user.id, parentFolderId).map(rowToObject);
+    const folders = parentFolderId
+      ? db.prepare(query).all(user.id, parentFolderId).map(rowToObject)
+      : db.prepare(query).all(user.id).map(rowToObject);
     res.json(folders);
   } catch (error) {
     console.error('List folders error:', error);
