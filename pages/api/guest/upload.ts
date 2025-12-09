@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { IncomingForm } from 'formidable';
 import { readFile } from 'fs/promises';
+import FormData from 'form-data';
 import { getOptimizedGatewayUrl } from '../../../lib/gatewayOptimizer';
 
 export const config = {
@@ -51,12 +52,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Upload to backend IPFS node instead of direct connection
     const formData = new FormData();
     const buffer = await readFile(file.filepath);
-    const blob = new Blob([buffer]);
-    formData.append('file', blob, file.originalFilename || 'file');
+    formData.append('file', buffer, {
+      filename: file.originalFilename || 'file',
+      contentType: file.mimetype || 'application/octet-stream',
+    });
 
     const uploadResponse = await fetch(`${BACKEND_URL}/api/ipfs/upload/guest`, {
       method: 'POST',
-      body: formData,
+      headers: {
+        ...formData.getHeaders(),
+      },
+      body: formData as any,
     });
 
     if (!uploadResponse.ok) {
