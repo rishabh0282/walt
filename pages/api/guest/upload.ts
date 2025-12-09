@@ -3,6 +3,9 @@ import { IncomingForm } from 'formidable';
 import { readFile } from 'fs/promises';
 import FormData from 'form-data';
 import { getOptimizedGatewayUrl } from '../../../lib/gatewayOptimizer';
+import { request as httpsRequest } from 'https';
+import { request as httpRequest } from 'http';
+import { URL } from 'url';
 
 export const config = {
   api: {
@@ -50,27 +53,59 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Upload to backend IPFS node instead of direct connection
+    // Use https module directly to properly handle form-data streams
     const formData = new FormData();
     const buffer = await readFile(file.filepath);
+    
+    // Append file buffer with proper options
     formData.append('file', buffer, {
       filename: file.originalFilename || 'file',
       contentType: file.mimetype || 'application/octet-stream',
     });
 
-    const uploadResponse = await fetch(`${BACKEND_URL}/api/ipfs/upload/guest`, {
-      method: 'POST',
-      headers: {
-        ...formData.getHeaders(),
-      },
-      body: formData as any,
+    // Use https/http.request to properly handle form-data stream
+    const backendUrl = new URL(`${BACKEND_URL}/api/ipfs/upload/guest`);
+    const isHttps = backendUrl.protocol === 'https:';
+    const requestModule = isHttps ? httpsRequest : httpRequest;
+    const defaultPort = isHttps ? 443 : 80;
+    
+    const result = await new Promise<any>((resolve, reject) => {
+      const req = requestModule(
+        {
+          hostname: backendUrl.hostname,
+          port: backendUrl.port || defaultPort,
+          path: backendUrl.pathname,
+          method: 'POST',
+          headers: formData.getHeaders(),
+        },
+        (res) => {
+          let data = '';
+          res.on('data', (chunk) => {
+            data += chunk;
+          });
+          res.on('end', () => {
+            if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+              try {
+                resolve(JSON.parse(data));
+              } catch (e) {
+                reject(new Error('Invalid JSON response'));
+              }
+            } else {
+              let errorData;
+              try {
+                errorData = JSON.parse(data);
+              } catch {
+                errorData = { error: data || 'Upload failed' };
+              }
+              reject(new Error(errorData.error || errorData.message || 'Upload failed'));
+            }
+          });
+        }
+      );
+
+      req.on('error', reject);
+      formData.pipe(req);
     });
-
-    if (!uploadResponse.ok) {
-      const errorData = await uploadResponse.json().catch(() => ({ error: 'Upload failed' }));
-      throw new Error(errorData.error || 'Upload failed');
-    }
-
-    const result = await uploadResponse.json();
     const cid = result.cid || result.file?.cid;
     const size = result.size || result.file?.size || buffer.length;
     
