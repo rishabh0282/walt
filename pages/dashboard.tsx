@@ -602,7 +602,7 @@ const Dashboard: NextPage = () => {
               if (folderName.trim()) {
                 const success = await createFolder(folderName.trim(), currentFolderId);
                 if (success) {
-                  showToast('✅ Folder created successfully', 'success');
+                  showToast('Folder created successfully', 'success');
                 } else {
                   const appError = ErrorHandler.createAppError(new Error('Failed to create folder'));
           showToast(appError.userMessage, 'error');
@@ -1242,7 +1242,7 @@ const Dashboard: NextPage = () => {
       onConfirm: async (folderName) => {
         const success = await createFolder(folderName, currentFolderId);
         if (success) {
-          showToast('✅ Folder created successfully', 'success');
+          showToast('Folder created successfully', 'success');
         } else {
           const appError = ErrorHandler.createAppError(new Error('Failed to create folder'));
           showToast(appError.userMessage, 'error');

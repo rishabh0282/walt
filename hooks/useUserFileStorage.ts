@@ -22,7 +22,7 @@ import { getFileCache } from '../lib/fileCache';
 import { getGatewayOptimizer, getOptimizedGatewayUrl } from '../lib/gatewayOptimizer';
 import { checkNewFileForDuplicates, getAllDuplicates, DuplicateMatch } from '../lib/duplicateDetection';
 import { createFileVersion, FileVersion } from '../lib/versionHistory';
-import { BackendFileAPI } from '../lib/backendClient';
+import { BackendFileAPI, BackendFolderAPI } from '../lib/backendClient';
 
 interface ShareConfig {
   shareId: string;
@@ -249,6 +249,79 @@ export const useUserFileStorage = (userUid: string | null, getAuthToken?: () => 
       const userFileListUri = userData?.fileListUri || null;
       
       if (!userFileListUri) {
+        // For new users without fileListUri, check backend database first
+        // This fixes issue where uploaded files disappear after page refresh for new users
+        try {
+          if (getAuthToken) {
+            const authToken = await getAuthToken();
+            if (authToken) {
+              try {
+                const backendData = await BackendFileAPI.list(authToken).catch((err) => {
+                  // If backend list fails, log but don't throw - this is non-critical
+                  console.warn('Backend list failed for new user (non-critical):', err?.message || err);
+                  return { files: [], folders: [] };
+                });
+                const backendFiles = backendData?.files || [];
+                const backendFolders = backendData?.folders || [];
+                
+                // Convert backend files to UploadedFile format
+                const filesFromBackend: UploadedFile[] = [];
+                
+                // Add files from backend
+                for (const backendFile of backendFiles) {
+                  filesFromBackend.push({
+                    id: backendFile.id,
+                    name: backendFile.filename || backendFile.original_filename,
+                    ipfsUri: `ipfs://${backendFile.cid}`,
+                    gatewayUrl: getOptimizedGatewayUrl(`ipfs://${backendFile.cid}`),
+                    timestamp: new Date(backendFile.created_at).getTime(),
+                    type: backendFile.mime_type || 'unknown',
+                    size: backendFile.size,
+                    isPinned: backendFile.is_pinned === 1,
+                    pinService: backendFile.pin_service || undefined,
+                    pinDate: backendFile.is_pinned ? new Date(backendFile.created_at).getTime() : undefined,
+                    parentFolderId: backendFile.parent_folder_id || null,
+                    modifiedDate: new Date(backendFile.updated_at || backendFile.created_at).getTime(),
+                    isFolder: false
+                  });
+                }
+                
+                // Add folders from backend
+                for (const backendFolder of backendFolders) {
+                  filesFromBackend.push({
+                    id: backendFolder.id,
+                    name: backendFolder.name,
+                    ipfsUri: '',
+                    gatewayUrl: '',
+                    timestamp: new Date(backendFolder.created_at).getTime(),
+                    type: 'folder',
+                    size: 0,
+                    isPinned: false,
+                    parentFolderId: backendFolder.parent_folder_id || null,
+                    modifiedDate: new Date(backendFolder.updated_at || backendFolder.created_at).getTime(),
+                    isFolder: true
+                  });
+                }
+                
+                if (filesFromBackend.length > 0) {
+                  // Files exist in backend - create initial file list and save to IPFS
+                  console.log(`Loading ${filesFromBackend.length} files from backend database for new user`);
+                  setUploadedFiles(filesFromBackend);
+                  await saveUserFiles(filesFromBackend);
+                  return;
+                }
+              } catch (backendListError) {
+                // Backend list failed - log but continue
+                console.warn('Failed to load from backend for new user:', backendListError);
+              }
+            }
+          }
+        } catch (error) {
+          // Auth token fetch or other error - log but continue
+          console.warn('Backend check failed for new user (non-critical):', error);
+        }
+        
+        // No files in backend either - truly empty
         setUploadedFiles([]);
         return;
       }
@@ -279,72 +352,82 @@ export const useUserFileStorage = (userUid: string | null, getAuthToken?: () => 
       
       // Hybrid approach: Merge with backend database to catch any files that
       // were uploaded successfully but failed to save to IPFS file list
+      // Note: Backend list is optional - if it fails, we still use IPFS data
       try {
         if (getAuthToken) {
           const authToken = await getAuthToken();
           if (authToken) {
-            const backendData = await BackendFileAPI.list(authToken);
-            const backendFiles = backendData.files || [];
-            const backendFolders = backendData.folders || [];
-            
-            // Merge backend files with IPFS file list
-            const ipfsFileIds = new Set(filesWithIds.map(f => f.id));
-            const missingFiles: UploadedFile[] = [];
-            
-            // Add files from backend that aren't in IPFS list
-            for (const backendFile of backendFiles) {
-              if (!ipfsFileIds.has(backendFile.id)) {
-                missingFiles.push({
-                  id: backendFile.id,
-                  name: backendFile.filename || backendFile.original_filename,
-                  ipfsUri: `ipfs://${backendFile.cid}`,
-                  gatewayUrl: getOptimizedGatewayUrl(`ipfs://${backendFile.cid}`),
-                  timestamp: new Date(backendFile.created_at).getTime(),
-                  type: backendFile.mime_type || 'unknown',
-                  size: backendFile.size,
-                  isPinned: backendFile.is_pinned === 1,
-                  pinService: backendFile.pin_service || undefined,
-                  pinDate: backendFile.is_pinned ? new Date(backendFile.created_at).getTime() : undefined,
-                  parentFolderId: backendFile.parent_folder_id || null,
-                  modifiedDate: new Date(backendFile.updated_at || backendFile.created_at).getTime(),
-                  isFolder: false
-                });
-              }
-            }
-            
-            // Add folders from backend that aren't in IPFS list
-            for (const backendFolder of backendFolders) {
-              if (!ipfsFileIds.has(backendFolder.id)) {
-                missingFiles.push({
-                  id: backendFolder.id,
-                  name: backendFolder.name,
-                  ipfsUri: '',
-                  gatewayUrl: '',
-                  timestamp: new Date(backendFolder.created_at).getTime(),
-                  type: 'folder',
-                  size: 0,
-                  isPinned: false,
-                  parentFolderId: backendFolder.parent_folder_id || null,
-                  modifiedDate: new Date(backendFolder.updated_at || backendFolder.created_at).getTime(),
-                  isFolder: true
-                });
-              }
-            }
-            
-            if (missingFiles.length > 0) {
-              console.log(`Syncing ${missingFiles.length} files from backend database that were missing from IPFS file list`);
-              filesWithIds = [...filesWithIds, ...missingFiles];
-              
-              // Save the merged list back to IPFS (async, don't wait)
-              saveUserFiles(filesWithIds).catch(err => {
-                console.error('Failed to save merged file list:', err);
+            try {
+              const backendData = await BackendFileAPI.list(authToken).catch((err) => {
+                // If backend list fails, log but don't throw - this is non-critical
+                console.warn('Backend list failed (non-critical):', err?.message || err);
+                return { files: [], folders: [] };
               });
+              const backendFiles = backendData?.files || [];
+              const backendFolders = backendData?.folders || [];
+              
+              // Merge backend files with IPFS file list
+              const ipfsFileIds = new Set(filesWithIds.map(f => f.id));
+              const missingFiles: UploadedFile[] = [];
+              
+              // Add files from backend that aren't in IPFS list
+              for (const backendFile of backendFiles) {
+                if (!ipfsFileIds.has(backendFile.id)) {
+                  missingFiles.push({
+                    id: backendFile.id,
+                    name: backendFile.filename || backendFile.original_filename,
+                    ipfsUri: `ipfs://${backendFile.cid}`,
+                    gatewayUrl: getOptimizedGatewayUrl(`ipfs://${backendFile.cid}`),
+                    timestamp: new Date(backendFile.created_at).getTime(),
+                    type: backendFile.mime_type || 'unknown',
+                    size: backendFile.size,
+                    isPinned: backendFile.is_pinned === 1,
+                    pinService: backendFile.pin_service || undefined,
+                    pinDate: backendFile.is_pinned ? new Date(backendFile.created_at).getTime() : undefined,
+                    parentFolderId: backendFile.parent_folder_id || null,
+                    modifiedDate: new Date(backendFile.updated_at || backendFile.created_at).getTime(),
+                    isFolder: false
+                  });
+                }
+              }
+              
+              // Add folders from backend that aren't in IPFS list
+              for (const backendFolder of backendFolders) {
+                if (!ipfsFileIds.has(backendFolder.id)) {
+                  missingFiles.push({
+                    id: backendFolder.id,
+                    name: backendFolder.name,
+                    ipfsUri: '',
+                    gatewayUrl: '',
+                    timestamp: new Date(backendFolder.created_at).getTime(),
+                    type: 'folder',
+                    size: 0,
+                    isPinned: false,
+                    parentFolderId: backendFolder.parent_folder_id || null,
+                    modifiedDate: new Date(backendFolder.updated_at || backendFolder.created_at).getTime(),
+                    isFolder: true
+                  });
+                }
+              }
+              
+              if (missingFiles.length > 0) {
+                console.log(`Syncing ${missingFiles.length} files from backend database that were missing from IPFS file list`);
+                filesWithIds = [...filesWithIds, ...missingFiles];
+                
+                // Save the merged list back to IPFS (async, don't wait)
+                saveUserFiles(filesWithIds).catch(err => {
+                  console.error('Failed to save merged file list:', err);
+                });
+              }
+            } catch (backendListError) {
+              // Backend list failed - log but continue with IPFS data only
+              console.warn('Failed to sync with backend database (non-critical):', backendListError);
             }
           }
         }
       } catch (backendError) {
-        console.warn('Failed to sync with backend database:', backendError);
-        // Continue with IPFS data only - this is not a critical error
+        // Auth token fetch or other backend-related error - non-critical
+        console.warn('Backend sync skipped (non-critical):', backendError);
       }
       
       setUploadedFiles(filesWithIds);
@@ -861,17 +944,51 @@ export const useUserFileStorage = (userUid: string | null, getAuthToken?: () => 
   // Create a new folder
   const createFolder = async (folderName: string, parentId: string | null = null): Promise<boolean> => {
     try {
+      let folderId: string;
+      let folderTimestamp: number = Date.now();
+      
+      // First, create folder in backend database to ensure sync
+      // This fixes issue where folders created in UI don't sync with backend database
+      if (getAuthToken) {
+        try {
+          const authToken = await getAuthToken();
+          if (authToken) {
+            try {
+              const backendFolder = await BackendFolderAPI.create(folderName, authToken, parentId || undefined);
+              // Use backend-returned folder ID and timestamps
+              folderId = backendFolder.id;
+              folderTimestamp = new Date(backendFolder.created_at).getTime();
+            } catch (backendError) {
+              // If backend creation fails, log but continue with local creation
+              // This ensures folder creation still works even if backend is temporarily unavailable
+              console.warn('Backend folder creation failed (non-critical), using local ID:', backendError);
+              folderId = `folder_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            }
+          } else {
+            // No auth token - use local ID
+            folderId = `folder_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          }
+        } catch (authError) {
+          // Auth token fetch failed - use local ID
+          console.warn('Auth token fetch failed for folder creation, using local ID:', authError);
+          folderId = `folder_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        }
+      } else {
+        // No getAuthToken function provided - use local ID
+        folderId = `folder_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      }
+
       const newFolder: UploadedFile = {
-        id: `folder_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        id: folderId,
         name: folderName,
         ipfsUri: '',
         gatewayUrl: '',
-        timestamp: Date.now(),
+        timestamp: folderTimestamp,
         type: 'folder',
         isFolder: true,
         parentFolderId: parentId,
         isPinned: true, // Folders are always "pinned" (metadata only)
-        modifiedDate: Date.now()
+        modifiedDate: folderTimestamp
       };
 
       const updatedFiles = [newFolder, ...uploadedFiles];

@@ -267,9 +267,13 @@ if (!allowedOrigins.includes('http://localhost:3000')) {
 }
 allowedOrigins = [...new Set(allowedOrigins)];
 
-// CORS handled by nginx to avoid duplicate headers
-// Uncomment if accessing backend directly:
-// app.use(cors({ origin: allowedOrigins, credentials: true }));
+// CORS configuration
+// Enable CORS for local development (nginx handles it in production)
+const enableCors = process.env.NODE_ENV !== 'production' || !process.env.NGINX_CORS_ENABLED;
+if (enableCors) {
+  app.use(cors({ origin: allowedOrigins, credentials: true }));
+  console.log('✓ CORS enabled for origins:', allowedOrigins.join(', '));
+}
 
 // Raw body needed for webhook signature verification
 app.use('/api/payment/webhook', express.raw({ type: 'application/json' }));
@@ -495,13 +499,17 @@ app.get('/api/ipfs/list', verifyAuth, (req, res) => {
       ? 'SELECT * FROM files WHERE user_id = ? AND parent_folder_id = ? AND is_deleted = 0 ORDER BY created_at DESC'
       : 'SELECT * FROM files WHERE user_id = ? AND parent_folder_id IS NULL AND is_deleted = 0 ORDER BY created_at DESC';
     
-    const files = db.prepare(filesQuery).all(user.id, folderId).map(rowToObject);
+    const files = folderId
+      ? db.prepare(filesQuery).all(user.id, folderId).map(rowToObject)
+      : db.prepare(filesQuery).all(user.id).map(rowToObject);
 
     const foldersQuery = folderId
       ? 'SELECT * FROM folders WHERE user_id = ? AND parent_folder_id = ? AND is_deleted = 0 ORDER BY name ASC'
       : 'SELECT * FROM folders WHERE user_id = ? AND parent_folder_id IS NULL AND is_deleted = 0 ORDER BY name ASC';
     
-    const folders = db.prepare(foldersQuery).all(user.id, folderId).map(rowToObject);
+    const folders = folderId
+      ? db.prepare(foldersQuery).all(user.id, folderId).map(rowToObject)
+      : db.prepare(foldersQuery).all(user.id).map(rowToObject);
 
     res.json({ files, folders });
   } catch (error) {
@@ -588,7 +596,9 @@ app.get('/api/folders', verifyAuth, (req, res) => {
       ? 'SELECT * FROM folders WHERE user_id = ? AND parent_folder_id = ? AND is_deleted = 0 ORDER BY name ASC'
       : 'SELECT * FROM folders WHERE user_id = ? AND parent_folder_id IS NULL AND is_deleted = 0 ORDER BY name ASC';
 
-    const folders = db.prepare(query).all(user.id, parentFolderId).map(rowToObject);
+    const folders = parentFolderId
+      ? db.prepare(query).all(user.id, parentFolderId).map(rowToObject)
+      : db.prepare(query).all(user.id).map(rowToObject);
     res.json(folders);
   } catch (error) {
     console.error('List folders error:', error);
