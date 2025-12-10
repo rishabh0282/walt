@@ -762,12 +762,20 @@ export const useUserFileStorage = (userUid: string | null, getAuthToken?: () => 
     if (!userUid) return;
 
     try {
+      // Get auth token for API requests
+      const authToken = getAuthToken ? await getAuthToken() : null;
+      if (!authToken) {
+        console.warn('No auth token available, skipping version save');
+        return;
+      }
+
       // Save each version via API
       for (const version of versions) {
         await fetch(`/api/versions/${version.fileId}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`,
           },
           body: JSON.stringify({ version }),
         }).catch(err => {
