@@ -1,5 +1,4 @@
 import express from 'express';
-import cors from 'cors';
 import multer from 'multer';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
@@ -261,20 +260,7 @@ initializeSchema();
 const ipfsUrl = process.env.IPFS_API_URL || 'http://127.0.0.1:5001';
 const ipfs = create({ url: ipfsUrl });
 
-let allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',').map(o => o.trim()).filter(Boolean) || ['https://walt.aayushman.dev'];
-if (!allowedOrigins.includes('http://localhost:3000')) {
-  allowedOrigins.push('http://localhost:3000');
-}
-allowedOrigins = [...new Set(allowedOrigins)];
-
-// CORS configuration
-// Enable CORS for local development (nginx handles it in production)
-const enableCors = process.env.NODE_ENV !== 'production' || !process.env.NGINX_CORS_ENABLED;
-if (enableCors) {
-  app.use(cors({ origin: allowedOrigins, credentials: true }));
-  console.log('✓ CORS enabled for origins:', allowedOrigins.join(', '));
-}
-
+// CORS is handled by nginx in production
 // Raw body needed for webhook signature verification
 app.use('/api/payment/webhook', express.raw({ type: 'application/json' }));
 
