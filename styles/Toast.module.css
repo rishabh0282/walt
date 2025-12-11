@@ -56,10 +56,61 @@
   color: #4285f4;
 }
 
-.message {
+.content {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #202124;
+  margin-bottom: 2px;
+}
+
+.message {
   font-size: 14px;
   color: #202124;
+}
+
+.progressContainer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.progressBar {
+  flex: 1;
+  height: 6px;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: #4285f4;
+  transition: width 0.3s ease;
+  border-radius: 3px;
+}
+
+.toast.success .progressFill {
+  background: #34a853;
+}
+
+.toast.error .progressFill {
+  background: #ea4335;
+}
+
+.progressText {
+  font-size: 12px;
+  color: #5f6368;
+  font-weight: 500;
+  min-width: 35px;
+  text-align: right;
 }
 
 .close {
@@ -82,6 +133,36 @@
 .close:hover {
   background: #f1f3f4;
   color: #202124;
+}
+
+/* Dark mode support */
+.dark .toast {
+  background: #1a1a2e;
+}
+
+.dark .title {
+  color: #fff;
+}
+
+.dark .message {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.dark .progressBar {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.dark .progressText {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.dark .close {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.dark .close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
 }
 
 /* Mobile responsive */

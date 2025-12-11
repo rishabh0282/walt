@@ -1063,19 +1063,27 @@ export const useUserFileStorage = (userUid: string | null, getAuthToken?: () => 
 
   // Move to trash (soft delete)
   const moveToTrash = async (index: number): Promise<boolean> => {
-    const updatedFiles = [...uploadedFiles];
-    updatedFiles[index] = {
-      ...updatedFiles[index],
-      trashed: true,
-      trashedDate: Date.now(),
-      modifiedDate: Date.now()
-    };
-    setUploadedFiles(updatedFiles);
+    // Use functional update to always get the latest state
+    let updatedFiles: UploadedFile[] = [];
+    setUploadedFiles(prev => {
+      updatedFiles = [...prev];
+      if (index >= 0 && index < updatedFiles.length) {
+        updatedFiles[index] = {
+          ...updatedFiles[index],
+          trashed: true,
+          trashedDate: Date.now(),
+          modifiedDate: Date.now()
+        };
+      }
+      return updatedFiles;
+    });
     
     // Save in background - don't block on metadata save
-    saveUserFiles(updatedFiles).catch(err => {
-      console.error('Failed to save file list metadata:', err);
-    });
+    if (updatedFiles.length > 0) {
+      saveUserFiles(updatedFiles).catch(err => {
+        console.error('Failed to save file list metadata:', err);
+      });
+    }
     
     return true;
   };
@@ -1101,29 +1109,70 @@ export const useUserFileStorage = (userUid: string | null, getAuthToken?: () => 
 
   // Permanently delete
   const permanentlyDelete = async (index: number): Promise<boolean> => {
-    const file = uploadedFiles[index];
-    if (!file) return false;
+    // Get file from current state using functional update to ensure latest state
+    let file: UploadedFile | undefined;
+    let fileId: string | undefined;
+    
+    // Use functional update to get the latest state synchronously
+    setUploadedFiles(prev => {
+      if (index >= 0 && index < prev.length) {
+        file = prev[index];
+        fileId = file.id;
+      }
+      return prev; // Don't update yet, just get the file
+    });
+    
+    // React executes the callback synchronously, so file should be set
+    if (!file || !fileId) {
+      console.error('File not found at index:', index);
+      return false;
+    }
+    
+    // Store fileId in a const to ensure it doesn't change
+    const targetFileId = fileId;
+    const targetFile = file;
+
+    // Delete from backend database first
+    try {
+      const authToken = getAuthToken ? await getAuthToken() : null;
+      if (authToken) {
+        if (targetFile.isFolder) {
+          await BackendFolderAPI.delete(targetFileId, authToken);
+        } else {
+          await BackendFileAPI.delete(targetFileId, authToken);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to delete from backend:', error);
+      // Continue with local deletion even if backend delete fails
+    }
 
     // Unpin file before permanent deletion if it's pinned
-    if (file.isPinned && !file.isFolder) {
+    if (targetFile.isPinned && !targetFile.isFolder) {
       const pinningService = resolvePinningService(true);
       if (pinningService) {
         try {
           const authToken = getAuthToken ? await getAuthToken() : undefined;
-          await pinningService.unpinFile(file.ipfsUri, authToken || undefined);
+          await pinningService.unpinFile(targetFile.ipfsUri, authToken || undefined);
         } catch (error) {
           console.error('Failed to unpin file during permanent delete:', error);
         }
       }
     }
 
-    const updatedFiles = uploadedFiles.filter((_, i) => i !== index);
-    setUploadedFiles(updatedFiles);
+    // Now remove the file using functional update (find by ID to avoid index issues)
+    let updatedFiles: UploadedFile[] = [];
+    setUploadedFiles(prev => {
+      updatedFiles = prev.filter(f => f.id !== targetFileId);
+      return updatedFiles;
+    });
     
     // Save in background - don't block on metadata save
-    saveUserFiles(updatedFiles).catch(err => {
-      console.error('Failed to save file list metadata:', err);
-    });
+    if (updatedFiles.length > 0) {
+      saveUserFiles(updatedFiles).catch(err => {
+        console.error('Failed to save file list metadata:', err);
+      });
+    }
     
     return true;
   };

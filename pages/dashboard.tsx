@@ -41,6 +41,7 @@ import Toast from '../components/Toast';
 import ConfirmationModal from '../components/ConfirmationModal';
 import InputModal from '../components/InputModal';
 import PaymentModal from '../components/PaymentModal';
+import DuplicateFileModal from '../components/DuplicateFileModal';
 import { calculatePinningCost, getPinningServiceConfig, getPinningConfigFromEnv, DEFAULT_BILLING_CYCLE_DAYS } from '../lib/pinningService';
 import { getOptimizedGatewayUrl } from '../lib/gatewayOptimizer';
 import { getFileCache } from '../lib/fileCache';
@@ -143,6 +144,14 @@ const BILLING_WARNING_SNOOZE_MS = BILLING_WARNING_SNOOZE_DAYS * 24 * 60 * 60 * 1
 const Dashboard: NextPage = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadQueue, setUploadQueue] = useState<UploadProgress[]>([]);
+  const uploadCompleteTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [bulkOperationQueue, setBulkOperationQueue] = useState<UploadProgress[]>([]);
+  const bulkOperationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [permanentDeleteQueue, setPermanentDeleteQueue] = useState<UploadProgress[]>([]);
+  const permanentDeleteTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const uploadedFilesRef = useRef<UploadedFile[]>([]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const isFileInputProcessingRef = useRef<boolean>(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchTerm, setSearchTerm] = useState('');
   const [searchSuggestions, setSearchSuggestions] = useState<string[]>([]);
@@ -157,6 +166,7 @@ const Dashboard: NextPage = () => {
   const [previewModalFile, setPreviewModalFile] = useState<UploadedFile | null>(null);
   const [detailsPanelFile, setDetailsPanelFile] = useState<UploadedFile | null>(null);
   const [showStorageCleanup, setShowStorageCleanup] = useState(false);
+  const [cleanupMode, setCleanupMode] = useState(false);
   const [tagManagerFile, setTagManagerFile] = useState<UploadedFile | null>(null);
   const [hoverPreviewFile, setHoverPreviewFile] = useState<UploadedFile | null>(null);
   const [hoverPreviewPosition, setHoverPreviewPosition] = useState({ x: 0, y: 0 });
@@ -166,6 +176,7 @@ const Dashboard: NextPage = () => {
   const [showGatewaySettings, setShowGatewaySettings] = useState(false);
   const [showTwoFactorSetup, setShowTwoFactorSetup] = useState(false);
   const [versionHistoryFile, setVersionHistoryFile] = useState<UploadedFile | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
   const [visibleColumns, setVisibleColumns] = useState({
     name: true,
     size: true,
@@ -185,7 +196,7 @@ const Dashboard: NextPage = () => {
     dateFrom: '' as string,
     dateTo: '' as string,
   });
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info'; title?: string; progress?: number } | null>(null);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [isDragging, setIsDragging] = useState(false);
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
@@ -221,6 +232,25 @@ const Dashboard: NextPage = () => {
   const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showBillingWarning, setShowBillingWarning] = useState(false);
+  const [duplicateFileModal, setDuplicateFileModal] = useState<{
+    isOpen: boolean;
+    fileName: string;
+    newFile: UploadedFile | null;
+    existingFileIndex: number | null;
+    onResolve: (action: 'replace' | 'keepBoth' | 'cancel') => void;
+    hasMultipleDuplicates?: boolean;
+    remainingCount?: number;
+    onYesToAll?: (action: 'replace' | 'keepBoth') => void;
+    onNoToAll?: () => void;
+  }>({
+    isOpen: false,
+    fileName: '',
+    newFile: null,
+    existingFileIndex: null,
+    onResolve: () => {},
+    hasMultipleDuplicates: false,
+    remainingCount: 0
+  });
   const [suppressUnpinWarnings, setSuppressUnpinWarnings] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('suppressUnpinWarnings') === 'true';
@@ -230,8 +260,8 @@ const Dashboard: NextPage = () => {
   const router = useRouter();
   const { user, loading, logout } = useAuth();
 
-  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
-    setToast({ message, type });
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success', title?: string, progress?: number) => {
+    setToast({ message, type, title, progress });
   };
 
   const getBillingWarningStorageKey = () => {
@@ -322,6 +352,19 @@ const Dashboard: NextPage = () => {
     }
     return null;
   });
+
+  // Keep ref in sync with uploadedFiles state (must be after useUserFileStorage hook)
+  useEffect(() => {
+    uploadedFilesRef.current = uploadedFiles;
+  }, [uploadedFiles]);
+
+  // Deactivate cleanup mode when switching views/tabs
+  useEffect(() => {
+    if (cleanupMode) {
+      setCleanupMode(false);
+      setSelectedFiles(new Set());
+    }
+  }, [activeView]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load column preferences from localStorage
   useEffect(() => {
@@ -434,6 +477,106 @@ const Dashboard: NextPage = () => {
     }
   }, [user, loadBillingStatus]);
 
+  // Auto-hide upload panel after completion
+  useEffect(() => {
+    if (uploadQueue.length === 0) {
+      return;
+    }
+
+    const allComplete = uploadQueue.every(item => item.status === 'complete' || item.status === 'error');
+    
+    if (allComplete) {
+      // Clear any existing timeout
+      if (uploadCompleteTimeoutRef.current) {
+        clearTimeout(uploadCompleteTimeoutRef.current);
+      }
+      
+      // Auto-hide after 5 seconds
+      uploadCompleteTimeoutRef.current = setTimeout(() => {
+        setUploadQueue([]);
+      }, 5000);
+    } else {
+      // Clear timeout if uploads are still in progress
+      if (uploadCompleteTimeoutRef.current) {
+        clearTimeout(uploadCompleteTimeoutRef.current);
+        uploadCompleteTimeoutRef.current = null;
+      }
+    }
+
+    return () => {
+      if (uploadCompleteTimeoutRef.current) {
+        clearTimeout(uploadCompleteTimeoutRef.current);
+      }
+    };
+  }, [uploadQueue]);
+
+  // Auto-hide bulk operation panel after completion
+  useEffect(() => {
+    if (bulkOperationQueue.length === 0) {
+      return;
+    }
+
+    const allComplete = bulkOperationQueue.every(item => item.status === 'complete' || item.status === 'error');
+    
+    if (allComplete) {
+      // Clear any existing timeout
+      if (bulkOperationTimeoutRef.current) {
+        clearTimeout(bulkOperationTimeoutRef.current);
+      }
+      
+      // Auto-hide after 5 seconds
+      bulkOperationTimeoutRef.current = setTimeout(() => {
+        setBulkOperationQueue([]);
+      }, 5000);
+    } else {
+      // Clear timeout if operations are still in progress
+      if (bulkOperationTimeoutRef.current) {
+        clearTimeout(bulkOperationTimeoutRef.current);
+        bulkOperationTimeoutRef.current = null;
+      }
+    }
+
+    return () => {
+      if (bulkOperationTimeoutRef.current) {
+        clearTimeout(bulkOperationTimeoutRef.current);
+      }
+    };
+  }, [bulkOperationQueue]);
+
+  // Auto-hide permanent delete panel after completion
+  useEffect(() => {
+    if (permanentDeleteQueue.length === 0) {
+      return;
+    }
+
+    const allComplete = permanentDeleteQueue.every(item => item.status === 'complete' || item.status === 'error');
+    
+    if (allComplete) {
+      // Clear any existing timeout
+      if (permanentDeleteTimeoutRef.current) {
+        clearTimeout(permanentDeleteTimeoutRef.current);
+      }
+      
+      // Auto-hide after 5 seconds
+      permanentDeleteTimeoutRef.current = setTimeout(() => {
+        setPermanentDeleteQueue([]);
+        permanentDeleteTimeoutRef.current = null;
+      }, 5000);
+    } else {
+      // Clear timeout if not all complete
+      if (permanentDeleteTimeoutRef.current) {
+        clearTimeout(permanentDeleteTimeoutRef.current);
+        permanentDeleteTimeoutRef.current = null;
+      }
+    }
+
+    return () => {
+      if (permanentDeleteTimeoutRef.current) {
+        clearTimeout(permanentDeleteTimeoutRef.current);
+      }
+    };
+  }, [permanentDeleteQueue]);
+
   const checkBillingAccess = async (): Promise<boolean> => {
     const access = await checkAccess();
     if (!access) {
@@ -507,7 +650,7 @@ const Dashboard: NextPage = () => {
         setSavedSearches(updated);
         localStorage.setItem(`saved_searches_${user.uid}`, JSON.stringify(updated));
         setInputModal({ ...inputModal, isOpen: false });
-        showToast('✅ Search saved successfully', 'success');
+        showToast('Search saved successfully', 'success');
       }
     });
   };
@@ -526,7 +669,7 @@ const Dashboard: NextPage = () => {
     const updated = savedSearches.filter(s => s.name !== name);
     setSavedSearches(updated);
     localStorage.setItem(`saved_searches_${user.uid}`, JSON.stringify(updated));
-    showToast('✅ Search deleted', 'success');
+    showToast('Search deleted', 'success');
   };
 
   // Auto-cleanup trash on mount and when entering trash view
@@ -783,10 +926,151 @@ const Dashboard: NextPage = () => {
       return;
     }
 
+    // Check for duplicates BEFORE uploading
+    const filesToUpload: File[] = [];
+    const filesToProcess: { file: File; duplicateFileId: string; duplicateFile: UploadedFile }[] = [];
+
+    for (const file of acceptedFiles) {
+      // Check for duplicates by name in the same folder (primary check)
+      // Size check is secondary - if both have sizes and they match, it's more confident
+      const existingFile = uploadedFiles.find(f => 
+        !f.isFolder &&
+        !f.trashed &&
+        f.parentFolderId === folderId &&
+        f.name.toLowerCase() === file.name.toLowerCase()
+      );
+
+      if (existingFile) {
+        // Found a duplicate - will show modal
+        filesToProcess.push({ 
+          file, 
+          duplicateFileId: existingFile.id,
+          duplicateFile: existingFile
+        });
+      } else {
+        // No duplicate, add to upload queue
+        filesToUpload.push(file);
+      }
+    }
+
+    // Process duplicates one at a time BEFORE uploading
+    let batchAction: 'replace' | 'keepBoth' | null = null;
+    let applyToAll = false;
+    
+    for (let i = 0; i < filesToProcess.length; i++) {
+      const { file, duplicateFileId, duplicateFile } = filesToProcess[i];
+      const remainingCount = filesToProcess.length - i - 1;
+      const hasMultiple = filesToProcess.length > 1;
+      
+      // If "Yes to All" was selected, apply the batch action to all remaining files
+      if (applyToAll && batchAction) {
+        if (batchAction === 'replace') {
+          const currentFiles = uploadedFilesRef.current;
+          const fileIndex = currentFiles.findIndex(f => f.id === duplicateFileId);
+          if (fileIndex !== -1) {
+            await removeFile(fileIndex);
+          }
+          filesToUpload.push(file);
+        } else {
+          const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
+          const ext = file.name.includes('.') ? '.' + file.name.split('.').pop() : '';
+          let newName = `${nameWithoutExt} (1)${ext}`;
+          let counter = 1;
+          const currentFiles = uploadedFilesRef.current;
+          while (currentFiles.some(f => !f.isFolder && !f.trashed && f.name === newName && f.parentFolderId === folderId)) {
+            counter++;
+            newName = `${nameWithoutExt} (${counter})${ext}`;
+          }
+          const renamedFile = new File([file], newName, { type: file.type });
+          filesToUpload.push(renamedFile);
+        }
+        continue;
+      }
+      
+      await new Promise<void>((resolve) => {
+        let resolved = false;
+        const handleResolve = async (action: 'replace' | 'keepBoth' | 'cancel') => {
+          if (resolved) return;
+          resolved = true;
+          
+          try {
+            if (action === 'cancel') {
+              setDuplicateFileModal({ isOpen: false, fileName: '', newFile: null, existingFileIndex: null, onResolve: () => {}, hasMultipleDuplicates: false, remainingCount: 0 });
+              resolve();
+              return;
+            }
+            
+            if (action === 'replace') {
+              const currentFiles = uploadedFilesRef.current;
+              const fileIndex = currentFiles.findIndex(f => f.id === duplicateFileId);
+              if (fileIndex !== -1) {
+                await removeFile(fileIndex);
+              }
+              filesToUpload.push(file);
+            } else {
+              const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
+              const ext = file.name.includes('.') ? '.' + file.name.split('.').pop() : '';
+              let newName = `${nameWithoutExt} (1)${ext}`;
+              let counter = 1;
+              const currentFiles = uploadedFilesRef.current;
+              while (currentFiles.some(f => !f.isFolder && !f.trashed && f.name === newName && f.parentFolderId === folderId)) {
+                counter++;
+                newName = `${nameWithoutExt} (${counter})${ext}`;
+              }
+              const renamedFile = new File([file], newName, { type: file.type });
+              filesToUpload.push(renamedFile);
+            }
+          } finally {
+            setDuplicateFileModal({ isOpen: false, fileName: '', newFile: null, existingFileIndex: null, onResolve: () => {}, hasMultipleDuplicates: false, remainingCount: 0 });
+            resolve();
+          }
+        };
+        
+        const handleYesToAll = (action: 'replace' | 'keepBoth') => {
+          if (resolved) return;
+          resolved = true;
+          batchAction = action; // Use the selected option
+          applyToAll = true;
+          // Apply to current file with the selected action
+          handleResolve(action).then(() => {
+            setDuplicateFileModal({ isOpen: false, fileName: '', newFile: null, existingFileIndex: null, onResolve: () => {}, hasMultipleDuplicates: false, remainingCount: 0 });
+            resolve();
+          });
+        };
+        
+        const handleNoToAll = () => {
+          if (resolved) return;
+          resolved = true;
+          applyToAll = true;
+          batchAction = null; // Skip all
+          setDuplicateFileModal({ isOpen: false, fileName: '', newFile: null, existingFileIndex: null, onResolve: () => {}, hasMultipleDuplicates: false, remainingCount: 0 });
+          resolve();
+        };
+        
+        setDuplicateFileModal({
+          isOpen: true,
+          fileName: file.name,
+          newFile: null,
+          existingFileIndex: uploadedFiles.findIndex(f => f.id === duplicateFileId),
+          onResolve: handleResolve,
+          hasMultipleDuplicates: hasMultiple,
+          remainingCount: remainingCount,
+          onYesToAll: hasMultiple ? handleYesToAll : undefined,
+          onNoToAll: hasMultiple ? handleNoToAll : undefined
+        });
+      });
+    }
+
+    // If no files to upload after processing duplicates, return
+    if (filesToUpload.length === 0) {
+      setIsUploading(false);
+      return;
+    }
+
     setIsUploading(true);
     
-    // Initialize upload queue
-    const initialQueue: UploadProgress[] = acceptedFiles.map(file => ({
+    // Initialize upload queue only for files that will be uploaded
+    const initialQueue: UploadProgress[] = filesToUpload.map(file => ({
       name: file.name,
       progress: 0,
       status: 'uploading' as const
@@ -807,7 +1091,7 @@ const Dashboard: NextPage = () => {
       }, 300);
       
       // Upload files to backend
-      const uploadPromises = acceptedFiles.map(file => 
+      const uploadPromises = filesToUpload.map(file => 
         BackendFileAPI.upload(file, token, {
           parentFolderId: folderId,
           isPinned: autoPinEnabled
@@ -840,24 +1124,7 @@ const Dashboard: NextPage = () => {
         modifiedDate: Date.now()
       }));
 
-      // Check for duplicates before adding
-      const duplicateWarnings: string[] = [];
-      newFiles.forEach(file => {
-        const duplicates = checkDuplicates(file, folderId);
-        if (duplicates.length > 0) {
-          const dup = duplicates[0];
-          if (dup.confidence === 'high') {
-            duplicateWarnings.push(`"${file.name}" already exists (same content)`);
-          } else if (dup.confidence === 'medium') {
-            duplicateWarnings.push(`"${file.name}" may be a duplicate (same name, size, type)`);
-          }
-        }
-      });
-
-      if (duplicateWarnings.length > 0) {
-        showToast(`Possible duplicates detected: ${duplicateWarnings.slice(0, 2).join(', ')}${duplicateWarnings.length > 2 ? '...' : ''}`, 'info');
-      }
-
+      // Add all files (duplicates already handled)
       await addFiles(newFiles, folderId);
       
       // Clear queue after 2 seconds
@@ -888,10 +1155,156 @@ const Dashboard: NextPage = () => {
       return;
     }
 
+    // Check for duplicates BEFORE uploading
+    const filesToUpload: File[] = [];
+    const filesToProcess: { file: File; duplicateFileId: string; duplicateFile: UploadedFile }[] = [];
+
+    for (const file of acceptedFiles) {
+      // Check for duplicates by name in the same folder (primary check)
+      // Size check is secondary - if both have sizes and they match, it's more confident
+      const existingFile = uploadedFiles.find(f => 
+        !f.isFolder &&
+        !f.trashed &&
+        f.parentFolderId === currentFolderId &&
+        f.name.toLowerCase() === file.name.toLowerCase()
+      );
+
+      if (existingFile) {
+        // Found a duplicate - will show modal
+        filesToProcess.push({ 
+          file, 
+          duplicateFileId: existingFile.id,
+          duplicateFile: existingFile
+        });
+      } else {
+        // No duplicate, add to upload queue
+        filesToUpload.push(file);
+      }
+    }
+
+    // Process duplicates one at a time BEFORE uploading
+    let batchAction: 'replace' | 'keepBoth' | null = null;
+    let applyToAll = false;
+    
+    for (let i = 0; i < filesToProcess.length; i++) {
+      const { file, duplicateFileId, duplicateFile } = filesToProcess[i];
+      const remainingCount = filesToProcess.length - i - 1;
+      const hasMultiple = filesToProcess.length > 1;
+      
+      // If "Yes to All" was selected, apply the batch action to all remaining files
+      if (applyToAll && batchAction) {
+        if (batchAction === 'replace') {
+          const currentFiles = uploadedFilesRef.current;
+          const fileIndex = currentFiles.findIndex(f => f.id === duplicateFileId);
+          if (fileIndex !== -1) {
+            await removeFile(fileIndex);
+          }
+          filesToUpload.push(file);
+        } else {
+          const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
+          const ext = file.name.includes('.') ? '.' + file.name.split('.').pop() : '';
+          let newName = `${nameWithoutExt} (1)${ext}`;
+          let counter = 1;
+          const currentFiles = uploadedFilesRef.current;
+          while (currentFiles.some(f => !f.isFolder && !f.trashed && f.name === newName && f.parentFolderId === currentFolderId)) {
+            counter++;
+            newName = `${nameWithoutExt} (${counter})${ext}`;
+          }
+          const renamedFile = new File([file], newName, { type: file.type });
+          filesToUpload.push(renamedFile);
+        }
+        continue;
+      }
+      
+      // If "No to All" was selected, skip all remaining files
+      if (applyToAll && !batchAction) {
+        continue;
+      }
+      
+      await new Promise<void>((resolve) => {
+        let resolved = false;
+        const handleResolve = async (action: 'replace' | 'keepBoth' | 'cancel') => {
+          if (resolved) return;
+          resolved = true;
+          
+          try {
+            if (action === 'cancel') {
+              setDuplicateFileModal({ isOpen: false, fileName: '', newFile: null, existingFileIndex: null, onResolve: () => {}, hasMultipleDuplicates: false, remainingCount: 0 });
+              resolve();
+              return;
+            }
+            
+            if (action === 'replace') {
+              const currentFiles = uploadedFilesRef.current;
+              const fileIndex = currentFiles.findIndex(f => f.id === duplicateFileId);
+              if (fileIndex !== -1) {
+                await removeFile(fileIndex);
+              }
+              filesToUpload.push(file);
+            } else {
+              const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
+              const ext = file.name.includes('.') ? '.' + file.name.split('.').pop() : '';
+              let newName = `${nameWithoutExt} (1)${ext}`;
+              let counter = 1;
+              const currentFiles = uploadedFilesRef.current;
+              while (currentFiles.some(f => !f.isFolder && !f.trashed && f.name === newName && f.parentFolderId === currentFolderId)) {
+                counter++;
+                newName = `${nameWithoutExt} (${counter})${ext}`;
+              }
+              const renamedFile = new File([file], newName, { type: file.type });
+              filesToUpload.push(renamedFile);
+            }
+          } finally {
+            setDuplicateFileModal({ isOpen: false, fileName: '', newFile: null, existingFileIndex: null, onResolve: () => {}, hasMultipleDuplicates: false, remainingCount: 0 });
+            resolve();
+          }
+        };
+        
+        const handleYesToAll = (action: 'replace' | 'keepBoth') => {
+          if (resolved) return;
+          resolved = true;
+          batchAction = action; // Use the selected option
+          applyToAll = true;
+          // Apply to current file with the selected action
+          handleResolve(action).then(() => {
+            setDuplicateFileModal({ isOpen: false, fileName: '', newFile: null, existingFileIndex: null, onResolve: () => {}, hasMultipleDuplicates: false, remainingCount: 0 });
+            resolve();
+          });
+        };
+        
+        const handleNoToAll = () => {
+          if (resolved) return;
+          resolved = true;
+          applyToAll = true;
+          batchAction = null; // Skip all
+          setDuplicateFileModal({ isOpen: false, fileName: '', newFile: null, existingFileIndex: null, onResolve: () => {}, hasMultipleDuplicates: false, remainingCount: 0 });
+          resolve();
+        };
+        
+        setDuplicateFileModal({
+          isOpen: true,
+          fileName: file.name,
+          newFile: null,
+          existingFileIndex: uploadedFiles.findIndex(f => f.id === duplicateFileId),
+          onResolve: handleResolve,
+          hasMultipleDuplicates: hasMultiple,
+          remainingCount: remainingCount,
+          onYesToAll: hasMultiple ? handleYesToAll : undefined,
+          onNoToAll: hasMultiple ? handleNoToAll : undefined
+        });
+      });
+    }
+
+    // If no files to upload after processing duplicates, return
+    if (filesToUpload.length === 0) {
+      setIsUploading(false);
+      return;
+    }
+
     setIsUploading(true);
     
-    // Initialize upload queue
-    const initialQueue: UploadProgress[] = acceptedFiles.map(file => ({
+    // Initialize upload queue only for files that will be uploaded
+    const initialQueue: UploadProgress[] = filesToUpload.map(file => ({
       name: file.name,
       progress: 0,
       status: 'uploading' as const
@@ -912,7 +1325,7 @@ const Dashboard: NextPage = () => {
       }, 300);
       
       // Upload files to backend
-      const uploadPromises = acceptedFiles.map(file => 
+      const uploadPromises = filesToUpload.map(file => 
         BackendFileAPI.upload(file, token, {
           parentFolderId: currentFolderId || undefined,
           isPinned: autoPinEnabled
@@ -945,24 +1358,7 @@ const Dashboard: NextPage = () => {
         modifiedDate: Date.now()
       }));
 
-      // Check for duplicates before adding
-      const duplicateWarnings: string[] = [];
-      newFiles.forEach(file => {
-        const duplicates = checkDuplicates(file, currentFolderId);
-        if (duplicates.length > 0) {
-          const dup = duplicates[0];
-          if (dup.confidence === 'high') {
-            duplicateWarnings.push(`"${file.name}" already exists (same content)`);
-          } else if (dup.confidence === 'medium') {
-            duplicateWarnings.push(`"${file.name}" may be a duplicate (same name, size, type)`);
-          }
-        }
-      });
-
-      if (duplicateWarnings.length > 0) {
-        showToast(`Possible duplicates detected: ${duplicateWarnings.slice(0, 2).join(', ')}${duplicateWarnings.length > 2 ? '...' : ''}`, 'info');
-      }
-
+      // Add all files (duplicates already handled)
       await addFiles(newFiles, currentFolderId);
       
       // Clear queue after 2 seconds
@@ -992,6 +1388,7 @@ const Dashboard: NextPage = () => {
   };
 
   const deleteFile = async (index: number) => {
+    const file = uploadedFiles[index];
     setConfirmationModal({
       isOpen: true,
       title: 'Remove File',
@@ -1000,6 +1397,7 @@ const Dashboard: NextPage = () => {
       cancelText: 'Cancel',
       onConfirm: async () => {
         await removeFile(index);
+        showToast(`Removed "${file?.name || 'file'}"`, 'success');
         setConfirmationModal({ ...confirmationModal, isOpen: false });
       },
       type: 'warning'
@@ -1039,7 +1437,17 @@ const Dashboard: NextPage = () => {
 
   const shouldShowBillingCTA = () => {
     if (!billingStatus) return false;
-    return !billingStatus.paymentInfoReceived && isTodayBillingDay(billingStatus.billingDay);
+    
+    // Only show Pay Now button if:
+    // 1. User exceeds the free tier limit
+    // 2. There's an actual amount to pay
+    // 3. Payment info hasn't been received yet
+    // 4. It's billing day OR services are blocked
+    const hasAmountToPay = billingStatus.chargeAmountINR > 0 || billingStatus.exceedsLimit;
+    const needsPayment = !billingStatus.paymentInfoReceived && hasAmountToPay;
+    const isBillingDay = isTodayBillingDay(billingStatus.billingDay);
+    
+    return needsPayment && (isBillingDay || billingStatus.servicesBlocked);
   };
 
   const formatDate = (isoDate?: string) => {
@@ -1102,6 +1510,10 @@ const Dashboard: NextPage = () => {
         return getTrashedItems();
       case 'drive':
       default:
+        // If filtering by file type (not 'all'), show files from all folders
+        if (filters.fileType !== 'all') {
+          return uploadedFiles.filter(f => !f.trashed);
+        }
         return getCurrentFolderItems();
     }
   };
@@ -1121,7 +1533,7 @@ const Dashboard: NextPage = () => {
       if (filters.fileType === 'image' && !file.type.startsWith('image/')) return false;
       if (filters.fileType === 'video' && !file.type.startsWith('video/')) return false;
       if (filters.fileType === 'audio' && !file.type.startsWith('audio/')) return false;
-      if (filters.fileType === 'document' && !file.type.includes('pdf') && !file.type.includes('document') && !file.type.includes('text')) return false;
+      if (filters.fileType === 'document' && !file.type.includes('pdf') && !file.type.includes('document') && !file.type.includes('text') && !file.type.includes('spreadsheet') && !file.type.includes('excel') && !file.type.includes('sheet')) return false;
       if (filters.fileType === 'other' && (file.isFolder || file.type.startsWith('image/') || file.type.startsWith('video/') || file.type.startsWith('audio/'))) return false;
     }
     
@@ -1232,6 +1644,29 @@ const Dashboard: NextPage = () => {
   const storageStats = getStorageStats();
 
   // Handler functions
+  const handleFileUploadClick = (e?: React.MouseEvent) => {
+    // Prevent event propagation
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    
+    // Prevent multiple clicks
+    if (isFileInputProcessingRef.current) {
+      return;
+    }
+    
+    // Trigger file input click
+    if (fileInputRef.current) {
+      // Use setTimeout to ensure the click happens after any dropdown menu closes
+      setTimeout(() => {
+        if (fileInputRef.current && !isFileInputProcessingRef.current) {
+          fileInputRef.current.click();
+        }
+      }, 0);
+    }
+  };
+
   const handleCreateFolder = async () => {
     setInputModal({
       isOpen: true,
@@ -1341,7 +1776,7 @@ const Dashboard: NextPage = () => {
         }),
       });
 
-      showToast(`✅ Restored to version ${version.version}`, 'success');
+      showToast(`Restored to version ${version.version}`, 'success');
       setVersionHistoryFile(null);
     } catch (error: any) {
       const appError = ErrorHandler.createAppError(error);
@@ -1367,7 +1802,7 @@ const Dashboard: NextPage = () => {
         
         const success = await renameItem(index, newName);
         if (success) {
-          showToast('✅ Renamed successfully', 'success');
+          showToast('Renamed successfully', 'success');
         } else {
           const appError = ErrorHandler.createAppError(new Error('Failed to rename'));
           showToast(appError.userMessage, 'error');
@@ -1406,6 +1841,7 @@ const Dashboard: NextPage = () => {
         cancelText: 'Cancel',
         onConfirm: async () => {
           await permanentlyDelete(index);
+          showToast(`Permanently deleted "${file.name}"`, 'success');
           setConfirmationModal({ ...confirmationModal, isOpen: false });
         },
         type: 'danger'
@@ -1420,6 +1856,7 @@ const Dashboard: NextPage = () => {
         cancelText: 'Cancel',
         onConfirm: async () => {
           await moveToTrash(index);
+          showToast(`Moved "${file.name}" to trash`, 'success');
           setConfirmationModal({ ...confirmationModal, isOpen: false });
         },
         type: 'warning'
@@ -1433,7 +1870,7 @@ const Dashboard: NextPage = () => {
     
     const success = await restoreFromTrash(index);
     if (success) {
-      showToast('✅ Restored successfully', 'success');
+      showToast('Restored successfully', 'success');
     }
   };
 
@@ -1478,6 +1915,468 @@ const Dashboard: NextPage = () => {
     }
   };
 
+  // Selection handlers
+  const toggleFileSelection = (fileId: string) => {
+    setSelectedFiles(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(fileId)) {
+        newSet.delete(fileId);
+      } else {
+        newSet.add(fileId);
+      }
+      return newSet;
+    });
+  };
+
+  const selectAllFiles = () => {
+    setSelectedFiles(new Set(filteredFiles.map(f => f.id)));
+  };
+
+  const deselectAllFiles = () => {
+    setSelectedFiles(new Set());
+  };
+
+  // Bulk download
+  const handleBulkDownload = async () => {
+    if (selectedFiles.size === 0) return;
+    
+    const filesToDownload = filteredFiles.filter(f => selectedFiles.has(f.id) && !f.isFolder);
+    if (filesToDownload.length === 0) {
+      showToast('Please select files to download', 'error');
+      return;
+    }
+
+    // Temporary limitation: Only allow up to 2 files until ZIP feature is implemented
+    if (filesToDownload.length > 2) {
+      showToast('Download is currently limited to 2 files at a time. ZIP download feature coming soon!', 'info');
+      return;
+    }
+
+    const downloadCount = filesToDownload.length;
+    showToast(`Downloading ${downloadCount} file${downloadCount !== 1 ? 's' : ''}...`, 'info');
+
+    try {
+      // Process downloads sequentially to avoid browser blocking
+      let successCount = 0;
+      let failCount = 0;
+      
+      for (const file of filesToDownload) {
+        try {
+          await handleDownload(file);
+          successCount++;
+          // Small delay between downloads to avoid browser blocking
+          await new Promise(resolve => setTimeout(resolve, 200));
+        } catch (error) {
+          console.error(`Failed to download ${file.name}:`, error);
+          failCount++;
+        }
+      }
+      
+      if (failCount === 0) {
+        showToast(`Downloaded ${successCount} file${successCount !== 1 ? 's' : ''}`, 'success');
+      } else {
+        showToast(`Downloaded ${successCount} file${successCount !== 1 ? 's' : ''}, ${failCount} failed`, 'error');
+      }
+      setSelectedFiles(new Set());
+    } catch (error) {
+      console.error('Bulk download error:', error);
+      showToast('Some downloads failed', 'error');
+      setSelectedFiles(new Set());
+    }
+  };
+
+  // Bulk restore from trash
+  const handleBulkRestore = async () => {
+    if (selectedFiles.size === 0) return;
+    
+    const filesToRestore = filteredFiles.filter(f => selectedFiles.has(f.id) && !f.isFolder);
+    if (filesToRestore.length === 0) {
+      showToast('Please select files to restore', 'error');
+      return;
+    }
+
+    try {
+      let processed = 0;
+      for (const file of filesToRestore) {
+        const index = uploadedFiles.findIndex(f => f.id === file.id);
+        if (index !== -1) {
+          await restoreFromTrash(index);
+          processed++;
+        }
+      }
+      showToast(`Restored ${processed} file${processed !== 1 ? 's' : ''}`, 'success');
+      setSelectedFiles(new Set());
+    } catch (error) {
+      console.error('Bulk restore error:', error);
+      showToast('Failed to restore some files', 'error');
+      setSelectedFiles(new Set());
+    }
+  };
+
+  // Bulk permanently delete
+  const handleBulkPermanentlyDelete = async () => {
+    if (selectedFiles.size === 0) return;
+    
+    const filesToDelete = filteredFiles.filter(f => selectedFiles.has(f.id) && !f.isFolder);
+    if (filesToDelete.length === 0) {
+      showToast('Please select files to delete', 'error');
+      return;
+    }
+
+    setConfirmationModal({
+      isOpen: true,
+      title: 'Permanently Delete',
+      message: `Permanently delete ${filesToDelete.length} file${filesToDelete.length !== 1 ? 's' : ''}?\n\nThis action cannot be undone!`,
+      confirmText: 'Delete Forever',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        // Close modal immediately - progress will be shown in the progress tracker
+        setConfirmationModal({ ...confirmationModal, isOpen: false });
+        
+        try {
+          // Store file IDs to avoid index shifting issues
+          const fileIdsToDelete = Array.from(new Set(filesToDelete.map(f => f.id)));
+          const fileMap = new Map(filesToDelete.map(f => [f.id, f]));
+          
+          // Initialize progress queue
+          const initialQueue: UploadProgress[] = filesToDelete.map(file => ({
+            name: file.name,
+            progress: 0,
+            status: 'uploading' as const
+          }));
+          setPermanentDeleteQueue(initialQueue);
+          
+          // Process files using the same pattern as move to trash
+          let processed = 0;
+          const totalFiles = fileIdsToDelete.length;
+          
+          // Update progress as we process
+          const updateProgress = (fileId: string, progress: number, status: 'uploading' | 'complete' | 'error') => {
+            const file = fileMap.get(fileId);
+            if (file) {
+              setPermanentDeleteQueue(prev => prev.map(item => 
+                item.name === file.name 
+                  ? { ...item, progress, status }
+                  : item
+              ));
+            }
+          };
+          
+          // Process files one at a time, but use file IDs to find them fresh each time
+          for (const fileId of fileIdsToDelete) {
+            try {
+              // Find the file index fresh each time (state might have updated)
+              let found = false;
+              let attempts = 0;
+              
+              while (!found && attempts < 15) {
+                // Use ref to get the latest state (always fresh)
+                const currentFiles = uploadedFilesRef.current;
+                const currentIndex = currentFiles.findIndex(f => f.id === fileId);
+                
+                if (currentIndex !== -1) {
+                  // Found the file, delete it
+                  await permanentlyDelete(currentIndex);
+                  
+                  // Wait for React state to update (functional update should make this faster)
+                  await new Promise(resolve => setTimeout(resolve, 200));
+                  
+                  // Verify it was actually deleted by checking the ref again
+                  const verifyFiles = uploadedFilesRef.current;
+                  const fileStillExists = verifyFiles.find(f => f.id === fileId);
+                  
+                  if (!fileStillExists) {
+                    found = true; // Successfully deleted
+                  } else {
+                    // State hasn't updated yet, wait more and retry
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    attempts++;
+                  }
+                } else {
+                  // File not found - might already be deleted
+                  found = true; // Consider it processed
+                }
+              }
+              
+              if (found) {
+                updateProgress(fileId, 100, 'complete');
+                processed++;
+                
+                // Update overall progress
+                const progressPercent = Math.round((processed / totalFiles) * 100);
+                setPermanentDeleteQueue(prev => prev.map(item => 
+                  item.status === 'uploading' && item.progress < progressPercent
+                    ? { ...item, progress: Math.min(progressPercent, 95) }
+                    : item
+                ));
+              } else {
+                updateProgress(fileId, 0, 'error');
+              }
+            } catch (error) {
+              console.error(`Failed to delete file ${fileId}:`, error);
+              updateProgress(fileId, 0, 'error');
+            }
+          }
+          
+          // Mark all remaining as complete
+          setPermanentDeleteQueue(prev => prev.map(item => 
+            item.status === 'uploading' 
+              ? { ...item, progress: 100, status: 'complete' as const }
+              : item
+          ));
+          
+          setSelectedFiles(new Set());
+        } catch (error) {
+          console.error('Bulk permanently delete error:', error);
+          showToast('Failed to delete some files', 'error');
+        }
+      },
+      type: 'danger'
+    });
+  };
+
+  // Empty trash - delete all files in trash
+  const handleEmptyTrash = () => {
+    const trashedFiles = getTrashedItems();
+    if (trashedFiles.length === 0) {
+      showToast('Trash is already empty', 'info');
+      return;
+    }
+
+    setConfirmationModal({
+      isOpen: true,
+      title: 'Empty Trash',
+      message: `Permanently delete all ${trashedFiles.length} item${trashedFiles.length !== 1 ? 's' : ''} in trash?\n\nThis action cannot be undone!`,
+      confirmText: 'Empty Trash',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        // Close modal immediately - progress will be shown in the progress tracker
+        setConfirmationModal({ ...confirmationModal, isOpen: false });
+        
+        try {
+          // Store file IDs to avoid index shifting issues
+          const fileIdsToDelete = Array.from(new Set(trashedFiles.map(f => f.id)));
+          const fileMap = new Map(trashedFiles.map(f => [f.id, f]));
+          
+          // Initialize progress queue
+          const initialQueue: UploadProgress[] = trashedFiles.map(file => ({
+            name: file.name,
+            progress: 0,
+            status: 'uploading' as const
+          }));
+          setPermanentDeleteQueue(initialQueue);
+          
+          // Process files using the same pattern as move to trash
+          let processed = 0;
+          const totalTrashFiles = fileIdsToDelete.length;
+          
+          // Update progress as we process
+          const updateProgress = (fileId: string, progress: number, status: 'uploading' | 'complete' | 'error') => {
+            const file = fileMap.get(fileId);
+            if (file) {
+              setPermanentDeleteQueue(prev => prev.map(item => 
+                item.name === file.name 
+                  ? { ...item, progress, status }
+                  : item
+              ));
+            }
+          };
+          
+          // Process files one at a time, but use file IDs to find them fresh each time
+          for (const fileId of fileIdsToDelete) {
+            try {
+              // Find the file index fresh each time (state might have updated)
+              let found = false;
+              let attempts = 0;
+              
+              while (!found && attempts < 15) {
+                // Use ref to get the latest state (always fresh)
+                const currentFiles = uploadedFilesRef.current;
+                const currentIndex = currentFiles.findIndex(f => f.id === fileId);
+                
+                if (currentIndex !== -1) {
+                  // Found the file, delete it
+                  await permanentlyDelete(currentIndex);
+                  
+                  // Wait for React state to update (functional update should make this faster)
+                  await new Promise(resolve => setTimeout(resolve, 200));
+                  
+                  // Verify it was actually deleted by checking the ref again
+                  const verifyFiles = uploadedFilesRef.current;
+                  const fileStillExists = verifyFiles.find(f => f.id === fileId);
+                  
+                  if (!fileStillExists) {
+                    found = true; // Successfully deleted
+                  } else {
+                    // State hasn't updated yet, wait more and retry
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    attempts++;
+                  }
+                } else {
+                  // File not found - might already be deleted
+                  found = true; // Consider it processed
+                }
+              }
+              
+              if (found) {
+                updateProgress(fileId, 100, 'complete');
+                processed++;
+                
+                // Update overall progress
+                const progressPercent = Math.round((processed / totalTrashFiles) * 100);
+                setPermanentDeleteQueue(prev => prev.map(item => 
+                  item.status === 'uploading' && item.progress < progressPercent
+                    ? { ...item, progress: Math.min(progressPercent, 95) }
+                    : item
+                ));
+              } else {
+                updateProgress(fileId, 0, 'error');
+              }
+            } catch (error) {
+              console.error(`Failed to delete file ${fileId}:`, error);
+              updateProgress(fileId, 0, 'error');
+            }
+          }
+          
+          // Mark all remaining as complete
+          setPermanentDeleteQueue(prev => prev.map(item => 
+            item.status === 'uploading' 
+              ? { ...item, progress: 100, status: 'complete' as const }
+              : item
+          ));
+        } catch (error) {
+          console.error('Empty trash error:', error);
+          showToast('Failed to empty trash', 'error');
+        }
+      },
+      type: 'danger'
+    });
+  };
+
+  // Bulk move to trash - process all files and folders by directly updating state
+  const handleBulkMoveToTrash = async () => {
+    if (selectedFiles.size === 0) return;
+    
+    const itemsToTrash = filteredFiles.filter(f => selectedFiles.has(f.id));
+    if (itemsToTrash.length === 0) {
+      showToast('Please select items to move to trash', 'error');
+      return;
+    }
+
+    // Store item IDs (files and folders)
+    const itemIdsToTrash = new Set(itemsToTrash.map(f => f.id));
+    const itemMap = new Map(itemsToTrash.map(f => [f.id, f]));
+
+    // Initialize progress queue
+    const initialQueue: UploadProgress[] = itemsToTrash.map(item => ({
+      name: item.name,
+      progress: 0,
+      status: 'uploading' as const
+    }));
+    setBulkOperationQueue(initialQueue);
+
+    try {
+      // Process items by directly updating the uploadedFiles state
+      // This avoids the index shifting issue
+      let processed = 0;
+      const total = itemsToTrash.length;
+      
+      // Update progress as we process
+      const updateProgress = (itemId: string, progress: number, status: 'uploading' | 'complete' | 'error') => {
+        const item = itemMap.get(itemId);
+        if (item) {
+          setBulkOperationQueue(prev => prev.map(queueItem => 
+            queueItem.name === item.name 
+              ? { ...queueItem, progress, status }
+              : queueItem
+          ));
+        }
+      };
+      
+      // Process items one at a time, but use item IDs to find them fresh each time
+      for (const itemId of Array.from(itemIdsToTrash)) {
+        try {
+          // Find the item index fresh each time (state might have updated)
+          let found = false;
+          let attempts = 0;
+          
+          while (!found && attempts < 15) {
+            // Use ref to get the latest state (always fresh)
+            const currentFiles = uploadedFilesRef.current;
+            const currentIndex = currentFiles.findIndex(f => f.id === itemId && !f.trashed);
+            
+            if (currentIndex !== -1) {
+              // Found the item, move it to trash
+              await moveToTrash(currentIndex);
+              
+              // Wait for React state to update (functional update should make this faster)
+              await new Promise(resolve => setTimeout(resolve, 200));
+              
+              // Verify it was actually moved by checking the ref again
+              const verifyFiles = uploadedFilesRef.current;
+              const itemState = verifyFiles.find(f => f.id === itemId);
+              
+              if (itemState?.trashed) {
+                found = true; // Successfully moved
+              } else {
+                // State hasn't updated yet, wait more and retry
+                await new Promise(resolve => setTimeout(resolve, 100));
+                attempts++;
+              }
+            } else {
+              // Check if already trashed
+              const itemState = currentFiles.find(f => f.id === itemId);
+              if (itemState?.trashed) {
+                found = true; // Already processed
+              } else {
+                // Item not found and not trashed - wait for state to update
+                await new Promise(resolve => setTimeout(resolve, 100));
+                attempts++;
+              }
+            }
+          }
+          
+          if (found) {
+            updateProgress(itemId, 100, 'complete');
+            processed++;
+            
+            // Update overall progress
+            const progressPercent = Math.round((processed / total) * 100);
+            setBulkOperationQueue(prev => prev.map(queueItem => 
+              queueItem.status === 'uploading' && queueItem.progress < progressPercent
+                ? { ...queueItem, progress: Math.min(progressPercent, 95) }
+                : queueItem
+            ));
+          } else {
+            updateProgress(itemId, 0, 'error');
+          }
+        } catch (error) {
+          console.error(`Failed to move item ${itemId} to trash:`, error);
+          updateProgress(itemId, 0, 'error');
+        }
+      }
+      
+      // Mark all remaining as complete
+      setBulkOperationQueue(prev => prev.map(item => 
+        item.status === 'uploading' 
+          ? { ...item, progress: 100, status: 'complete' as const }
+          : item
+      ));
+      
+      // Clear queue after 3 seconds
+      setTimeout(() => setBulkOperationQueue([]), 3000);
+      setSelectedFiles(new Set());
+    } catch (error) {
+      console.error('Bulk move to trash error:', error);
+      setBulkOperationQueue(prev => prev.map(item => ({
+        ...item,
+        status: 'error' as const
+      })));
+      setTimeout(() => setBulkOperationQueue([]), 3000);
+      setSelectedFiles(new Set());
+    }
+  };
+
   const handleDuplicate = async (fileId: string) => {
     const file = uploadedFiles.find(f => f.id === fileId);
     if (!file || file.isFolder) return;
@@ -1485,7 +2384,7 @@ const Dashboard: NextPage = () => {
     const index = uploadedFiles.findIndex(f => f.id === fileId);
     const success = await duplicateFile(index);
     if (success) {
-      showToast(`✅ File duplicated: "${file.name}"`, 'success');
+      showToast(`File duplicated: "${file.name}"`, 'success');
     } else {
       const appError = ErrorHandler.createAppError(new Error('Failed to duplicate file'));
       showToast(appError.userMessage, 'error');
@@ -1504,7 +2403,7 @@ const Dashboard: NextPage = () => {
     if (index !== -1) {
       const success = await addTags(index, [tag]);
       if (success) {
-        showToast(`✅ Tag "${tag}" added`, 'success');
+        showToast(`Tag "${tag}" added`, 'success');
       } else {
         const appError = ErrorHandler.createAppError(new Error('Failed to add tag'));
         showToast(appError.userMessage, 'error');
@@ -1517,7 +2416,7 @@ const Dashboard: NextPage = () => {
     if (index !== -1) {
       const success = await removeTags(index, [tag]);
       if (success) {
-        showToast(`✅ Tag "${tag}" removed`, 'success');
+        showToast(`Tag "${tag}" removed`, 'success');
       } else {
         const appError = ErrorHandler.createAppError(new Error('Failed to remove tag'));
         showToast(appError.userMessage, 'error');
@@ -1644,7 +2543,7 @@ const Dashboard: NextPage = () => {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
       
-      showToast(`✅ Exported ${processed} files successfully!`, 'success');
+      showToast(`Exported ${processed} files successfully!`, 'success');
     } catch (error) {
       console.error('Export failed:', error);
       showToast('❌ Export failed. Please try again.', 'error');
@@ -2115,21 +3014,33 @@ const Dashboard: NextPage = () => {
             {/* Upload Section */}
             <div {...getRootProps()} className={styles.uploadSection}>
               <input {...getInputProps()} />
-              <button 
+              <DropdownMenu>
+                <DropdownMenuTrigger 
                 className={styles.newButton} 
                 disabled={isUploading}
                 onClick={(e) => {
                   e.stopPropagation();
-                  const input = document.querySelector('input[type="file"]') as HTMLInputElement;
-                  if (input) {
-                    input.click();
-                  }
-                  setShowMobileMenu(false);
                 }}
               >
                 <span className={styles.plusIcon}>+</span>
                 {isUploading ? 'Uploading...' : 'New'}
-              </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  <DropdownMenuItem onClick={() => {
+                    handleCreateFolder();
+                    setShowMobileMenu(false);
+                  }}>
+                    <FolderIcon /> New Folder
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={(e) => {
+                    e.stopPropagation();
+                    handleFileUploadClick(e);
+                    setShowMobileMenu(false);
+                  }}>
+                    <PageIcon /> File Upload
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
             
             {/* Navigation */}
@@ -2208,9 +3119,9 @@ const Dashboard: NextPage = () => {
                         setShowStorageCleanup(true);
                         setShowMobileMenu(false);
                       }}
-                      title="Storage cleanup tools"
+                      title="Clean up storage"
                     >
-                      <GearIcon /> Cleanup
+                      <GearIcon /> Clean Up Storage
                     </button>
                     <button
                       className={styles.gatewayBtn}
@@ -2284,20 +3195,64 @@ const Dashboard: NextPage = () => {
         <aside className={styles.sidebar}>
           <div {...getRootProps()} className={styles.uploadSection}>
             <input {...getInputProps()} />
-            <button 
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              style={{ display: 'none' }}
+              onChange={async (e) => {
+                // Prevent multiple triggers
+                if (isFileInputProcessingRef.current) {
+                  e.target.value = '';
+                  return;
+                }
+                
+                if (e.target.files && e.target.files.length > 0) {
+                  isFileInputProcessingRef.current = true;
+                  const files = Array.from(e.target.files);
+                  
+                  try {
+                    // Process files asynchronously
+                    await onDrop(files);
+                  } catch (error) {
+                    console.error('File upload error:', error);
+                  } finally {
+                    // Reset input so same file can be selected again
+                    e.target.value = '';
+                    // Allow file input to be used again after a short delay
+                    setTimeout(() => {
+                      isFileInputProcessingRef.current = false;
+                    }, 300);
+                  }
+                } else {
+                  e.target.value = '';
+                  isFileInputProcessingRef.current = false;
+                }
+              }}
+            />
+            <DropdownMenu>
+              <DropdownMenuTrigger 
               className={styles.newButton} 
               disabled={isUploading}
               onClick={(e) => {
                 e.stopPropagation();
-                const input = document.querySelector('input[type="file"]') as HTMLInputElement;
-                if (input) {
-                  input.click();
-                }
               }}
             >
               <span className={styles.plusIcon}>+</span>
               {isUploading ? 'Uploading...' : 'New'}
-            </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuItem onClick={handleCreateFolder}>
+                  <FolderIcon /> New Folder
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={(e) => {
+                  e.stopPropagation();
+                  handleFileUploadClick(e);
+                }}>
+                  <PageIcon /> File Upload
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
           
           <nav className={styles.sidebarNav}>
@@ -2367,9 +3322,9 @@ const Dashboard: NextPage = () => {
                   <button
                     className={styles.cleanupBtn}
                     onClick={() => setShowStorageCleanup(true)}
-                    title="Storage cleanup tools"
+                    title="Clean up storage"
                   >
-                    <GearIcon /> Cleanup
+                    <GearIcon /> Clean Up Storage
                   </button>
                   <button
                     className={styles.gatewayBtn}
@@ -2607,7 +3562,7 @@ const Dashboard: NextPage = () => {
                       onClick={async () => {
                         const result = await autoCleanupTrash();
                         if (result.deleted > 0 || result.unpinned > 0) {
-                          showToast(`✅ ${result.deleted} item${result.deleted !== 1 ? 's' : ''} deleted${result.unpinned > 0 ? `, ${result.unpinned} unpinned` : ''}`, 'success');
+                          showToast(`${result.deleted} item${result.deleted !== 1 ? 's' : ''} deleted${result.unpinned > 0 ? `, ${result.unpinned} unpinned` : ''}`, 'success');
                         }
                       }}
                     >
@@ -2619,16 +3574,116 @@ const Dashboard: NextPage = () => {
             );
           })()}
 
+          {/* Selection Toolbar - Only in cleanup mode */}
+          {cleanupMode && selectedFiles.size > 0 && (
+            <div className={styles.selectionToolbar}>
+              <div className={styles.selectionInfo}>
+                <span className={styles.selectionCount}>
+                  {selectedFiles.size} {selectedFiles.size === 1 ? 'item' : 'items'} selected
+                </span>
+                <span className={styles.selectionSize}>
+                  {formatFileSize(
+                    filteredFiles
+                      .filter(f => selectedFiles.has(f.id) && !f.isFolder)
+                      .reduce((sum, f) => sum + (f.size || 0), 0)
+                  )}
+                </span>
+              </div>
+              <div className={styles.selectionActions}>
+                {activeView === 'trash' ? (
+                  <>
+                    <button 
+                      className={styles.selectionBtn}
+                      onClick={handleBulkRestore}
+                      title="Restore selected files"
+                    >
+                      <UndoIcon /> Restore
+                    </button>
+                    <button 
+                      className={`${styles.selectionBtn} ${styles.selectionBtnDanger}`}
+                      onClick={handleBulkPermanentlyDelete}
+                      title="Permanently delete selected files"
+                    >
+                      <TrashIcon /> Delete Permanently
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button 
+                      className={styles.selectionBtn}
+                      onClick={handleBulkDownload}
+                      disabled={selectedFiles.size > 2}
+                      title={
+                        selectedFiles.size > 2 
+                          ? "Download is limited to 2 files at a time. ZIP download feature coming soon!"
+                          : "Download selected files"
+                      }
+                      style={selectedFiles.size > 2 ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
+                    >
+                      <FileDownloadIcon /> Download
+                    </button>
+                    <button 
+                      className={`${styles.selectionBtn} ${styles.selectionBtnDanger}`}
+                      onClick={handleBulkMoveToTrash}
+                      title="Move selected files to trash"
+                    >
+                      <TrashIcon /> Move to trash
+                    </button>
+                  </>
+                )}
+                <button 
+                  className={styles.selectionBtn}
+                  onClick={deselectAllFiles}
+                  title="Deselect all"
+                >
+                  ✕ Deselect
+                </button>
+                <button 
+                  className={styles.selectionBtn}
+                  onClick={() => {
+                    setCleanupMode(false);
+                    setSelectedFiles(new Set());
+                  }}
+                  title="Exit cleanup mode"
+                >
+                  Exit Cleanup Mode
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Empty Trash Button - Only in trash view and cleanup mode */}
+          {cleanupMode && activeView === 'trash' && (
+            <div className={styles.emptyTrashContainer}>
+              <button 
+                className={`${styles.selectionBtn} ${styles.selectionBtnDanger}`}
+                onClick={handleEmptyTrash}
+                title="Permanently delete all items in trash"
+              >
+                <TrashIcon /> Empty Trash
+              </button>
+            </div>
+          )}
+
           {/* Toolbar */}
           <div className={styles.toolbar}>
             <div className={styles.toolbarLeft}>
-              {activeView === 'drive' && (
+              {activeView === 'drive' && !cleanupMode && (
                 <button 
                   className={styles.newFolderBtn}
                   onClick={handleCreateFolder}
                   title="Create new folder"
                 >
                   <FolderIcon />+ New Folder
+                </button>
+              )}
+              {cleanupMode && (
+                <button 
+                  className={styles.selectAllBtn}
+                  onClick={selectedFiles.size === filteredFiles.length ? deselectAllFiles : selectAllFiles}
+                  title={selectedFiles.size === filteredFiles.length ? "Deselect all files" : "Select all files"}
+                >
+                  {selectedFiles.size === filteredFiles.length ? 'Deselect All' : 'Select All'}
                 </button>
               )}
             </div>
@@ -2675,9 +3730,19 @@ const Dashboard: NextPage = () => {
                   <TableIcon />
                 </button>
               )}
-              {uploadedFiles.length > 0 && activeView !== 'trash' && (
-                <button className={styles.clearBtn} onClick={clearAll}>
-                  Clear All
+              {uploadedFiles.length > 0 && (activeView === 'drive' || activeView === 'trash') && (
+                <button 
+                  className={styles.clearBtn} 
+                  onClick={() => {
+                    if (cleanupMode) {
+                      setCleanupMode(false);
+                      setSelectedFiles(new Set());
+                    } else {
+                      setCleanupMode(true);
+                    }
+                  }}
+                >
+                  {cleanupMode ? 'Exit Cleanup Mode' : 'Clean Up Storage'}
                 </button>
               )}
             </div>
@@ -2760,9 +3825,22 @@ const Dashboard: NextPage = () => {
                 return (
                 <div 
                   key={file.id} 
-                  className={styles.fileCard}
-                  onClick={() => file.isFolder ? handleFileClick(file) : null}
-                  onDoubleClick={() => !file.isFolder ? handleFileClick(file) : null}
+                  className={`${styles.fileCard} ${cleanupMode && selectedFiles.has(file.id) ? styles.fileCardSelected : ''}`}
+                  onClick={(e) => {
+                    if (cleanupMode) {
+                      e.stopPropagation();
+                      if (!file.isFolder) {
+                        toggleFileSelection(file.id);
+                      }
+                    } else if (file.isFolder) {
+                      handleFileClick(file);
+                    }
+                  }}
+                  onDoubleClick={() => {
+                    if (!cleanupMode && !file.isFolder) {
+                      handleFileClick(file);
+                    }
+                  }}
                   onMouseEnter={(e) => {
                     if (!file.isFolder && file.type?.startsWith('image/')) {
                       // Clear any existing timeout
@@ -2884,6 +3962,19 @@ const Dashboard: NextPage = () => {
                     }
                   }}
                 >
+                  {/* Circular Checkbox - Only in cleanup mode */}
+                  {cleanupMode && (
+                    <div 
+                      className={`${styles.fileCheckbox} ${selectedFiles.has(file.id) ? styles.fileCheckboxChecked : ''}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleFileSelection(file.id);
+                      }}
+                    >
+                      {selectedFiles.has(file.id) && <CheckIcon />}
+                    </div>
+                  )}
+                  
                   {/* File Preview/Icon */}
                   <div className={styles.filePreview}>
                     {file.isFolder ? (
@@ -2891,7 +3982,8 @@ const Dashboard: NextPage = () => {
                         <div className={styles.folderIconLarge}>
                           <FolderIcon />
                         </div>
-                        {/* Overlay buttons for folders */}
+                        {/* Overlay buttons for folders - hidden in cleanup mode */}
+                        {!cleanupMode && (
                         <div className={styles.imageOverlay}>
                           <button
                             className={styles.overlayBtn + ' ' + styles.overlayBtnTopLeft}
@@ -2908,6 +4000,7 @@ const Dashboard: NextPage = () => {
                             {file.isPinned ? <PinedIcon /> : <PinIcon />}
                           </button>
                         </div>
+                        )}
                       </>
                     ) : file.type.startsWith('image/') ? (
                       <>
@@ -3091,15 +4184,38 @@ const Dashboard: NextPage = () => {
               {filteredFiles.map((file) => (
                 <div
                   key={file.id}
-                  className={styles.fileRow}
-                  onClick={() => file.isFolder ? handleFileClick(file) : null}
-                  onDoubleClick={() => !file.isFolder ? handleFileClick(file) : null}
+                  className={`${styles.fileRow} ${cleanupMode && selectedFiles.has(file.id) ? styles.fileRowSelected : ''}`}
+                  onClick={(e) => {
+                    if (cleanupMode) {
+                      e.stopPropagation();
+                      toggleFileSelection(file.id);
+                    } else if (file.isFolder) {
+                      handleFileClick(file);
+                    }
+                  }}
+                  onDoubleClick={() => {
+                    if (!cleanupMode && !file.isFolder) {
+                      handleFileClick(file);
+                    }
+                  }}
                   data-folder-id={file.isFolder ? file.id : undefined}
                   data-file-id={!file.isFolder ? file.id : undefined}
                 >
                   {/* Name Column */}
                   {visibleColumns.name && (
                     <div className={styles.listColumn} style={{ flex: '2' }}>
+                      {/* Circular Checkbox - Only in cleanup mode */}
+                      {cleanupMode && (
+                        <div 
+                          className={`${styles.fileCheckbox} ${styles.fileCheckboxList} ${selectedFiles.has(file.id) ? styles.fileCheckboxChecked : ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleFileSelection(file.id);
+                          }}
+                        >
+                          {selectedFiles.has(file.id) && <CheckIcon />}
+                        </div>
+                      )}
                       <div className={styles.fileIconSmall}>
                         {file.isFolder ? <FolderIcon /> : getFileIcon(file.type)}
                       </div>
@@ -3149,8 +4265,8 @@ const Dashboard: NextPage = () => {
                     </div>
                   )}
                   
-                  {/* Star Status Column */}
-                  {visibleColumns.starStatus && (
+                  {/* Star Status Column - hidden for folders in cleanup mode */}
+                  {visibleColumns.starStatus && !(cleanupMode && file.isFolder) && (
                     <div className={styles.listColumn} style={{ flex: '0.5' }}>
                       {file.starred ? <StarIcon /> : <StarOutlineIcon />}
                     </div>
@@ -3306,8 +4422,34 @@ const Dashboard: NextPage = () => {
                 permanentlyDelete(index);
               }
             });
-            showToast(`✅ Deleted ${fileIds.length} file${fileIds.length !== 1 ? 's' : ''}`, 'success');
+            showToast(`Deleted ${fileIds.length} file${fileIds.length !== 1 ? 's' : ''}`, 'success');
             setShowStorageCleanup(false);
+          }}
+          onCategoryClick={(category) => {
+            // Map category names to filter types
+            let fileType: 'all' | 'image' | 'video' | 'audio' | 'document' | 'folder' | 'other' = 'all';
+            
+            if (category === 'Images') {
+              fileType = 'image';
+            } else if (category === 'Videos') {
+              fileType = 'video';
+            } else if (category === 'Audio') {
+              fileType = 'audio';
+            } else if (category === 'PDFs' || category === 'Documents' || category === 'Spreadsheets') {
+              fileType = 'document';
+            } else if (category === 'Archives' || category === 'Other') {
+              fileType = 'other';
+            }
+            
+            // Navigate to root folder and set filter
+            setCurrentFolderId(null);
+            setActiveView('drive');
+            setFilters({
+              ...filters,
+              fileType: fileType
+            });
+            setShowStorageCleanup(false);
+            showToast(`Filtered by ${category.toLowerCase()}`, 'success');
           }}
         />
       )}
@@ -3333,7 +4475,7 @@ const Dashboard: NextPage = () => {
             if (index !== -1) {
               const success = await updateCustomProperties(index, properties);
               if (success) {
-                showToast('✅ Custom properties updated', 'success');
+                showToast('Custom properties updated', 'success');
                 // Update the details panel file
                 const updatedFile = uploadedFiles[index];
                 setDetailsPanelFile({ ...updatedFile });
@@ -3354,6 +4496,8 @@ const Dashboard: NextPage = () => {
           message={toast.message}
           type={toast.type}
           onClose={() => setToast(null)}
+          title={toast.title}
+          progress={toast.progress}
         />
       )}
 
@@ -3380,6 +4524,19 @@ const Dashboard: NextPage = () => {
         defaultValue={inputModal.defaultValue}
         onConfirm={inputModal.onConfirm}
         onCancel={() => setInputModal({ ...inputModal, isOpen: false })}
+      />
+
+      {/* Duplicate File Modal */}
+      <DuplicateFileModal
+        isOpen={duplicateFileModal.isOpen}
+        fileName={duplicateFileModal.fileName}
+        onReplace={() => duplicateFileModal.onResolve('replace')}
+        onKeepBoth={() => duplicateFileModal.onResolve('keepBoth')}
+        onCancel={() => duplicateFileModal.onResolve('cancel')}
+        hasMultipleDuplicates={duplicateFileModal.hasMultipleDuplicates}
+        remainingCount={duplicateFileModal.remainingCount}
+        onYesToAll={duplicateFileModal.onYesToAll}
+        onNoToAll={duplicateFileModal.onNoToAll}
       />
 
       {/* Payment Modal */}
@@ -3414,7 +4571,7 @@ const Dashboard: NextPage = () => {
         isOpen={showTwoFactorSetup}
         onClose={() => setShowTwoFactorSetup(false)}
         onEnabled={() => {
-          showToast('✅ Two-factor authentication enabled!', 'success');
+          showToast('Two-factor authentication enabled!', 'success');
           setShowTwoFactorSetup(false);
         }}
       />
@@ -3431,11 +4588,27 @@ const Dashboard: NextPage = () => {
       )}
 
       {/* Upload Progress Panel */}
-      {uploadQueue.length > 0 && (
+      {uploadQueue.length > 0 && (() => {
+        const allComplete = uploadQueue.every(item => item.status === 'complete' || item.status === 'error');
+        const completedCount = uploadQueue.filter(item => item.status === 'complete').length;
+        const isUploading = uploadQueue.some(item => item.status === 'uploading');
+        
+        return (
         <div className={styles.uploadPanel}>
           <div className={styles.uploadHeader}>
-            <h4>Uploading {uploadQueue.length} file{uploadQueue.length > 1 ? 's' : ''}</h4>
-            <button onClick={() => setUploadQueue([])} className={styles.closeUploadPanel}><CloseIcon /></button>
+              <h4>
+                {allComplete 
+                  ? `${completedCount} upload${completedCount !== 1 ? 's' : ''} complete`
+                  : `Uploading ${uploadQueue.length} file${uploadQueue.length > 1 ? 's' : ''}`
+                }
+              </h4>
+              <button onClick={() => {
+                if (uploadCompleteTimeoutRef.current) {
+                  clearTimeout(uploadCompleteTimeoutRef.current);
+                  uploadCompleteTimeoutRef.current = null;
+                }
+                setUploadQueue([]);
+              }} className={styles.closeUploadPanel}><CloseIcon /></button>
           </div>
           <div className={styles.uploadList}>
             {uploadQueue.map((item, index) => (
@@ -3456,7 +4629,96 @@ const Dashboard: NextPage = () => {
             ))}
           </div>
         </div>
-      )}
+        );
+      })()}
+
+      {/* Bulk Operation Progress Panel */}
+      {bulkOperationQueue.length > 0 && (() => {
+        const allComplete = bulkOperationQueue.every(item => item.status === 'complete' || item.status === 'error');
+        const completedCount = bulkOperationQueue.filter(item => item.status === 'complete').length;
+        
+        return (
+          <div className={styles.uploadPanel}>
+            <div className={styles.uploadHeader}>
+              <h4>
+                {allComplete 
+                  ? `${completedCount} file${completedCount !== 1 ? 's' : ''} moved to trash`
+                  : `Moving ${bulkOperationQueue.length} file${bulkOperationQueue.length > 1 ? 's' : ''} to trash`
+                }
+              </h4>
+              <button onClick={() => {
+                if (bulkOperationTimeoutRef.current) {
+                  clearTimeout(bulkOperationTimeoutRef.current);
+                  bulkOperationTimeoutRef.current = null;
+                }
+                setBulkOperationQueue([]);
+              }} className={styles.closeUploadPanel}><CloseIcon /></button>
+            </div>
+            <div className={styles.uploadList}>
+              {bulkOperationQueue.map((item, index) => (
+                <div key={index} className={styles.uploadItem}>
+                  <div className={styles.uploadItemInfo}>
+                    <span className={styles.uploadItemName}>{item.name}</span>
+                    <span className={styles.uploadItemProgress}>
+                      {item.status === 'complete' ? <CheckIcon /> : item.status === 'error' ? <CloseIcon /> : `${Math.round(item.progress)}%`}
+                    </span>
+                  </div>
+                  <div className={styles.progressBar}>
+                    <div 
+                      className={`${styles.progressFill} ${styles[item.status]}`}
+                      style={{ width: `${item.progress}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Permanent Delete Progress Panel */}
+      {permanentDeleteQueue.length > 0 && (() => {
+        const allComplete = permanentDeleteQueue.every(item => item.status === 'complete' || item.status === 'error');
+        const completedCount = permanentDeleteQueue.filter(item => item.status === 'complete').length;
+        
+        return (
+          <div className={styles.uploadPanel}>
+            <div className={styles.uploadHeader}>
+              <h4>
+                {allComplete 
+                  ? `${completedCount} file${completedCount !== 1 ? 's' : ''} permanently deleted`
+                  : `Permanently deleting ${permanentDeleteQueue.length} file${permanentDeleteQueue.length > 1 ? 's' : ''}`
+                }
+              </h4>
+              <button onClick={() => {
+                if (permanentDeleteTimeoutRef.current) {
+                  clearTimeout(permanentDeleteTimeoutRef.current);
+                  permanentDeleteTimeoutRef.current = null;
+                }
+                setPermanentDeleteQueue([]);
+              }} className={styles.closeUploadPanel}><CloseIcon /></button>
+            </div>
+            <div className={styles.uploadList}>
+              {permanentDeleteQueue.map((item, index) => (
+                <div key={index} className={styles.uploadItem}>
+                  <div className={styles.uploadItemInfo}>
+                    <span className={styles.uploadItemName}>{item.name}</span>
+                    <span className={styles.uploadItemProgress}>
+                      {item.status === 'complete' ? <CheckIcon /> : item.status === 'error' ? <CloseIcon /> : `${Math.round(item.progress)}%`}
+                    </span>
+                  </div>
+                  <div className={styles.progressBar}>
+                    <div 
+                      className={`${styles.progressFill} ${styles[item.status]}`}
+                      style={{ width: `${item.progress}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

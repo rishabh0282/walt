@@ -16,6 +16,7 @@ interface StorageCleanupModalProps {
   files: UploadedFile[];
   onClose: () => void;
   onDelete: (fileIds: string[]) => void;
+  onCategoryClick?: (category: string) => void;
 }
 
 const formatSize = (bytes: number): string => {
@@ -29,7 +30,8 @@ const StorageCleanupModal: React.FC<StorageCleanupModalProps> = ({
   isOpen,
   files,
   onClose,
-  onDelete
+  onDelete,
+  onCategoryClick
 }) => {
   const [recommendations, setRecommendations] = useState<ReturnType<typeof getCleanupRecommendations> | null>(null);
   const [candidates, setCandidates] = useState<CleanupCandidate[]>([]);
@@ -144,7 +146,17 @@ const StorageCleanupModal: React.FC<StorageCleanupModalProps> = ({
                 <h4>Top Storage Categories</h4>
                 <div className={styles.categories}>
                   {recommendations.topCategories.map(({ category, size, count }) => (
-                    <div key={category} className={styles.categoryItem}>
+                    <div 
+                      key={category} 
+                      className={`${styles.categoryItem} ${onCategoryClick ? styles.categoryItemClickable : ''}`}
+                      onClick={() => {
+                        if (onCategoryClick) {
+                          onCategoryClick(category);
+                          onClose();
+                        }
+                      }}
+                      title={onCategoryClick ? `Click to view all ${category.toLowerCase()}` : undefined}
+                    >
                       <span className={styles.categoryName}>{category}</span>
                       <span className={styles.categoryDetails}>{count} files • {formatSize(size)}</span>
                     </div>

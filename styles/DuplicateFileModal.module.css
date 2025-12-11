@@ -1,0 +1,290 @@
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.modal {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  max-width: 600px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.dark .modal {
+  background: #1a1a2e;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.header {
+  padding: 24px 24px 20px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.dark .header {
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+.title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 500;
+  color: #202124;
+}
+
+.dark .title {
+  color: #fff;
+}
+
+.content {
+  padding: 24px;
+}
+
+.message {
+  margin: 0 0 24px 0;
+  font-size: 14px;
+  color: #5f6368;
+  line-height: 1.5;
+}
+
+.dark .message {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.message strong {
+  color: #202124;
+  font-weight: 500;
+}
+
+.dark .message strong {
+  color: #fff;
+}
+
+.radioGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.radioOption {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  padding: 8px 0;
+  user-select: none;
+}
+
+.radioOption:hover {
+  opacity: 0.8;
+}
+
+.radioInput {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  cursor: pointer;
+  accent-color: #1a73e8;
+  flex-shrink: 0;
+}
+
+.dark .radioInput {
+  accent-color: #4285f4;
+}
+
+.radioLabel {
+  font-size: 14px;
+  color: #202124;
+  cursor: pointer;
+  line-height: 1.5;
+}
+
+.dark .radioLabel {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding: 16px 24px 24px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.dark .actions {
+  border-top-color: rgba(255, 255, 255, 0.1);
+}
+
+.cancelButton {
+  background: none;
+  border: none;
+  color: #1a73e8;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 10px 16px;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.cancelButton:hover {
+  background: rgba(26, 115, 232, 0.08);
+}
+
+.dark .cancelButton {
+  color: #8ab4f8;
+}
+
+.dark .cancelButton:hover {
+  background: rgba(138, 180, 248, 0.1);
+}
+
+.uploadButton {
+  background: #1a73e8;
+  border: none;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 10px 24px;
+  border-radius: 4px;
+  transition: background 0.2s;
+  min-width: 88px;
+}
+
+.uploadButton:hover {
+  background: #1765cc;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.uploadButton:active {
+  background: #1557b0;
+}
+
+.dark .uploadButton {
+  background: #4285f4;
+}
+
+.dark .uploadButton:hover {
+  background: #3367d6;
+}
+
+.dark .uploadButton:active {
+  background: #2b5fc7;
+}
+
+.remainingCount {
+  display: block;
+  margin-top: 8px;
+  font-size: 13px;
+  color: #5f6368;
+  font-weight: normal;
+}
+
+.dark .remainingCount {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.batchButton {
+  background: #f1f3f4;
+  border: none;
+  color: #202124;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 10px 16px;
+  border-radius: 4px;
+  transition: background 0.2s;
+  white-space: nowrap;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.batchButton:hover {
+  background: #e8eaed;
+}
+
+.dark .batchButton {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.dark .batchButton:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.compareButton {
+  background: #1a73e8;
+  border: none;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 10px 24px;
+  border-radius: 4px;
+  transition: background 0.2s;
+  min-width: 120px;
+}
+
+.compareButton:hover {
+  background: #1765cc;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.dark .compareButton {
+  background: #4285f4;
+}
+
+.dark .compareButton:hover {
+  background: #3367d6;
+}
+
+/* Mobile responsive */
+@media (max-width: 600px) {
+  .modal {
+    width: 95%;
+    max-height: 85vh;
+  }
+
+  .actions {
+    flex-direction: column;
+  }
+
+  .button {
+    width: 100%;
+  }
+}
+
