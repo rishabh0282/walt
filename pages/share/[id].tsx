@@ -18,6 +18,7 @@ import VideoIcon from '@rsuite/icons/Video';
 import VisibleIcon from '@rsuite/icons/Visible';
 import WarningRoundIcon from '@rsuite/icons/WarningRound';
 import Toast from '../../components/Toast';
+import OpenGraph from '../../components/OpenGraph';
 import { getBackendGatewayUrl } from '../../lib/shareUtils';
 import styles from '../../styles/SharePage.module.css';
 
@@ -195,9 +196,11 @@ const SharePage: NextPage = () => {
   if (loading) {
     return (
       <div className={styles.container}>
-        <Head>
-          <title>Loading... | Walt</title>
-        </Head>
+        <OpenGraph
+          title="Loading... | Walt"
+          description="Loading shared content..."
+          url={id ? `/share/${id}` : undefined}
+        />
         <div className={styles.loading}>
           <div className={styles.spinner}></div>
           <p>Loading shared content...</p>
@@ -209,9 +212,11 @@ const SharePage: NextPage = () => {
   if (passwordRequired) {
     return (
       <div className={styles.container}>
-        <Head>
-          <title>Password Required | Walt</title>
-        </Head>
+        <OpenGraph
+          title="Password Required | Walt"
+          description="This shared content is password protected."
+          url={id ? `/share/${id}` : undefined}
+        />
         <div className={styles.passwordBox}>
           <div className={styles.passwordIcon}>
             <LockRoundIcon />
@@ -243,9 +248,11 @@ const SharePage: NextPage = () => {
   if (error || !file) {
     return (
       <div className={styles.container}>
-        <Head>
-          <title>Not Found | Walt</title>
-        </Head>
+        <OpenGraph
+          title="Not Found | Walt"
+          description="This share link may have expired or been removed."
+          url={id ? `/share/${id}` : undefined}
+        />
         <div className={styles.error}>
           <div className={styles.errorIcon}>
             <WarningRoundIcon />
@@ -260,11 +267,24 @@ const SharePage: NextPage = () => {
     );
   }
 
+  // Generate OpenGraph image URL - use file preview if it's an image, otherwise use default
+  const ogImage = file.type.startsWith('image/') && file.gatewayUrl
+    ? getBackendGatewayUrl(file.ipfsUri)
+    : '/images/VaultLabsLogoWhtBg.png';
+  
+  const fileDescription = file.isFolder
+    ? `A folder shared via Walt - Decentralized Storage`
+    : `${file.name} (${formatFileSize(file.size)}) shared via Walt - Decentralized Storage`;
+
   return (
     <div className={styles.container}>
-      <Head>
-        <title>{file.name} | Walt</title>
-      </Head>
+      <OpenGraph
+        title={`${file.name} | Walt`}
+        description={fileDescription}
+        image={ogImage}
+        url={id ? `/share/${id}` : undefined}
+        type="website"
+      />
 
       <header className={styles.header}>
         <div className={styles.logo} onClick={() => router.push('/')}>
