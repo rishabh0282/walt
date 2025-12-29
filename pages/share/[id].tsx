@@ -270,7 +270,7 @@ const SharePage: NextPage = () => {
   // Generate OpenGraph image URL - use file preview if it's an image, otherwise use default
   const ogImage = file.type.startsWith('image/') && file.gatewayUrl
     ? getBackendGatewayUrl(file.ipfsUri)
-    : '/images/VaultLabsLogoWhtBg.png';
+    : '/opengraph.png';
   
   const fileDescription = file.isFolder
     ? `A folder shared via Walt - Decentralized Storage`

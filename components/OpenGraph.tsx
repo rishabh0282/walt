@@ -17,7 +17,7 @@ interface OpenGraphProps {
 export default function OpenGraph({
   title = 'Walt - Decentralized Storage',
   description = 'A decentralized, open-source file storage platform built on IPFS. Self-hostable, private, and affordable.',
-  image = '/images/VaultLabsLogoWhtBg.png',
+  image = '/walt-icon.png',
   url,
   type = 'website',
   siteName = 'Walt',
